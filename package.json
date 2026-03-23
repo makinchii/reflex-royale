@@ -1,0 +1,27 @@
+{
+  "name": "cs160-term-project-starter",
+  "version": "1.0.0",
+  "description": "Basic full-stack starter template for a CS160 term project.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "express",
+    "mongodb",
+    "mongoose",
+    "starter"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "mongoose": "^8.12.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
