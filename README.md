@@ -89,3 +89,6 @@ Then open [http://localhost:3000](http://localhost:3000).
 - This project does not use JWT, sessions, or advanced auth yet.
 - The dashboard is intentionally simple so your teammates can redesign it later.
 - The code is organized so you can later add room logic, game routes, and more models.
+
+# reaction-game
+
