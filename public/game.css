@@ -522,6 +522,7 @@ body {
   text-decoration: none;
   color: var(--text);
   width: 200px;
+  min-height: 220px;
   transition: border-color 0.2s, transform 0.15s;
 }
 
@@ -533,3 +534,27 @@ body {
 .mode-icon { font-size: 2.4rem; }
 .mode-label { font-weight: 700; font-size: 1.1rem; }
 .mode-desc  { font-size: 0.8rem; color: var(--text-muted); }
+
+.dashboard-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  body {
+    overflow: auto;
+  }
+
+  .mode-select {
+    margin: 40px auto;
+    padding: 20px 16px 40px;
+  }
+
+  .mode-card {
+    width: 100%;
+    min-height: auto;
+  }
+}

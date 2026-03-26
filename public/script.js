@@ -1,3 +1,39 @@
+const AUTH_STORAGE_KEY = "reflexRoyaleAuth";
+
+function getNextPath() {
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get("next");
+
+  if (!next || !next.startsWith("/")) {
+    return null;
+  }
+
+  return next;
+}
+
+function saveAuthState(username) {
+  sessionStorage.setItem(
+    AUTH_STORAGE_KEY,
+    JSON.stringify({
+      username,
+      authenticatedAt: Date.now()
+    })
+  );
+}
+
+function readAuthState() {
+  try {
+    const raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function clearAuthState() {
+  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
 async function handleAuthSubmit(event, endpoint) {
   event.preventDefault();
 
@@ -25,7 +61,8 @@ async function handleAuthSubmit(event, endpoint) {
     messageElement.classList.add(result.success ? "success" : "error");
 
     if (result.success && result.redirectTo) {
-      window.location.href = result.redirectTo;
+      saveAuthState(username);
+      window.location.href = getNextPath() || result.redirectTo;
     }
   } catch (error) {
     messageElement.textContent = "Something went wrong. Please try again.";
@@ -45,4 +82,26 @@ if (loginForm) {
   loginForm.addEventListener("submit", (event) =>
     handleAuthSubmit(event, "/api/auth/login")
   );
+}
+
+const dashboardPage = document.body?.dataset.page === "dashboard";
+if (dashboardPage) {
+  const authState = readAuthState();
+
+  if (!authState?.username) {
+    window.location.href = "/login?next=/dashboard";
+  } else {
+    const subtitle = document.getElementById("dashboard-subtitle");
+    if (subtitle) {
+      subtitle.textContent = `${authState.username}, pick a mode to start your next reflex showdown.`;
+    }
+
+    const logoutButton = document.getElementById("logout-btn");
+    if (logoutButton) {
+      logoutButton.addEventListener("click", () => {
+        clearAuthState();
+        window.location.href = "/";
+      });
+    }
+  }
 }

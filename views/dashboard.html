@@ -3,17 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard</title>
-    <link rel="stylesheet" href="/style.css" />
+    <title>Quick Play</title>
+    <link rel="stylesheet" href="/game.css" />
   </head>
-  <body>
-    <main class="container">
-      <h1>Welcome</h1>
-      <p>You have logged in successfully.</p>
-      <div class="button-group">
-        <button type="button">Play</button>
-        <button type="button" class="secondary">Join Room</button>
+  <body data-page="dashboard">
+    <main class="mode-select">
+      <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
+      <p class="subtitle" id="dashboard-subtitle">Choose how you want to play.</p>
+
+      <div class="mode-cards">
+        <a class="mode-card" href="/play">
+          <span class="mode-icon">🎮</span>
+          <span class="mode-label">Local Play</span>
+          <span class="mode-desc">2-4 players on one device, each with their own buzzer key</span>
+        </a>
+        <a class="mode-card" href="/play/online">
+          <span class="mode-icon">🌐</span>
+          <span class="mode-label">Online Room</span>
+          <span class="mode-desc">Create or join a room so each player can use a separate device</span>
+        </a>
+      </div>
+
+      <div class="dashboard-actions">
+        <a class="btn btn-secondary" href="/">Back Home</a>
+        <button type="button" class="btn btn-secondary" id="logout-btn">Log Out</button>
       </div>
     </main>
+    <script src="/script.js"></script>
   </body>
 </html>
