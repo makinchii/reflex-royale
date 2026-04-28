@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+  --gridcn-bg: oklch(0.16 0.02 250);
+  --gridcn-surface: oklch(0.22 0.03 250);
+  --gridcn-border: oklch(0.45 0.05 235 / 0.35);
+  --gridcn-text: oklch(0.92 0.02 250);
+  --gridcn-muted: oklch(0.74 0.03 248);
+  --gridcn-primary: oklch(0.78 0.16 221);
+}
+
+* {
+  box-sizing: border-box;
+}

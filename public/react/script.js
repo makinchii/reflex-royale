@@ -56,7 +56,7 @@ if (loginForm) {
   );
 }
 
-const dashboardPage = document.body?.dataset.page === "dashboard" || Boolean(document.getElementById("dashboard-subtitle"));
+const dashboardPage = document.body?.dataset.page === "dashboard";
 if (dashboardPage) {
   fetch("/api/auth/session")
     .then((response) => response.json())

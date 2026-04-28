@@ -12,6 +12,11 @@ This is a very basic full-stack starter template using Node.js, Express, MongoDB
 - Guest-friendly gameplay with optional logged-in account support
 - Server-authoritative online rooms with chat, reconnect, and host control
 
+## Planning Docs
+
+- Canonical migration plan: `openspec/react-migration-master-plan.md`
+- Technical spec: `reflex_royale_technical_spec.md`
+
 ## Project Structure
 
 ```text

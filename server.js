@@ -1,6 +1,7 @@
 const path = require("path");
 const express = require("express");
 const http = require("http");
+const next = require("next");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -27,8 +28,22 @@ mongoose.set("bufferCommands", false);
 
 function createApp(options = {}) {
   const useSessionStore = options.useSessionStore !== false;
+  const useNextFrontend = options.useNextFrontend === true;
   const app = express();
   const isProduction = process.env.NODE_ENV === "production";
+  let nextRequestHandler = null;
+
+  app.setNextRequestHandler = (handler) => {
+    nextRequestHandler = handler;
+  };
+
+  function nextProxy(req, res, nextFn) {
+    if (nextRequestHandler) {
+      return nextRequestHandler(req, res).catch(nextFn);
+    }
+
+    return nextFn();
+  }
 
   if (isProduction || process.env.TRUST_PROXY === "true") {
     app.set("trust proxy", 1);
@@ -75,31 +90,48 @@ function createApp(options = {}) {
   // Auth API routes are kept in their own file for easier future expansion.
   app.use("/api/auth", authRoutes);
 
-  // Serve simple HTML pages from the views folder.
-  app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "views", "index.html"));
-  });
+  // Serve the new Next frontend when enabled, otherwise keep the legacy landing page.
+  if (useNextFrontend) {
+    app.get("/", nextProxy);
+    app.get("/signup", nextProxy);
+    app.get("/login", nextProxy);
+    app.get("/dashboard", nextProxy);
+    app.get("/play", nextProxy);
+    app.get("/play/online", nextProxy);
+    app.use("/_next", nextProxy);
+    app.get("/react", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "react.html"));
+    });
+  } else {
+    app.get("/", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "index.html"));
+    });
 
-  app.get("/signup", (req, res) => {
-    res.sendFile(path.join(__dirname, "views", "signup.html"));
-  });
+    app.get("/signup", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "signup.html"));
+    });
 
-  app.get("/login", (req, res) => {
-    res.sendFile(path.join(__dirname, "views", "login.html"));
-  });
+    app.get("/login", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "login.html"));
+    });
 
-  app.get("/dashboard", (req, res) => {
-    res.sendFile(path.join(__dirname, "views", "dashboard.html"));
-  });
+    app.get("/dashboard", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "dashboard.html"));
+    });
 
-  // ── Game routes ──
-  app.get("/play", (req, res) => {
-    res.sendFile(path.join(__dirname, "views", "game-local.html"));
-  });
+    app.get("/react", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "react.html"));
+    });
 
-  app.get("/play/online", (req, res) => {
-    res.sendFile(path.join(__dirname, "views", "game-remote.html"));
-  });
+    // ── Game routes ──
+    app.get("/play", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "game-local.html"));
+    });
+
+    app.get("/play/online", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "game-remote.html"));
+    });
+  }
 
   app.get("/api/auth/session", (req, res) => {
     if (!req.session?.user) {
@@ -117,8 +149,8 @@ function createApp(options = {}) {
   return app;
 }
 
-function createServer() {
-  const app = createApp();
+function createServer(options = {}) {
+  const app = createApp(options);
   const server = http.createServer(app);
   const io = new Server(server);
 
@@ -129,7 +161,18 @@ function createServer() {
 }
 
 async function startServer() {
-  const { server } = createServer();
+  const useNextFrontend = process.env.NEXT_FRONTEND !== "false";
+  const { app, server } = createServer({ useNextFrontend });
+
+  if (useNextFrontend) {
+    const nextApp = next({
+      dev: process.env.NODE_ENV !== "production",
+      dir: __dirname
+    });
+
+    await nextApp.prepare();
+    app.setNextRequestHandler(nextApp.getRequestHandler());
+  }
 
   if (!MONGODB_URI) {
     console.warn("MongoDB not connected: add MONGODB_URI to your .env file to enable signup/login.");
