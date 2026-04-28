@@ -8,16 +8,35 @@
 import { GameEngine, GameState } from "./GameEngine.js";
 import { UIRenderer } from "./UIRenderer.js";
 
+if (window.mountAccountMenu) {
+  window.mountAccountMenu({ rootId: "account-menu-root" });
+}
+
 const engine   = new GameEngine();
 const root     = document.getElementById("game-root");
 const renderer = new UIRenderer(engine, root);
 
+function isTypingInLobby() {
+  const active = document.activeElement;
+  if (!active) return false;
+
+  return ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(active.tagName) || active.isContentEditable;
+}
+
 /* ── Keyboard listener ── */
 document.addEventListener("keydown", (e) => {
-  // Only process during active gameplay
+  const key = e.key.toLowerCase();
+
+  if (engine.state === GameState.LOBBY && !isTypingInLobby()) {
+    const confirmed = engine.confirmPlayerByKey(key);
+    if (confirmed) {
+      e.preventDefault();
+      return;
+    }
+  }
+
   if (engine.state !== GameState.WAITING && engine.state !== GameState.REACT) return;
 
-  const key = e.key.toLowerCase();
   const playerId = engine.findPlayerByKey(key);
   if (playerId) {
     e.preventDefault();

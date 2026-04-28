@@ -47,10 +47,24 @@ router.post("/signup", async (req, res) => {
 
     await newUser.save();
 
-    return res.status(201).json({
-      success: true,
-      message: "Signup successful.",
-      redirectTo: "/dashboard"
+    req.session.regenerate((sessionError) => {
+      if (sessionError) {
+        return res.status(500).json({
+          success: false,
+          message: "Could not create session. Please try again."
+        });
+      }
+
+      req.session.user = {
+        id: newUser._id.toString(),
+        username: newUser.username
+      };
+
+      return res.status(201).json({
+        success: true,
+        message: "Signup successful.",
+        redirectTo: "/dashboard"
+      });
     });
   } catch (error) {
     return res.status(500).json({
@@ -96,10 +110,27 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Login successful.",
-      redirectTo: "/dashboard"
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    req.session.regenerate((sessionError) => {
+      if (sessionError) {
+        return res.status(500).json({
+          success: false,
+          message: "Could not create session. Please try again."
+        });
+      }
+
+      req.session.user = {
+        id: user._id.toString(),
+        username: user.username
+      };
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful.",
+        redirectTo: "/dashboard"
+      });
     });
   } catch (error) {
     return res.status(500).json({
@@ -107,6 +138,20 @@ router.post("/login", async (req, res) => {
       message: "Could not log in. Please try again."
     });
   }
+});
+
+router.post("/logout", (req, res) => {
+  req.session.destroy((error) => {
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Could not log out. Please try again."
+      });
+    }
+
+    res.clearCookie("connect.sid");
+    return res.json({ success: true, message: "Logged out." });
+  });
 });
 
 module.exports = router;

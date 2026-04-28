@@ -1,34 +1,85 @@
 /**
- * gameRoom.js — Server-side Socket.IO handler for separate-device mode.
+ * gameRoom.js - Server-side Socket.IO handler for online lobby play.
  *
- * Each "room" holds its own mini game engine that runs the countdown,
- * random delay, and reaction timing on the server so that no client
- * can cheat by manipulating local timers.
+ * The server owns room state, lobby readiness, timing, and scoring.
+ * Clients only join, ready up, start, and send input events.
  */
 
-const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
+const crypto = require("crypto");
+const { performance } = require("perf_hooks");
 
-/** Lightweight server-side game state per room */
+const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
+const STALE_SLOT_MS = 60_000;
+
+const ROOM_STATUS = Object.freeze({
+  WAITING_FOR_PLAYERS: "waiting_for_players",
+  READY_CHECK: "ready_check",
+  STARTING: "starting",
+  COUNTDOWN: "countdown",
+  WAITING: "waiting",
+  REACT: "react",
+  ROUND_END: "roundEnd",
+  POST_MATCH: "post_match",
+  GAME_OVER: "gameOver",
+  CLOSED: "closed"
+});
+
 class RoomGame {
   constructor(roomCode) {
-    this.roomCode    = roomCode;
-    this.players     = new Map();   // socketId → { id, name, color, … }
-    this.hostId      = null;
-    this.state       = "lobby";     // lobby | countdown | waiting | react | roundEnd | gameOver
+    this.roomCode = roomCode;
+    this.players = new Map();
+    this.hostId = null;
+    this.hostReclaimToken = crypto.randomUUID();
+    this.blacklistedNames = new Set();
+    this.blacklistedVerifiers = new Set();
+    this.status = ROOM_STATUS.WAITING_FOR_PLAYERS;
     this.currentRound = 0;
-    this.totalRounds  = 5;
+    this.totalRounds = 5;
+    this.targetScore = 10;
     this.roundHistory = [];
-    this._reactStart  = null;
-    this._timers      = [];
+    this.chatMessages = [];
+    this._reactStart = null;
+    this._timers = [];
+    this._staleSweep = setInterval(() => this._pruneStalePlayers(), 15_000);
   }
 
-  addPlayer(socketId, name) {
+  addPlayer(socketId, name, verifier, originalHost = false) {
+    if (this.status === ROOM_STATUS.CLOSED || this.status === ROOM_STATUS.STARTING || this.status === ROOM_STATUS.COUNTDOWN || this.status === ROOM_STATUS.WAITING || this.status === ROOM_STATUS.REACT) {
+      return null;
+    }
+
     if (this.players.size >= 4) return null;
+
+    if (this.blacklistedNames.has(name) || this.blacklistedVerifiers.has(verifier)) {
+      return null;
+    }
+
+    const existing = this.players.get(socketId);
+    if (existing) {
+      existing.connected = true;
+      existing.name = name;
+      existing.verifier = verifier;
+      existing.lastSeenAt = Date.now();
+      existing.isInLobbyView = true;
+      this._syncHostFlags();
+      this._refreshLobbyStatus();
+      return existing;
+    }
+
     const color = PLAYER_COLORS[this.players.size] || "#888";
     const player = {
       id: socketId,
       name,
+      verifier,
       color,
+      connected: true,
+      keyBinding: null,
+      isReady: false,
+      isHost: false,
+      originalHost,
+      joinedAt: Date.now(),
+      lastSeenAt: Date.now(),
+      isInLobbyView: true,
       totalScore: 0,
       roundTimes: [],
       wins: 0,
@@ -38,256 +89,957 @@ class RoomGame {
       _pressed: false,
       _reactionTime: null,
       _falseStart: false,
+      _disconnected: false
     };
+
     this.players.set(socketId, player);
-    if (!this.hostId) this.hostId = socketId;
+
+    if (!this.hostId) {
+      this.hostId = socketId;
+    }
+
+    this._syncHostFlags();
+    this._refreshLobbyStatus();
     return player;
   }
 
+  reclaimPlayer(socketId, name, verifier) {
+    const existing = [...this.players.values()].find((player) => player.name === name && player.verifier === verifier);
+    if (!existing) {
+      const conflicting = [...this.players.values()].find((player) => player.name === name && player.verifier !== verifier);
+      if (conflicting) {
+        return { ok: false, message: "That name is already in use by another player in this room." };
+      }
+
+      return { ok: false, message: "No saved slot matches that player." };
+    }
+
+    // Allow the same browser identity to reclaim the slot during refresh even if
+    // the old socket has not finished disconnecting yet.
+
+    this.players.delete(existing.id);
+    existing.id = socketId;
+    existing.connected = true;
+    existing.isInLobbyView = true;
+    existing.lastSeenAt = Date.now();
+    this.players.set(socketId, existing);
+
+    if (existing.originalHost) {
+      this.hostId = socketId;
+    }
+
+    if (!this.hostId) {
+      this.hostId = socketId;
+    }
+
+    this._syncHostFlags();
+    this._refreshLobbyStatus();
+    return { ok: true, player: existing, reclaimed: true };
+  }
+
+  reclaimHost(socketId, token) {
+    if (!token || token !== this.hostReclaimToken) {
+      return { ok: false, message: "Host reclaim token is invalid." };
+    }
+
+    const existing = [...this.players.values()].find((player) => player.originalHost);
+    if (!existing) {
+      return { ok: false, message: "No host slot is available to reclaim." };
+    }
+
+    this.players.delete(existing.id);
+    existing.id = socketId;
+    existing.connected = true;
+    existing.isInLobbyView = true;
+    existing.lastSeenAt = Date.now();
+    this.players.set(socketId, existing);
+
+    this.hostId = socketId;
+    this._syncHostFlags();
+    this._refreshLobbyStatus();
+    return { ok: true, player: existing, reclaimed: true, hostReclaimToken: this.hostReclaimToken };
+  }
+
+  hasPlayerName(name) {
+    return [...this.players.values()].some((player) => player.name === name);
+  }
+
+  isBlacklisted(name, verifier) {
+    return this.blacklistedNames.has(name) || this.blacklistedVerifiers.has(verifier);
+  }
+
+  blacklistPlayer(player) {
+    if (!player) return;
+
+    this.blacklistedNames.add(player.name);
+    this.blacklistedVerifiers.add(player.verifier);
+  }
+
+  findMatchingPlayer(name, verifier) {
+    return [...this.players.values()].find((player) => player.name === name && player.verifier === verifier) || null;
+  }
+
+  toggleReady(socketId) {
+    if (!this._isLobbyState()) return false;
+
+    const player = this.players.get(socketId);
+    if (!player || !player.connected) return false;
+    if (!player.keyBinding) return false;
+
+    player.isReady = !player.isReady;
+    player.lastSeenAt = Date.now();
+    this._refreshLobbyStatus();
+    return { ready: player.isReady };
+  }
+
+  bindKey(socketId, key) {
+    if (!this._isLobbyState()) {
+      return { ok: false, message: "Keys can only be changed in the lobby." };
+    }
+
+    const player = this.players.get(socketId);
+    if (!player || !player.connected) {
+      return { ok: false, message: "Player not found." };
+    }
+
+    const normalized = String(key || "").trim().toLowerCase();
+    if (!normalized || normalized.length !== 1) {
+      return { ok: false, message: "Pick a single keyboard key." };
+    }
+
+    player.keyBinding = normalized;
+    player.isReady = false;
+    player.lastSeenAt = Date.now();
+    this._refreshLobbyStatus();
+    return { ok: true, key: normalized };
+  }
+
+  setRoundCount(socketId, value) {
+    if (!this._isLobbyState()) {
+      return { ok: false, message: "Round count can only be changed in the lobby." };
+    }
+
+    if (socketId !== this.hostId) {
+      return { ok: false, message: "Only the host can change round count." };
+    }
+
+    const roundCount = Number.parseInt(value, 10);
+    if (!Number.isFinite(roundCount) || roundCount < 1 || roundCount > 20) {
+      return { ok: false, message: "Round count must be between 1 and 20." };
+    }
+
+    this.totalRounds = roundCount;
+    const player = this.players.get(socketId);
+    if (player) {
+      player.lastSeenAt = Date.now();
+    }
+    this._refreshLobbyStatus();
+    return { ok: true, totalRounds: this.totalRounds };
+  }
+
   removePlayer(socketId) {
+    const player = this.players.get(socketId);
+    if (!player) return { ok: false };
+
     this.players.delete(socketId);
     if (this.hostId === socketId) {
-      this.hostId = this.players.keys().next().value || null;
+      this._reassignHost();
+    }
+    this._refreshLobbyStatus();
+    return { ok: true, player };
+  }
+
+  returnToLobby(socketId) {
+    const player = this.players.get(socketId);
+    if (!player) return { ok: false };
+
+    player.isInLobbyView = true;
+    player.lastSeenAt = Date.now();
+    if (this.status === ROOM_STATUS.ROUND_END || this.status === ROOM_STATUS.GAME_OVER) {
+      this.status = ROOM_STATUS.POST_MATCH;
+    }
+    this._refreshLobbyStatus();
+    return { ok: true };
+  }
+
+  setLobbyView(socketId, inLobbyView) {
+    const player = this.players.get(socketId);
+    if (!player) return { ok: false };
+
+    player.isInLobbyView = Boolean(inLobbyView);
+    player.lastSeenAt = Date.now();
+    this._refreshLobbyStatus();
+    return { ok: true };
+  }
+
+  addChatMessage(socketId, content) {
+    const player = this.players.get(socketId);
+    if (!player || !player.connected) {
+      return { ok: false, message: "Player not found." };
+    }
+
+    const normalized = String(content || "").trim();
+    if (!normalized) {
+      return { ok: false, message: "Message cannot be empty." };
+    }
+
+    if (normalized.length > 280) {
+      return { ok: false, message: "Messages must be 280 characters or fewer." };
+    }
+
+    if (!this._canChat()) {
+      return { ok: false, message: "Chat is only available in the lobby and between rounds." };
+    }
+
+    const message = {
+      id: crypto.randomUUID(),
+      lobbyId: this.roomCode,
+      senderPlayerId: player.id,
+      senderName: player.name,
+      content: normalized,
+      createdAt: Date.now()
+    };
+
+    this.chatMessages.push(message);
+    if (this.chatMessages.length > 50) {
+      this.chatMessages = this.chatMessages.slice(-50);
+    }
+
+    return { ok: true, message };
+  }
+
+  canStart() {
+    const activePlayers = this._connectedPlayers();
+    return activePlayers.length >= 2 && activePlayers.every((player) => player.isReady);
+  }
+
+  beginMatch() {
+    if (!this.canStart()) return false;
+
+    this._clearTimers();
+    this.currentRound = 0;
+    this.roundHistory = [];
+    this.status = ROOM_STATUS.STARTING;
+
+    for (const player of this.players.values()) {
+      player.totalScore = 0;
+      player.roundTimes = [];
+      player.wins = 0;
+      player.falseStarts = 0;
+      player.bestTime = Infinity;
+      player.avgTime = 0;
+      player.isReady = false;
+      player._pressed = false;
+      player._reactionTime = null;
+      player._falseStart = false;
+      player._disconnected = !player.connected;
+      player.isInLobbyView = false;
+    }
+
+    return true;
+  }
+
+  resetForReplay() {
+    this._clearTimers();
+    this.currentRound = 0;
+    this.roundHistory = [];
+    this.status = ROOM_STATUS.WAITING_FOR_PLAYERS;
+
+    for (const player of this.players.values()) {
+      player.isReady = false;
+      player.isInLobbyView = false;
+      player.lastSeenAt = Date.now();
+    }
+
+    this._refreshLobbyStatus();
+  }
+
+  pruneDisconnectedPlayers() {
+    for (const [id, player] of this.players.entries()) {
+      if (!player.connected) {
+        this.players.delete(id);
+      }
+    }
+
+    if (!this.players.has(this.hostId)) {
+      this.hostId = this._connectedPlayers()[0]?.id || this.players.values().next().value?.id || null;
+    }
+
+    this._syncHostFlags();
+  }
+
+  _pruneStalePlayers() {
+    const now = Date.now();
+    let changed = false;
+
+    for (const [id, player] of this.players.entries()) {
+      if (!player.connected && now - player.lastSeenAt > STALE_SLOT_MS) {
+        this.players.delete(id);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      if (this.hostId && !this.players.has(this.hostId)) {
+        this._reassignHost();
+      }
+      this._refreshLobbyStatus();
     }
   }
 
+  markDisconnected(socketId) {
+    const player = this.players.get(socketId);
+    if (!player) {
+      return { changed: false, closed: false, endMatch: false };
+    }
+
+    if (this._isLobbyState()) {
+      player.connected = false;
+      player.isReady = false;
+      player.isInLobbyView = false;
+      player.lastSeenAt = Date.now();
+      if (this.hostId === socketId) {
+        this._reassignHost();
+      }
+      this._refreshLobbyStatus();
+
+      return {
+        changed: true,
+        closed: false,
+        endMatch: false
+      };
+    }
+
+    player.connected = false;
+    player.isReady = false;
+    player._disconnected = true;
+
+    if (this.hostId === socketId) {
+      this._reassignHost();
+    }
+
+    const activePlayers = this._connectedPlayers();
+    const shouldEndMatch = [ROOM_STATUS.STARTING, ROOM_STATUS.COUNTDOWN, ROOM_STATUS.WAITING, ROOM_STATUS.REACT].includes(this.status) && activePlayers.length < 2;
+
+    return {
+      changed: true,
+      closed: false,
+      endMatch: shouldEndMatch
+    };
+  }
+
   getPlayerList() {
-    return [...this.players.values()].map(p => ({
-      id: p.id, name: p.name, color: p.color,
-    }));
+    return this.getRoster();
+  }
+
+  getRoster() {
+    return [...this.players.values()]
+      .sort((a, b) => a.joinedAt - b.joinedAt)
+      .map((player) => ({
+        id: player.id,
+        name: player.name,
+        color: player.color,
+        connected: player.connected,
+        isReady: player.isReady,
+        isHost: player.isHost,
+        keySet: Boolean(player.keyBinding),
+        hasKeyBinding: Boolean(player.keyBinding),
+        isInLobbyView: player.isInLobbyView,
+        lastSeenAt: player.lastSeenAt,
+        joinedAt: player.joinedAt
+      }));
   }
 
   getStandings() {
     return [...this.players.values()]
-      .map(p => ({
-        id: p.id, name: p.name, color: p.color,
-        totalScore: p.totalScore, wins: p.wins,
-        bestTime: p.bestTime === Infinity ? null : p.bestTime,
-        avgTime: p.avgTime || null, falseStarts: p.falseStarts,
-        roundTimes: p.roundTimes.map(t => t === Infinity ? null : t),
+      .map((player) => ({
+        id: player.id,
+        name: player.name,
+        color: player.color,
+        totalScore: player.totalScore,
+        wins: player.wins,
+        bestTime: player.bestTime === Infinity ? null : player.bestTime,
+        avgTime: player.avgTime || null,
+        falseStarts: player.falseStarts,
+        roundTimes: player.roundTimes.map((time) => (time === Infinity ? null : time))
       }))
-      .sort((a, b) => b.totalScore - a.totalScore);
+      .sort((a, b) => {
+        if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        const aBest = a.bestTime ?? Infinity;
+        const bBest = b.bestTime ?? Infinity;
+        if (aBest !== bBest) return aBest - bBest;
+        return a.name.localeCompare(b.name);
+      });
   }
 
-  clearTimers() {
-    this._timers.forEach(t => clearTimeout(t));
+  getRoomState() {
+    const players = this.getRoster();
+    return {
+      room: this.roomCode,
+      status: this.status,
+      hostId: this.hostId,
+      currentRound: this.currentRound,
+      totalRounds: this.totalRounds,
+      targetScore: this.targetScore,
+      canStart: this.canStart(),
+      playerCount: players.length,
+      readyCount: players.filter((player) => player.isReady && player.connected).length,
+      waitingFor: this.getWaitingList(),
+      standings: this.getStandings(),
+      roundHistory: this.roundHistory,
+      chatMessages: this.chatMessages,
+      players
+    };
+  }
+
+  getHostReclaimToken() {
+    return this.hostReclaimToken;
+  }
+
+  _isLobbyState() {
+    return this.status === ROOM_STATUS.WAITING_FOR_PLAYERS || this.status === ROOM_STATUS.READY_CHECK;
+  }
+
+  _connectedPlayers() {
+    return [...this.players.values()].filter((player) => player.connected);
+  }
+
+  _allConnectedReady() {
+    const players = this._connectedPlayers();
+    return players.length >= 2 && players.every((player) => player.isReady && player.keyBinding);
+  }
+
+  _refreshLobbyStatus() {
+    if (this.status === ROOM_STATUS.POST_MATCH) {
+      if (this._allConnectedInLobbyView()) {
+        this.status = this._allConnectedReady() ? ROOM_STATUS.READY_CHECK : ROOM_STATUS.WAITING_FOR_PLAYERS;
+        return;
+      }
+
+      if (this._connectedPlayers().length === 1) {
+        // Keep the remaining player on the post-match screen until they leave or return.
+        return;
+      }
+
+      return;
+    }
+
+    if (!this._isLobbyState() && this.status !== ROOM_STATUS.WAITING_FOR_PLAYERS) return;
+    this.status = this._allConnectedReady() ? ROOM_STATUS.READY_CHECK : ROOM_STATUS.WAITING_FOR_PLAYERS;
+  }
+
+  _allConnectedInLobbyView() {
+    const players = this._connectedPlayers();
+    return players.length >= 2 && players.every((player) => player.isInLobbyView);
+  }
+
+  _canChat() {
+    return this._isLobbyState() || this.status === ROOM_STATUS.ROUND_END || this.status === ROOM_STATUS.POST_MATCH || this.status === ROOM_STATUS.GAME_OVER;
+  }
+
+  getWaitingList() {
+    return [...this.players.values()]
+      .filter((player) => !player.isInLobbyView)
+      .sort((a, b) => a.joinedAt - b.joinedAt)
+      .map((player) => player.name);
+  }
+
+  setRoundCount(socketId, value) {
+    if (socketId !== this.hostId) {
+      return false;
+    }
+
+    const roundCount = Number.parseInt(value, 10);
+    if (!Number.isFinite(roundCount) || roundCount < 1 || roundCount > 20) {
+      return false;
+    }
+
+    this.totalRounds = roundCount;
+    return true;
+  }
+
+  _syncHostFlags() {
+    for (const player of this.players.values()) {
+      player.isHost = player.id === this.hostId;
+    }
+  }
+
+  _reassignHost() {
+    const nextHost = this._connectedPlayers().sort((a, b) => a.joinedAt - b.joinedAt)[0] || [...this.players.values()].sort((a, b) => a.joinedAt - b.joinedAt)[0] || null;
+    this.hostId = nextHost ? nextHost.id : null;
+    this._syncHostFlags();
+  }
+
+  _clearTimers() {
+    for (const timer of this._timers) {
+      clearTimeout(timer);
+      clearInterval(timer);
+    }
     this._timers = [];
   }
 
-  resetRoundState() {
-    for (const p of this.players.values()) {
-      p._pressed = false;
-      p._reactionTime = null;
-      p._falseStart = false;
+  _clearStaleSweep() {
+    if (this._staleSweep) {
+      clearInterval(this._staleSweep);
+      this._staleSweep = null;
     }
   }
 
-  resetForNewGame() {
-    for (const p of this.players.values()) {
-      p.totalScore = 0;
-      p.roundTimes = [];
-      p.wins = 0;
-      p.falseStarts = 0;
-      p.bestTime = Infinity;
-      p.avgTime = 0;
+  _schedule(timer) {
+    this._timers.push(timer);
+    return timer;
+  }
+
+  _resetRoundState() {
+    for (const player of this.players.values()) {
+      player._pressed = false;
+      player._reactionTime = null;
+      player._falseStart = false;
+      player._disconnected = !player.connected;
     }
-    this.currentRound = 0;
-    this.roundHistory = [];
-    this.clearTimers();
   }
 }
 
-/** Active rooms in memory */
 const rooms = new Map();
 
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
-  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+
+  for (let i = 0; i < 6; i += 1) {
+    code += chars[crypto.randomInt(0, chars.length)];
+  }
+
   return rooms.has(code) ? generateRoomCode() : code;
 }
 
-/**
- * Attach Socket.IO event handlers.
- * @param {import('socket.io').Server} io
- */
+function emitRoomState(io, room) {
+  io.to(room.roomCode).emit("roomState", room.getRoomState());
+  io.to(room.roomCode).emit("playerList", { players: room.getRoster() });
+}
+
+function closeRoom(io, room, reason = "closed") {
+  room._clearTimers();
+  room._clearStaleSweep();
+  room.status = ROOM_STATUS.CLOSED;
+  io.to(room.roomCode).emit("roomClosed", { room: room.roomCode, reason });
+  rooms.delete(room.roomCode);
+}
+
+function startNextRound(io, room) {
+  room.currentRound += 1;
+
+  if (room.currentRound > room.totalRounds || room.getStandings()[0]?.totalScore >= room.targetScore) {
+    endGame(io, room);
+    return;
+  }
+
+  room._clearTimers();
+  room._resetRoundState();
+  room.status = ROOM_STATUS.COUNTDOWN;
+  emitRoomState(io, room);
+
+  let remaining = 3;
+  io.to(room.roomCode).emit("countdown", { remaining });
+
+  const tick = () => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      startWaiting(io, room);
+    } else {
+      io.to(room.roomCode).emit("countdown", { remaining });
+      room._schedule(setTimeout(tick, 1000));
+    }
+  };
+
+  room._schedule(setTimeout(tick, 1000));
+}
+
+function startWaiting(io, room) {
+  room.status = ROOM_STATUS.WAITING;
+  emitRoomState(io, room);
+  io.to(room.roomCode).emit("waiting", {});
+
+  const delay = 1000 + Math.random() * 4000;
+  room._schedule(setTimeout(() => {
+    room.status = ROOM_STATUS.REACT;
+    room._reactStart = performance.now();
+    emitRoomState(io, room);
+    io.to(room.roomCode).emit("react", {});
+
+    room._schedule(setTimeout(() => {
+      if (room.status === ROOM_STATUS.REACT) {
+        endRound(io, room);
+      }
+    }, 2000));
+  }, delay));
+}
+
+function endRound(io, room) {
+  room.status = ROOM_STATUS.ROUND_END;
+
+  const results = [];
+
+  for (const player of room.players.values()) {
+    let outcome = "valid";
+    let time = null;
+
+    if (!player.connected) {
+      outcome = "disconnected";
+    } else if (player._falseStart) {
+      outcome = "false_start";
+    } else if (player._reactionTime === null) {
+      outcome = "timeout";
+    } else {
+      time = player._reactionTime;
+    }
+
+    if (outcome === "valid") {
+      player.roundTimes.push(time);
+    } else {
+      player.roundTimes.push(Infinity);
+    }
+
+    results.push({
+      id: player.id,
+      name: player.name,
+      time: outcome === "valid" ? time : Infinity,
+      falseStart: outcome === "false_start",
+      missed: outcome === "timeout",
+      disconnected: outcome === "disconnected",
+      outcome,
+      points: 0
+    });
+  }
+
+  results.sort((a, b) => {
+    const weight = (result) => {
+      if (result.outcome === "valid") return 0;
+      if (result.outcome === "false_start") return 1;
+      if (result.outcome === "timeout") return 2;
+      return 3;
+    };
+
+    const diff = weight(a) - weight(b);
+    if (diff !== 0) return diff;
+    if (a.outcome === "valid" && b.outcome === "valid") return a.time - b.time;
+    return a.name.localeCompare(b.name);
+  });
+
+  const scoringPlayers = results.filter((result) => result.outcome === "valid");
+  const playerCount = room.players.size;
+
+  scoringPlayers.forEach((result, index) => {
+    result.points = playerCount - index;
+    const player = room.players.get(result.id);
+    if (player) {
+      player.totalScore += result.points;
+      player.wins += index === 0 ? 1 : 0;
+      if (result.time < player.bestTime) player.bestTime = result.time;
+    }
+  });
+
+  for (const player of room.players.values()) {
+    const validTimes = player.roundTimes.filter((time) => time < Infinity);
+    player.avgTime = validTimes.length ? Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length) : 0;
+  }
+
+  const roundData = { roundNum: room.currentRound, results };
+  room.roundHistory.push(roundData);
+  emitRoomState(io, room);
+  io.to(room.roomCode).emit("roundEnd", roundData);
+}
+
+function endGame(io, room) {
+  room._clearTimers();
+  room.status = ROOM_STATUS.POST_MATCH;
+  emitRoomState(io, room);
+  io.to(room.roomCode).emit("gameOver", {
+    standings: room.getStandings(),
+    roundHistory: room.roundHistory
+  });
+}
+
 function initGameSockets(io) {
   io.on("connection", (socket) => {
     let currentRoom = null;
 
     socket.on("createRoom", ({ name }) => {
+      if (!name?.trim()) {
+        return socket.emit("error", { message: "Enter your name first." });
+      }
+
       const code = generateRoomCode();
       const room = new RoomGame(code);
       rooms.set(code, room);
-      room.addPlayer(socket.id, name);
+      const verifier = crypto.randomUUID();
+      room.addPlayer(socket.id, name.trim(), verifier, true);
       currentRoom = code;
       socket.join(code);
-      socket.emit("roomCreated", { room: code, playerId: socket.id });
-      io.to(code).emit("playerList", { players: room.getPlayerList() });
+      socket.emit("roomCreated", { room: room.getRoomState(), playerId: socket.id, verifier, hostReclaimToken: room.getHostReclaimToken() });
+      emitRoomState(io, room);
     });
 
-    socket.on("joinRoom", ({ name, room: code }) => {
-      const room = rooms.get(code);
+    socket.on("joinRoom", ({ name, room: code, verifier, hostReclaimToken }) => {
+      if (!name?.trim() || !code?.trim()) {
+        return socket.emit("error", { message: "Enter both name and room code." });
+      }
+
+      const room = rooms.get(code.trim().toUpperCase());
       if (!room) return socket.emit("error", { message: "Room not found." });
-      if (room.state !== "lobby") return socket.emit("error", { message: "Game already in progress." });
+      if ([ROOM_STATUS.STARTING, ROOM_STATUS.COUNTDOWN, ROOM_STATUS.WAITING, ROOM_STATUS.REACT, ROOM_STATUS.GAME_OVER, ROOM_STATUS.CLOSED].includes(room.status)) {
+        return socket.emit("error", { message: "Room is not accepting new players right now." });
+      }
       if (room.players.size >= 4) return socket.emit("error", { message: "Room is full." });
 
-      room.addPlayer(socket.id, name);
-      currentRoom = code;
-      socket.join(code);
-      socket.emit("roomJoined", { room: code, playerId: socket.id });
-      io.to(code).emit("playerList", { players: room.getPlayerList() });
+      const normalizedName = name.trim();
+      const normalizedVerifier = String(verifier || "").trim();
+      const normalizedHostReclaimToken = String(hostReclaimToken || "").trim();
+      let result = null;
+
+      if (!normalizedVerifier) {
+        result = { ok: false, message: "Missing player verifier." };
+      }
+
+      if (!result && room.isBlacklisted(normalizedName, normalizedVerifier)) {
+        result = { ok: false, message: "You were kicked from this lobby and cannot rejoin it." };
+      }
+
+      if (!result) {
+        if (normalizedHostReclaimToken) {
+          result = room.reclaimHost(socket.id, normalizedHostReclaimToken);
+        }
+
+        if (!result) {
+          const matchingPlayer = room.findMatchingPlayer(normalizedName, normalizedVerifier);
+          if (matchingPlayer) {
+            result = room.reclaimPlayer(socket.id, normalizedName, normalizedVerifier);
+          } else if (room.hasPlayerName(normalizedName)) {
+            result = { ok: false, message: "That name is already in use by another player in this room. Pick a different name." };
+          } else {
+            const added = room.addPlayer(socket.id, normalizedName, normalizedVerifier);
+            result = added ? { ok: true, player: added, created: true } : { ok: false, message: "Unable to join this room right now." };
+          }
+        }
+      }
+
+      if (!result.ok) {
+        return socket.emit("error", { message: result.message });
+      }
+      currentRoom = room.roomCode;
+      socket.join(room.roomCode);
+      socket.emit("roomJoined", { room: room.getRoomState(), playerId: socket.id, verifier: normalizedVerifier, hostReclaimToken: room.getHostReclaimToken() });
+      emitRoomState(io, room);
+    });
+
+    socket.on("bindKey", ({ key }) => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room) return;
+
+      const result = room.bindKey(socket.id, key);
+      if (!result.ok) {
+        return socket.emit("error", { message: result.message });
+      }
+
+      socket.emit("keyBound", { key: result.key });
+      emitRoomState(io, room);
+    });
+
+    socket.on("requestLobbyView", () => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room) return;
+
+      room.returnToLobby(socket.id);
+      emitRoomState(io, room);
+      io.to(room.roomCode).emit("lobbyStatus", {
+        waitingFor: room.getWaitingList()
+      });
+
+      const player = room.players.get(socket.id);
+      if (player) {
+        socket.emit("roomState", room.getRoomState());
+      }
+    });
+
+    socket.on("setRoundCount", ({ totalRounds }) => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room) return;
+
+      const ok = room.setRoundCount(socket.id, totalRounds);
+      if (!ok) {
+        return socket.emit("error", { message: "Only the host can change round count, and it must be between 1 and 20." });
+      }
+
+      emitRoomState(io, room);
+    });
+
+    socket.on("toggleReady", () => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room) return;
+
+      const toggled = room.toggleReady(socket.id);
+      if (!toggled) {
+        return socket.emit("error", { message: "Unable to change ready state right now." });
+      }
+
+      emitRoomState(io, room);
     });
 
     socket.on("startGame", () => {
-      const room = rooms.get(currentRoom);
+      const room = currentRoom ? rooms.get(currentRoom) : null;
       if (!room || room.hostId !== socket.id) return;
-      if (room.players.size < 2) return socket.emit("error", { message: "Need at least 2 players." });
 
-      room.resetForNewGame();
+      if (!room.canStart()) {
+        return socket.emit("error", { message: "Need at least 2 ready players to start." });
+      }
+
+      if (!room.beginMatch()) {
+        return socket.emit("error", { message: "Unable to start the match." });
+      }
+
+      emitRoomState(io, room);
       startNextRound(io, room);
     });
 
     socket.on("playerInput", () => {
-      const room = rooms.get(currentRoom);
+      const room = currentRoom ? rooms.get(currentRoom) : null;
       if (!room) return;
-      const p = room.players.get(socket.id);
-      if (!p || p._pressed) return;
 
-      p._pressed = true;
+      const player = room.players.get(socket.id);
+      if (!player || !player.connected || player._pressed) return;
 
-      if (room.state === "waiting") {
-        p._falseStart = true;
-        p.falseStarts++;
-        p._reactionTime = 500;
-        io.to(currentRoom).emit("falseStart", { id: socket.id });
+      if (room.status === ROOM_STATUS.WAITING) {
+        player._pressed = true;
+        player._falseStart = true;
+        player.falseStarts += 1;
+        player._reactionTime = 500;
+        io.to(currentRoom).emit("falseStart", { id: socket.id, name: player.name });
         return;
       }
 
-      if (room.state === "react") {
-        p._reactionTime = Math.round(performance.now() - room._reactStart);
-        io.to(currentRoom).emit("playerReacted", { id: socket.id, time: p._reactionTime });
+      if (room.status === ROOM_STATUS.REACT) {
+        player._pressed = true;
+        player._reactionTime = Math.round(performance.now() - room._reactStart);
+        io.to(currentRoom).emit("playerReacted", { id: socket.id, name: player.name, time: player._reactionTime });
 
-        const allPressed = [...room.players.values()].every(pl => pl._pressed);
+        const activePlayers = room._connectedPlayers();
+        const allPressed = activePlayers.every((entry) => entry._pressed);
         if (allPressed) {
-          room.clearTimers();
+          room._clearTimers();
           endRound(io, room);
         }
       }
     });
 
     socket.on("nextRound", () => {
-      const room = rooms.get(currentRoom);
+      const room = currentRoom ? rooms.get(currentRoom) : null;
       if (!room || room.hostId !== socket.id) return;
-      if (room.state !== "roundEnd") return;
+      if (room.status !== ROOM_STATUS.ROUND_END) return;
       startNextRound(io, room);
     });
 
     socket.on("playAgain", () => {
-      const room = rooms.get(currentRoom);
+      const room = currentRoom ? rooms.get(currentRoom) : null;
       if (!room || room.hostId !== socket.id) return;
-      room.resetForNewGame();
-      startNextRound(io, room);
+
+      room.status = ROOM_STATUS.POST_MATCH;
+      room.returnToLobby(socket.id);
+      emitRoomState(io, room);
+      io.to(room.roomCode).emit("lobbyStatus", {
+        waitingFor: room.getWaitingList()
+      });
+    });
+
+    socket.on("removePlayer", ({ playerId }) => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room || room.hostId !== socket.id) return;
+      if (!playerId || playerId === socket.id) return;
+
+      const removed = room.removePlayer(playerId);
+      if (!removed.ok) return;
+
+      room.blacklistPlayer(removed.player);
+
+      const kickedSocket = io.sockets.sockets.get(playerId);
+      if (kickedSocket) {
+        kickedSocket.leave(room.roomCode);
+        kickedSocket.emit("removedFromLobby", { room: room.roomCode, reason: "kicked", message: "You were kicked from the lobby." });
+      }
+
+      emitRoomState(io, room);
+    });
+
+    socket.on("closeRoom", () => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room || room.hostId !== socket.id) return;
+      closeRoom(io, room, "host_closed");
+    });
+
+    socket.on("leaveRoom", () => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room) return;
+
+      room.removePlayer(socket.id);
+      socket.leave(room.roomCode);
+      currentRoom = null;
+      socket.emit("roomClosed", { room: room.roomCode, reason: "left" });
+
+      if (room.players.size === 0) {
+        closeRoom(io, room, "empty");
+        return;
+      }
+
+      emitRoomState(io, room);
+      io.to(room.roomCode).emit("lobbyStatus", {
+        waitingFor: room.getWaitingList()
+      });
+    });
+
+    socket.on("sendChatMessage", ({ content }) => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room) return;
+
+      const result = room.addChatMessage(socket.id, content);
+      if (!result.ok) {
+        return socket.emit("error", { message: result.message });
+      }
+
+      io.to(room.roomCode).emit("chatMessage", {
+        message: result.message,
+        messages: room.chatMessages
+      });
     });
 
     socket.on("disconnect", () => {
       if (!currentRoom) return;
+
       const room = rooms.get(currentRoom);
       if (!room) return;
-      room.removePlayer(socket.id);
-      if (room.players.size === 0) {
-        room.clearTimers();
-        rooms.delete(currentRoom);
-      } else {
-        io.to(currentRoom).emit("playerList", { players: room.getPlayerList() });
+
+      const result = room.markDisconnected(socket.id);
+
+      // Keep room and slot alive for reclaim while the stale timeout runs.
+      if (room.status === ROOM_STATUS.WAITING_FOR_PLAYERS || room.status === ROOM_STATUS.READY_CHECK || room.status === ROOM_STATUS.POST_MATCH) {
+        io.to(room.roomCode).emit("lobbyStatus", { waitingFor: room.getWaitingList() });
+      }
+
+      if (result.closed) {
+        closeRoom(io, room, "empty");
+        return;
+      }
+
+      if (result.endMatch) {
+        endGame(io, room);
+        return;
+      }
+
+      if (room.status !== ROOM_STATUS.CLOSED) {
+        room.setLobbyView(socket.id, false);
+        emitRoomState(io, room);
       }
     });
   });
 }
 
-/* ── Round flow helpers ── */
-
-function startNextRound(io, room) {
-  room.currentRound++;
-  if (room.currentRound > room.totalRounds) {
-    endGame(io, room);
-    return;
-  }
-
-  room.resetRoundState();
-  room.state = "countdown";
-
-  let remaining = 3;
-  io.to(room.roomCode).emit("countdown", { remaining });
-
-  const tick = () => {
-    remaining--;
-    if (remaining <= 0) {
-      startWaiting(io, room);
-    } else {
-      io.to(room.roomCode).emit("countdown", { remaining });
-      room._timers.push(setTimeout(tick, 1000));
-    }
-  };
-  room._timers.push(setTimeout(tick, 1000));
-}
-
-function startWaiting(io, room) {
-  room.state = "waiting";
-  io.to(room.roomCode).emit("waiting", {});
-
-  const delay = 1000 + Math.random() * 4000;
-  room._timers.push(setTimeout(() => {
-    room.state = "react";
-    room._reactStart = performance.now();
-    io.to(room.roomCode).emit("react", {});
-
-    // Auto-end after 2s
-    room._timers.push(setTimeout(() => {
-      if (room.state === "react") endRound(io, room);
-    }, 2000));
-  }, delay));
-}
-
-function endRound(io, room) {
-  room.state = "roundEnd";
-  const results = [];
-  for (const p of room.players.values()) {
-    const time = p._falseStart ? Infinity : (p._reactionTime ?? Infinity);
-    p.roundTimes.push(time);
-    results.push({
-      id: p.id, name: p.name, time,
-      falseStart: p._falseStart,
-      missed: !p._pressed && !p._falseStart,
-    });
-  }
-
-  results.sort((a, b) => a.time - b.time);
-  const count = room.players.size;
-  let rank = 0;
-  for (const r of results) {
-    r.points = r.time === Infinity ? 0 : count - rank++;
-    const p = room.players.get(r.id);
-    p.totalScore += r.points;
-    if (r.points === count) p.wins++;
-    if (r.time < p.bestTime) p.bestTime = r.time;
-  }
-
-  for (const p of room.players.values()) {
-    const valid = p.roundTimes.filter(t => t < Infinity);
-    p.avgTime = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
-  }
-
-  room.roundHistory.push({ roundNum: room.currentRound, results });
-  io.to(room.roomCode).emit("roundEnd", { roundNum: room.currentRound, results });
-}
-
-function endGame(io, room) {
-  room.state = "gameOver";
-  io.to(room.roomCode).emit("gameOver", {
-    standings: room.getStandings(),
-    roundHistory: room.roundHistory,
-  });
-}
-
-module.exports = { initGameSockets };
+module.exports = { initGameSockets, ROOM_STATUS };

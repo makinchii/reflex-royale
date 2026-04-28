@@ -9,6 +9,8 @@ This is a very basic full-stack starter template using Node.js, Express, MongoDB
 - Password hashing with bcrypt
 - MongoDB Atlas storage through Mongoose
 - Simple dashboard page for future game or room features
+- Guest-friendly gameplay with optional logged-in account support
+- Server-authoritative online rooms with chat, reconnect, and host control
 
 ## Project Structure
 
@@ -45,6 +47,9 @@ Create a `.env` file in the project root and copy the variables from `.env.examp
 ```env
 MONGODB_URI=your_mongodb_atlas_connection_string_here
 PORT=3000
+SESSION_SECRET=your_session_secret_here
+NODE_ENV=development
+TRUST_PROXY=false
 ```
 
 Paste your real MongoDB Atlas connection string into `MONGODB_URI`.
@@ -65,7 +70,19 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000).
 
-## 4. How the Signup/Login Flow Works
+## 4. Deploy to Render
+
+This project includes a `render.yaml` blueprint for a same-origin public deployment.
+
+1. Create a new Render web service from the repo.
+2. Add `MONGODB_URI` from MongoDB Atlas.
+3. Add a strong `SESSION_SECRET`.
+4. Keep `NODE_ENV=production` and `TRUST_PROXY=true`.
+5. Deploy the service and use the Render URL as the public demo site.
+
+In production, the app uses HTTPS-safe session cookies and Socket.IO on the same origin.
+
+## 5. How the Signup/Login Flow Works
 
 1. The landing page shows links for Sign Up and Login.
 2. The signup form sends a `POST` request to `/api/auth/signup`.
@@ -76,7 +93,7 @@ Then open [http://localhost:3000](http://localhost:3000).
 7. The server looks up the username and compares the entered password with the hashed password in MongoDB.
 8. If login succeeds, the browser redirects to `/dashboard`.
 
-## 5. Where to Check Saved Users in MongoDB Atlas
+## 6. Where to Check Saved Users in MongoDB Atlas
 
 1. Open your MongoDB Atlas project.
 2. Go to your cluster.
@@ -86,9 +103,18 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## Notes
 
-- This project does not use JWT, sessions, or advanced auth yet.
-- The dashboard is intentionally simple so your teammates can redesign it later.
-- The code is organized so you can later add room logic, game routes, and more models.
+- Sessions are stored with express-session and connect-mongo.
+- Gameplay routes are guest-friendly; login is only needed for account/profile features.
+- The online game uses Socket.IO and a server-authoritative room model.
+
+## Tests
+
+Run the core GameEngine tests with:
+
+```bash
+npm test
+```
+
+Use this after major changes to the match loop, scoring, ready flow, or timing logic.
 
 # reaction-game
-

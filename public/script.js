@@ -1,5 +1,3 @@
-const AUTH_STORAGE_KEY = "reflexRoyaleAuth";
-
 function getNextPath() {
   const params = new URLSearchParams(window.location.search);
   const next = params.get("next");
@@ -11,29 +9,6 @@ function getNextPath() {
   return next;
 }
 
-function saveAuthState(username) {
-  sessionStorage.setItem(
-    AUTH_STORAGE_KEY,
-    JSON.stringify({
-      username,
-      authenticatedAt: Date.now()
-    })
-  );
-}
-
-function readAuthState() {
-  try {
-    const raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function clearAuthState() {
-  sessionStorage.removeItem(AUTH_STORAGE_KEY);
-}
-
 async function handleAuthSubmit(event, endpoint) {
   event.preventDefault();
 
@@ -41,10 +16,6 @@ async function handleAuthSubmit(event, endpoint) {
   const formData = new FormData(form);
   const username = formData.get("username")?.trim();
   const password = formData.get("password");
-  const messageElement = document.getElementById("message");
-
-  messageElement.textContent = "";
-  messageElement.className = "message";
 
   try {
     const response = await fetch(endpoint, {
@@ -57,16 +28,17 @@ async function handleAuthSubmit(event, endpoint) {
 
     const result = await response.json();
 
-    messageElement.textContent = result.message;
-    messageElement.classList.add(result.success ? "success" : "error");
+    if (window.showPageNotification) {
+      window.showPageNotification(result.message, result.success ? "success" : "error");
+    }
 
     if (result.success && result.redirectTo) {
-      saveAuthState(username);
       window.location.href = getNextPath() || result.redirectTo;
     }
   } catch (error) {
-    messageElement.textContent = "Something went wrong. Please try again.";
-    messageElement.classList.add("error");
+    if (window.showPageNotification) {
+      window.showPageNotification("Something went wrong. Please try again.", "error");
+    }
   }
 }
 
@@ -86,22 +58,49 @@ if (loginForm) {
 
 const dashboardPage = document.body?.dataset.page === "dashboard";
 if (dashboardPage) {
-  const authState = readAuthState();
+  fetch("/api/auth/session")
+    .then((response) => response.json())
+    .then((authState) => {
+      const subtitle = document.getElementById("dashboard-subtitle");
+      if (subtitle) {
+        subtitle.textContent = authState.authenticated
+          ? `${authState.user.username}, pick a mode to start your next reflex showdown.`
+          : "Guest, pick a mode to start your next reflex showdown.";
+      }
 
-  if (!authState?.username) {
-    window.location.href = "/login?next=/dashboard";
-  } else {
-    const subtitle = document.getElementById("dashboard-subtitle");
-    if (subtitle) {
-      subtitle.textContent = `${authState.username}, pick a mode to start your next reflex showdown.`;
-    }
+      const logoutButton = document.getElementById("logout-btn");
+      if (logoutButton && authState.authenticated) {
+        logoutButton.addEventListener("click", async () => {
+          await fetch("/api/auth/logout", { method: "POST" });
+          window.location.href = "/";
+        });
+      } else if (logoutButton) {
+        logoutButton.textContent = "Log In";
+        logoutButton.addEventListener("click", () => {
+          window.location.href = "/login?next=/dashboard";
+        });
+      }
 
-    const logoutButton = document.getElementById("logout-btn");
-    if (logoutButton) {
-      logoutButton.addEventListener("click", () => {
-        clearAuthState();
-        window.location.href = "/";
-      });
-    }
-  }
+      if (window.mountAccountMenu) {
+        window.mountAccountMenu({ rootId: "account-menu-root" });
+      }
+    })
+    .catch(() => {
+      const subtitle = document.getElementById("dashboard-subtitle");
+      if (subtitle) {
+        subtitle.textContent = "Guest, pick a mode to start your next reflex showdown.";
+      }
+
+      const logoutButton = document.getElementById("logout-btn");
+      if (logoutButton) {
+        logoutButton.textContent = "Log In";
+        logoutButton.addEventListener("click", () => {
+          window.location.href = "/login?next=/dashboard";
+        });
+      }
+
+      if (window.mountAccountMenu) {
+        window.mountAccountMenu({ rootId: "account-menu-root" });
+      }
+    });
 }

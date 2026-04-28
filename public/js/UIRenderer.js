@@ -29,6 +29,9 @@ export class UIRenderer {
 
     e.on("playerAdded",   () => this._refreshLobbyPlayers());
     e.on("playerRemoved", () => this._refreshLobbyPlayers());
+    e.on("playerReady",   () => this._refreshLobbyPlayers());
+    e.on("playerUnready", () => this._refreshLobbyPlayers());
+    e.on("allPlayersReady", () => this._refreshLobbyPlayers());
     e.on("gameStarted",   () => this._onGameStarted());
     e.on("countdown",     d  => this._onCountdown(d));
     e.on("waiting",       () => this._onWaiting());
@@ -55,7 +58,8 @@ export class UIRenderer {
             <input id="playerKey"  type="text" placeholder="Key" maxlength="1" autocomplete="off" />
             <button id="addPlayerBtn" class="btn btn-primary">Add Player</button>
           </div>
-          <p class="hint">Each player picks a unique key as their buzzer (e.g. Q, P, Z, M).</p>
+          <p class="hint">Add players, then press each key once to bind and again to confirm ready.</p>
+          <p id="lobbyStatus" class="hint"></p>
         </div>
 
         <div id="playerSlots" class="player-slots"></div>
@@ -76,6 +80,7 @@ export class UIRenderer {
     const nameInp  = this.root.querySelector("#playerName");
     const keyInp   = this.root.querySelector("#playerKey");
     const roundInp = this.root.querySelector("#roundCount");
+    const statusEl = this.root.querySelector("#lobbyStatus");
 
     addBtn.addEventListener("click", () => this._addPlayerFromForm());
 
@@ -85,6 +90,10 @@ export class UIRenderer {
     keyInp.addEventListener("keydown", (e) => {
       e.preventDefault();
       keyInp.value = e.key.length === 1 ? e.key.toUpperCase() : "";
+    });
+
+    keyInp.addEventListener("input", () => {
+      keyInp.value = keyInp.value.slice(0, 1).toUpperCase();
     });
 
     startBtn.addEventListener("click", () => {
@@ -97,10 +106,14 @@ export class UIRenderer {
   _addPlayerFromForm() {
     const nameInp = this.root.querySelector("#playerName");
     const keyInp  = this.root.querySelector("#playerKey");
+    const statusEl = this.root.querySelector("#lobbyStatus");
     const name = nameInp.value.trim();
     const key  = keyInp.value.trim().toLowerCase();
 
-    if (!name || !key) return;
+    if (!name || !key) {
+      if (statusEl) statusEl.textContent = "Enter both a player name and a unique key.";
+      return;
+    }
 
     const id    = `local_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const color = PLAYER_COLORS[this.engine.players.size] || "#888";
@@ -110,6 +123,9 @@ export class UIRenderer {
       nameInp.value = "";
       keyInp.value  = "";
       nameInp.focus();
+      if (statusEl) statusEl.textContent = "";
+    } else if (statusEl) {
+      statusEl.textContent = "That key is already in use, or the lobby is full.";
     }
   }
 
@@ -122,6 +138,7 @@ export class UIRenderer {
       <div class="player-slot" style="border-color:${p.color}">
         <span class="player-slot-name" style="color:${p.color}">${this._esc(p.name)}</span>
         <kbd>${p.key.toUpperCase()}</kbd>
+        <span class="ready-state">${p.ready ? "Ready" : "Confirm key"}</span>
         <button class="btn-remove" data-id="${p.id}">&times;</button>
       </div>
     `).join("");
@@ -135,7 +152,7 @@ export class UIRenderer {
 
     // Enable/disable start button
     const startBtn = this.root.querySelector("#startGameBtn");
-    if (startBtn) startBtn.disabled = players.length < 2;
+    if (startBtn) startBtn.disabled = players.length < 2 || !players.every(p => p.ready);
   }
 
   /* ───────── In-game screens ───────── */
@@ -235,7 +252,7 @@ export class UIRenderer {
     const overlay = this.root.querySelector("#centerOverlay");
     if (overlay) {
       const winner = results[0];
-      const isLast = roundNum >= this.engine.totalRounds;
+      const isLast = roundNum >= this.engine.totalRounds || this.engine.getPlayers().some(p => p.totalScore >= this.engine.targetScore);
       overlay.className = "center-overlay visible results-overlay";
       overlay.innerHTML = `
         <div class="round-results">
@@ -320,7 +337,7 @@ export class UIRenderer {
 
     this.root.querySelector("#playAgainBtn").addEventListener("click", () => {
       this.engine.resetToLobby();
-      this.engine.startGame();
+      this.renderLobby();
     });
 
     this.root.querySelector("#newPlayersBtn").addEventListener("click", () => {

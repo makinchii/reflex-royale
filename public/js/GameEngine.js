@@ -28,6 +28,7 @@ export class GameEngine {
    * @param {number} opts.countdownSeconds   – 3-2-1 seconds (default 3)
    * @param {number} opts.maxReactionTime    – auto-fail threshold in ms (default 2000)
    * @param {number} opts.falseStartPenalty  – ms penalty for early press (default 500)
+   * @param {number} opts.targetScore        – score needed to win the match (default 10)
    */
   constructor(opts = {}) {
     this.totalRounds      = opts.totalRounds      ?? 5;
@@ -36,6 +37,7 @@ export class GameEngine {
     this.countdownSeconds = opts.countdownSeconds  ?? 3;
     this.maxReactionTime  = opts.maxReactionTime   ?? 2000;
     this.falseStartPenalty = opts.falseStartPenalty ?? 500;
+    this.targetScore      = opts.targetScore      ?? 10;
 
     /** @type {Map<string, PlayerData>} keyed by playerId */
     this.players = new Map();
@@ -95,6 +97,7 @@ export class GameEngine {
       roundTimes: [],       // ms per round (Infinity = missed / false-start)
       wins: 0,
       falseStarts: 0,
+      ready: false,
       bestTime: Infinity,
       avgTime: 0,
       _pressed: false,      // for current round
@@ -104,6 +107,27 @@ export class GameEngine {
 
     this._emit("playerAdded", { id, name, color });
     return true;
+  }
+
+  confirmPlayerByKey(key) {
+    const normalized = key.toLowerCase();
+
+    for (const p of this.players.values()) {
+      if (p.key === normalized) {
+        p.ready = !p.ready;
+        this._emit(p.ready ? "playerReady" : "playerUnready", { id: p.id, name: p.name });
+        if (this.players.size >= 2 && this._allPlayersReady()) {
+          this._emit("allPlayersReady", {});
+        }
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  _allPlayersReady() {
+    return this.players.size >= 2 && [...this.players.values()].every(p => p.ready);
   }
 
   removePlayer(id) {
@@ -122,6 +146,7 @@ export class GameEngine {
   startGame() {
     if (this.state !== GameState.LOBBY && this.state !== GameState.GAME_OVER) return false;
     if (this.players.size < 2) return false;
+    if (!this._allPlayersReady()) return false;
 
     // Reset cumulative stats for a new match
     for (const p of this.players.values()) {
@@ -313,6 +338,13 @@ export class GameEngine {
   /** Called by UI after showing round results to proceed */
   nextRound() {
     if (this.state !== GameState.ROUND_END) return;
+
+    const targetReached = [...this.players.values()].some(p => p.totalScore >= this.targetScore);
+    if (this.currentRound >= this.totalRounds || targetReached) {
+      this._endGame();
+      return;
+    }
+
     this._nextRound();
   }
 
@@ -345,7 +377,14 @@ export class GameEngine {
         falseStarts: p.falseStarts,
         roundTimes: p.roundTimes.map(t => t === Infinity ? null : t),
       }))
-      .sort((a, b) => b.totalScore - a.totalScore);
+      .sort((a, b) => {
+        if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+        if ((b.wins || 0) !== (a.wins || 0)) return (b.wins || 0) - (a.wins || 0);
+        const aBest = a.bestTime ?? Infinity;
+        const bBest = b.bestTime ?? Infinity;
+        if (aBest !== bBest) return aBest - bBest;
+        return a.name.localeCompare(b.name);
+      });
   }
 
   /** Return to lobby for a new match */
@@ -359,6 +398,7 @@ export class GameEngine {
       p.roundTimes = [];
       p.wins = 0;
       p.falseStarts = 0;
+      p.ready = false;
       p.bestTime = Infinity;
       p.avgTime = 0;
       p._pressed = false;
@@ -391,6 +431,7 @@ export class GameEngine {
       state: this.state,
       currentRound: this.currentRound,
       totalRounds: this.totalRounds,
+      targetScore: this.targetScore,
       players: this.getStandings(),
       roundHistory: this.roundHistory,
     };
