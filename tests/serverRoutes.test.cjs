@@ -55,17 +55,14 @@ test("guest can access dashboard and play routes", async () => {
   const { createApp } = loadServerModule();
   const app = createApp({ useSessionStore: false });
   const dashboard = findRoutePath(app, "/dashboard");
-  const react = findRoutePath(app, "/react");
   const play = findRoutePath(app, "/play");
   const online = findRoutePath(app, "/play/online");
 
   const dashboardRes = await invoke(dashboard);
-  const reactRes = await invoke(react);
   const playRes = await invoke(play);
   const onlineRes = await invoke(online);
 
   assert.ok(dashboardRes.sentFile?.includes("dashboard.html"));
-  assert.ok(reactRes.sentFile?.includes("react.html"));
   assert.ok(playRes.sentFile?.includes("game-local.html"));
   assert.ok(onlineRes.sentFile?.includes("game-remote.html"));
 });

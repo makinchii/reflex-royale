@@ -99,9 +99,6 @@ function createApp(options = {}) {
     app.get("/play", nextProxy);
     app.get("/play/online", nextProxy);
     app.use("/_next", nextProxy);
-    app.get("/react", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "react.html"));
-    });
   } else {
     app.get("/", (req, res) => {
       res.sendFile(path.join(__dirname, "views", "index.html"));
@@ -117,10 +114,6 @@ function createApp(options = {}) {
 
     app.get("/dashboard", (req, res) => {
       res.sendFile(path.join(__dirname, "views", "dashboard.html"));
-    });
-
-    app.get("/react", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "react.html"));
     });
 
     // ── Game routes ──
