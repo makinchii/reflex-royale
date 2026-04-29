@@ -3,6 +3,7 @@ import Script from "next/script";
 export default function DashboardPage() {
   return (
     <>
+      <link rel="stylesheet" href="/game.css" />
       <div id="account-menu-root" className="account-menu-root" />
       <main className="mode-select" data-page="dashboard">
         <h1 className="game-title"><a href="/">Reflex Royale</a></h1>

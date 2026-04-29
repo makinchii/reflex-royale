@@ -98,7 +98,7 @@ function createApp(options = {}) {
     app.get("/dashboard", nextProxy);
     app.get("/play", nextProxy);
     app.get("/play/online", nextProxy);
-    app.use("/_next", nextProxy);
+    app.get("/ui-lab", nextProxy);
   } else {
     app.get("/", (req, res) => {
       res.sendFile(path.join(__dirname, "views", "index.html"));
@@ -134,6 +134,11 @@ function createApp(options = {}) {
     return res.json({ authenticated: true, user: req.session.user });
   });
 
+  if (useNextFrontend) {
+    // Let Next see the full URL so asset paths like /_next/static stay intact.
+    app.use(nextProxy);
+  }
+
   // Helpful fallback for unknown routes.
   app.use((req, res) => {
     res.status(404).json({ success: false, message: "Route not found." });
@@ -160,7 +165,8 @@ async function startServer() {
   if (useNextFrontend) {
     const nextApp = next({
       dev: process.env.NODE_ENV !== "production",
-      dir: __dirname
+      dir: __dirname,
+      webpack: true
     });
 
     await nextApp.prepare();

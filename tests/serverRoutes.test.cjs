@@ -1,4 +1,5 @@
 const assert = require("assert/strict");
+const fs = require("fs");
 const test = require("node:test");
 
 function loadServerModule() {
@@ -79,4 +80,25 @@ test("session endpoint exposes guest state and user state", async () => {
   const userRes = await invoke(sessionHandler, { session: { user: { id: "1", username: "Ada" } } });
   assert.equal(userRes.jsonPayload.authenticated, true);
   assert.equal(userRes.jsonPayload.user.username, "Ada");
+});
+
+test("ui-lab imports only direct thegridcn components", () => {
+  const pageSource = fs.readFileSync(require.resolve("../src/app/ui-lab/page.tsx"), "utf8");
+  assert.match(pageSource, /@\/components\/thegridcn\/button/);
+  assert.match(pageSource, /@\/components\/thegridcn\/card/);
+  assert.match(pageSource, /@\/components\/thegridcn\/toast/);
+  assert.match(pageSource, /@\/components\/thegridcn\/dropdown/);
+  assert.match(pageSource, /@\/components\/thegridcn\/dialog/);
+  assert.match(pageSource, /@\/components\/thegridcn\/table/);
+  assert.match(pageSource, /@\/components\/thegridcn\/input/);
+  assert.match(pageSource, /@\/components\/thegridcn\/badge/);
+
+  assert.doesNotMatch(pageSource, /@\/components\/ui\//);
+  assert.doesNotMatch(pageSource, /@\/components\/button/);
+  assert.doesNotMatch(pageSource, /@\/components\/card/);
+  assert.doesNotMatch(pageSource, /@\/components\/dialog/);
+  assert.doesNotMatch(pageSource, /@\/components\/dropdown-menu/);
+  assert.doesNotMatch(pageSource, /@\/components\/table/);
+  assert.doesNotMatch(pageSource, /@\/components\/input/);
+  assert.doesNotMatch(pageSource, /@\/components\/badge/);
 });
