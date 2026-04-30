@@ -13,6 +13,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    bestScore: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     lastLoginAt: {
       type: Date,
       default: null

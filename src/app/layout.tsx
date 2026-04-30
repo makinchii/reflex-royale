@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { PageReadyGate } from "@/components/page-ready-gate";
 
 export const metadata: Metadata = {
   title: "Reflex Royale",
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <PageReadyGate />
+        {children}
+      </body>
     </html>
   );
 }

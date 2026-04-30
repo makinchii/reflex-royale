@@ -18,6 +18,7 @@ try {
   authRoutes = require("express").Router(); // empty fallback
 }
 const { initGameSockets } = require("./sockets/gameRoom");
+const leaderboardRoutes = require("./routes/leaderboard");
 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -72,23 +73,12 @@ function createApp(options = {}) {
     })
   );
 
-  function requireAuth(req, res, next) {
-    if (req.session?.user) {
-      return next();
-    }
-
-    if (req.accepts("html")) {
-      return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
-    }
-
-    return res.status(401).json({ success: false, message: "Authentication required." });
-  }
-
   // Serve static assets such as CSS and client-side JavaScript.
   app.use(express.static(path.join(__dirname, "public")));
 
   // Auth API routes are kept in their own file for easier future expansion.
   app.use("/api/auth", authRoutes);
+  app.use("/leaderboard", leaderboardRoutes);
 
   // Serve the new Next frontend when enabled, otherwise keep the legacy landing page.
   if (useNextFrontend) {
@@ -114,6 +104,10 @@ function createApp(options = {}) {
 
     app.get("/dashboard", (req, res) => {
       res.sendFile(path.join(__dirname, "views", "dashboard.html"));
+    });
+
+    app.get("/leaderboard-page", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "leaderboard.html"));
     });
 
     // ── Game routes ──

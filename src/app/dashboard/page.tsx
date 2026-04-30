@@ -1,13 +1,18 @@
-import Script from "next/script";
+import { LegacyShellScripts } from "@/components/legacy-shell-scripts";
+import { requireCurrentUser } from "@/lib/auth";
 
-export default function DashboardPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  await requireCurrentUser("/dashboard");
+
   return (
     <>
       <link rel="stylesheet" href="/game.css" />
-      <div id="account-menu-root" className="account-menu-root" />
-      <main className="mode-select" data-page="dashboard">
+      <div id="account-menu-root" className="account-menu-root" suppressHydrationWarning />
+      <main className="mode-select" data-page="dashboard" data-server-auth="true">
         <h1 className="game-title"><a href="/">Reflex Royale</a></h1>
-        <p className="subtitle" id="dashboard-subtitle">Choose how you want to play.</p>
+        <p className="subtitle">Welcome back. Open an online room, chase the leaderboard, or hold position from your neon command center.</p>
 
         <div className="mode-cards">
           <a className="mode-card" href="/play">
@@ -27,9 +32,7 @@ export default function DashboardPage() {
           <button type="button" className="btn btn-secondary" id="logout-btn">Log Out</button>
         </div>
       </main>
-      <Script src="/js/accountMenu.js" strategy="afterInteractive" />
-      <Script src="/js/pageNotifications.js" strategy="afterInteractive" />
-      <Script src="/script.js" strategy="afterInteractive" />
+      <LegacyShellScripts includeAccountMenu includePageNotifications includeScriptJs />
     </>
   );
 }

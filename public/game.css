@@ -32,6 +32,37 @@ body {
   z-index: 2000;
 }
 
+.site-auth-badge {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.9);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.site-auth-label {
+  font-weight: 700;
+}
+
+.site-auth-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.site-auth-dot-guest {
+  background: var(--yellow);
+}
+
 .account-menu-wrap {
   position: relative;
 }

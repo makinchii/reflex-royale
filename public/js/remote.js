@@ -2,12 +2,17 @@
  * remote.js - Client for server-authoritative online lobby play.
  */
 
-const socket = io();
 const VERIFIER_KEY = "reflexRoyaleVerifier";
 const HOST_RECLAIM_KEY = "reflexRoyaleHostReclaimToken";
 const ROOM_CODE_KEY = "reflexRoyaleRoomCode";
 const PLAYER_NAME_KEY = "reflexRoyalePlayerName";
 const CHAT_LIMIT = 280;
+
+if (window.__reflexRoyaleRemoteCleanup) {
+  window.__reflexRoyaleRemoteCleanup();
+}
+
+const socket = io();
 
 const root = document.getElementById("game-root");
 let myPlayerId = null;
@@ -22,10 +27,8 @@ let savedPlayerName = localStorage.getItem(PLAYER_NAME_KEY) || "";
 let autoReconnectEnabled = true;
 
 attemptAutoReconnect();
-
-if (window.mountAccountMenu) {
-  window.mountAccountMenu({ rootId: "account-menu-root" });
-}
+window.__reflexRoyaleLegacyReady = true;
+window.dispatchEvent(new Event("reflex-royale-legacy-ready"));
 
 function attemptAutoReconnect() {
   if (autoReconnectEnabled && savedRoomCode && savedPlayerName) {
@@ -539,7 +542,7 @@ socket.on("error", ({ message }) => {
   showPageNotification(message, "error");
 });
 
-document.addEventListener("keydown", (e) => {
+const handleKeyDown = (e) => {
   const active = document.activeElement;
   if (active && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(active.tagName)) {
     return;
@@ -559,13 +562,28 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     socket.emit("playerInput");
   }
-});
+};
 
-document.addEventListener("touchstart", (e) => {
+const handleTouchStart = (e) => {
   if (!roomState || (roomState.status !== "countdown" && roomState.status !== "waiting" && roomState.status !== "react")) return;
   if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
   socket.emit("playerInput");
-});
+};
+
+document.addEventListener("keydown", handleKeyDown);
+document.addEventListener("touchstart", handleTouchStart);
+
+const cleanupRemoteGame = () => {
+  document.removeEventListener("keydown", handleKeyDown);
+  document.removeEventListener("touchstart", handleTouchStart);
+  socket.removeAllListeners();
+  socket.disconnect();
+  if (window.__reflexRoyaleRemoteCleanup === cleanupRemoteGame) {
+    window.__reflexRoyaleRemoteCleanup = undefined;
+  }
+};
+
+window.__reflexRoyaleRemoteCleanup = cleanupRemoteGame;
 
 function formatResult(result) {
   if (result.outcome === "false_start") return "False start!";

@@ -2,6 +2,7 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const { createSession, destroySession, getCurrentUser } = require("../lib/sessionAuth");
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
@@ -55,10 +56,7 @@ router.post("/signup", async (req, res) => {
         });
       }
 
-      req.session.user = {
-        id: newUser._id.toString(),
-        username: newUser.username
-      };
+      createSession(req, newUser);
 
       return res.status(201).json({
         success: true,
@@ -121,10 +119,7 @@ router.post("/login", async (req, res) => {
         });
       }
 
-      req.session.user = {
-        id: user._id.toString(),
-        username: user.username
-      };
+      createSession(req, user);
 
       return res.status(200).json({
         success: true,
@@ -141,16 +136,30 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  req.session.destroy((error) => {
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        message: "Could not log out. Please try again."
-      });
-    }
+  destroySession(req, res, () => {
+    return res.status(200).json({
+      success: true,
+      message: "Logged out successfully.",
+    });
+  });
+});
 
-    res.clearCookie("connect.sid");
-    return res.json({ success: true, message: "Logged out." });
+router.get("/me", async (req, res) => {
+  const user = await getCurrentUser(req);
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in.",
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    user: {
+      username: user.username,
+      bestScore: user.bestScore || 0,
+    },
   });
 });
 

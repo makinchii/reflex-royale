@@ -56,6 +56,10 @@
     @apply bg-background text-foreground antialiased;
   }
 
+  html:not([data-page-ready="true"]) body {
+    visibility: hidden;
+  }
+
   h1,
   h2,
   h3,

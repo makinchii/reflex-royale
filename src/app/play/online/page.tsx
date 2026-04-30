@@ -1,13 +1,10 @@
-export default function PlayOnlinePage() {
-  return (
-    <>
-      <link rel="stylesheet" href="/game.css" />
-      <div id="account-menu-root" className="account-menu-root" />
-      <div id="game-root" />
-      <script src="/socket.io/socket.io.js" defer />
-      <script src="/js/pageNotifications.js" defer />
-      <script src="/js/accountMenu.js" defer />
-      <script src="/js/remote.js" defer />
-    </>
-  );
+import { RemotePlayShell } from "@/components/remote-play-shell";
+import { requireCurrentUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+
+export default async function PlayOnlinePage() {
+  await requireCurrentUser("/play/online");
+
+  return <RemotePlayShell />;
 }
