@@ -158,12 +158,71 @@ function createServer(options = {}) {
   return { app, server, io };
 }
 
+function registerShutdownHandlers({ server, io, nextApp }) {
+  let shuttingDown = false;
+
+  async function shutdown(signal, restart = false) {
+    if (shuttingDown) {
+      return;
+    }
+
+    shuttingDown = true;
+
+    io.close();
+
+    await new Promise((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+
+    if (nextApp?.close) {
+      await nextApp.close();
+    }
+
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+    }
+
+    if (restart) {
+      process.kill(process.pid, signal);
+    }
+  }
+
+  process.once("SIGINT", () => {
+    shutdown("SIGINT").catch((error) => {
+      console.error("Shutdown error:", error.message);
+    });
+  });
+
+  process.once("SIGTERM", () => {
+    shutdown("SIGTERM").catch((error) => {
+      console.error("Shutdown error:", error.message);
+    });
+  });
+
+  process.once("SIGUSR2", () => {
+    shutdown("SIGUSR2", true).catch((error) => {
+      console.error("Shutdown error:", error.message);
+      process.kill(process.pid, "SIGUSR2");
+    });
+  });
+}
+
 async function startServer() {
   const useNextFrontend = process.env.NEXT_FRONTEND !== "false";
-  const { app, server } = createServer({ useNextFrontend });
+  const { app, server, io } = createServer({ useNextFrontend });
+  let nextApp = null;
+
+  registerShutdownHandlers({ server, io, nextApp });
 
   if (useNextFrontend) {
-    const nextApp = next({
+    nextApp = next({
       dev: process.env.NODE_ENV !== "production",
       dir: __dirname,
       webpack: true

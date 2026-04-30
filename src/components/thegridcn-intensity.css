@@ -1,39 +1,47 @@
-:root {
-  /* Glow spread sizes */
+:root,
+[data-tron-intensity="light"] {
   --tron-glow-spread-sm: 4px;
   --tron-glow-spread-md: 10px;
   --tron-glow-spread-lg: 20px;
   --tron-glow-spread-xl: 40px;
-
-  /* Corner bracket dimensions */
-  --tron-corner-size: 16px;
+  --tron-corner-size: 12px;
   --tron-corner-thickness: 2px;
-
-  /* Border settings */
   --tron-border-width: 1px;
-
-  /* Animation durations */
   --tron-transition: 0.25s ease-out;
   --tron-pulse-duration: 2.5s;
-
-  /* Scanline settings */
   --tron-scanline-opacity: 0.04;
   --tron-scanline-gap: 3px;
-
-  /* Grid pattern settings */
   --tron-grid-size: 20px;
   --tron-grid-opacity: 0.03;
-
-  /* Dot matrix settings */
   --tron-dot-size: 1px;
   --tron-dot-gap: 8px;
-
-  /* Typography */
   --tron-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --tron-letter-spacing: 0.1em;
   --tron-letter-spacing-wide: 0.2em;
+  --tron-glow-intensity: 0.4;
+  --tron-border-glow: 0 0 var(--tron-glow-spread-sm) color-mix(in oklch, var(--glow) 40%, transparent);
+  --tron-hover-glow: 0 0 var(--tron-glow-spread-md) color-mix(in oklch, var(--glow) 60%, transparent);
+  --ui-lab-grid-opacity: 0.48;
+  --ui-lab-grid-opacity-multiplier: 1;
+  --ui-lab-grid-blur: 0px;
+}
 
-  /* Medium intensity values */
+[data-tron-intensity="none"] {
+  --tron-glow-spread-sm: 0px;
+  --tron-glow-spread-md: 0px;
+  --tron-glow-spread-lg: 0px;
+  --tron-glow-spread-xl: 0px;
+  --tron-corner-size: 0px;
+  --tron-glow-intensity: 0;
+  --tron-border-glow: none;
+  --tron-hover-glow: none;
+  --ui-lab-grid-opacity: 0.18;
+  --ui-lab-grid-opacity-multiplier: 1;
+  --ui-lab-grid-blur: 0px;
+}
+
+[data-tron-intensity="medium"] {
+  --tron-corner-size: 16px;
   --tron-glow-intensity: 0.7;
   --tron-border-glow:
     0 0 var(--tron-glow-spread-sm) var(--glow),
@@ -41,44 +49,115 @@
   --tron-hover-glow:
     0 0 var(--tron-glow-spread-md) var(--glow),
     0 0 var(--tron-glow-spread-lg) color-mix(in oklch, var(--glow-muted) 60%, transparent);
+  --ui-lab-grid-opacity: 0.58;
+  --ui-lab-grid-opacity-multiplier: 1;
+  --ui-lab-grid-blur: 0px;
 }
 
-/* Button glow effects */
-[data-slot="button"] {
+[data-tron-intensity="heavy"] {
+  --tron-corner-size: 20px;
+  --tron-glow-intensity: 1;
+  --tron-scanline-opacity: 0.05;
+  --tron-grid-opacity: 0.04;
+  --tron-border-glow:
+    0 0 var(--tron-glow-spread-sm) var(--glow),
+    0 0 var(--tron-glow-spread-md) var(--glow),
+    0 0 var(--tron-glow-spread-lg) color-mix(in oklch, var(--glow-muted) 40%, transparent);
+  --tron-hover-glow:
+    0 0 var(--tron-glow-spread-md) var(--glow),
+    0 0 var(--tron-glow-spread-lg) var(--glow),
+    0 0 var(--tron-glow-spread-xl) color-mix(in oklch, var(--glow-muted) 50%, transparent);
+  --ui-lab-grid-opacity: 0.72;
+  --ui-lab-grid-opacity-multiplier: 1;
+  --ui-lab-grid-blur: 0.5px;
+}
+
+[data-tron-intensity] [data-slot="button"] {
   box-shadow: var(--tron-border-glow);
   transition: box-shadow var(--tron-transition);
 }
 
-[data-slot="button"]:hover:not(:disabled) {
+[data-tron-intensity] [data-slot="button"]:hover:not(:disabled) {
   box-shadow: var(--tron-hover-glow);
 }
 
-/* Card glow effects */
-[data-slot="card"],
-[data-slot="tron-data-card"] {
+[data-tron-intensity] [data-slot="select-trigger"] {
+  box-shadow: var(--tron-border-glow);
+  transition: box-shadow var(--tron-transition), border-color var(--tron-transition), background-color var(--tron-transition);
+}
+
+[data-tron-intensity] [data-slot="select-trigger"]:hover:not(:disabled),
+[data-tron-intensity] [data-slot="select-trigger"][data-state="open"] {
+  box-shadow: var(--tron-hover-glow);
+}
+
+[data-tron-intensity] [data-slot="select-content"] {
+  box-shadow: var(--tron-hover-glow);
+}
+
+[data-tron-intensity] [data-slot="select-item"] {
+  transition: background-color var(--tron-transition), color var(--tron-transition), box-shadow var(--tron-transition);
+}
+
+[data-tron-intensity] [data-slot="select-item"]:hover,
+[data-tron-intensity] [data-slot="select-item"][data-highlighted] {
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--glow) 36%, transparent);
+}
+
+[data-tron-intensity] [data-slot="card"],
+[data-tron-intensity] [data-slot="tron-data-card"] {
   box-shadow: var(--tron-border-glow);
   transition: box-shadow var(--tron-transition);
 }
 
-[data-slot="card"]:hover,
-[data-slot="tron-data-card"]:hover {
+[data-tron-intensity] [data-slot="card"]:hover,
+[data-tron-intensity] [data-slot="tron-data-card"]:hover {
   box-shadow: var(--tron-hover-glow);
 }
 
-/* Input glow effects */
-[data-slot="input"]:focus,
-[data-slot="textarea"]:focus {
+[data-tron-intensity] [data-slot="input"]:focus,
+[data-tron-intensity] [data-slot="textarea"]:focus {
   box-shadow: var(--tron-hover-glow);
 }
 
-/* Alert glow effects */
-[data-slot="alert"],
-[data-slot="tron-alert"] {
+[data-tron-intensity] [data-slot="alert"],
+[data-tron-intensity] [data-slot="tron-alert"] {
   box-shadow: var(--tron-border-glow);
 }
 
-/* Dialog glow effects */
-[data-slot="dialog-content"],
-[data-slot="sheet-content"] {
+[data-tron-intensity] [data-slot="dialog-content"],
+[data-tron-intensity] [data-slot="sheet-content"] {
   box-shadow: var(--tron-hover-glow);
+}
+
+.ui-lab-grid-stage {
+  position: absolute;
+  inset: -12px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--ui-lab-grid-opacity);
+  filter: blur(var(--ui-lab-grid-blur));
+  transform: translateZ(0);
+}
+
+.ui-lab-grid-stage canvas {
+  display: block;
+}
+
+.ui-lab-grid-fade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 30%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 44%),
+    linear-gradient(180deg, transparent 0%, color-mix(in oklch, var(--background) 92%, transparent) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tron-intensity] [data-slot="button"],
+  [data-tron-intensity] [data-slot="select-trigger"],
+  [data-tron-intensity] [data-slot="select-item"],
+  [data-tron-intensity] [data-slot="card"],
+  [data-tron-intensity] [data-slot="tron-data-card"] {
+    transition-duration: 0.01ms;
+  }
 }
