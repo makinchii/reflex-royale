@@ -208,3 +208,36 @@ test("ui-lab imports only direct thegridcn components", () => {
   assert.doesNotMatch(pageSource, /@\/components\/input/);
   assert.doesNotMatch(pageSource, /@\/components\/badge/);
 });
+
+test("dashboard page renders a command center layout", () => {
+  const dashboardSource = fs.readFileSync(require.resolve("../src/app/dashboard/page.tsx"), "utf8");
+  const tabsSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-tabs.tsx"), "utf8");
+
+  assert.match(dashboardSource, /DashboardTabs/);
+  assert.match(dashboardSource, /AuthMenu/);
+  assert.match(tabsSource, /Playing/);
+  assert.match(tabsSource, /Analytics/);
+  assert.match(tabsSource, /Settings/);
+  assert.match(tabsSource, /Top Players/);
+  assert.match(tabsSource, /Recent Activity/);
+  assert.match(tabsSource, /Play Now!/);
+  assert.match(tabsSource, /useState/);
+});
+
+test("auth pages prevent credential query-string fallback", () => {
+  const authPageSource = fs.readFileSync(require.resolve("../src/components/app/auth-page.tsx"), "utf8");
+  const scriptSource = fs.readFileSync(require.resolve("../public/script.js"), "utf8");
+  const authRouteSource = fs.readFileSync(require.resolve("../routes/auth.js"), "utf8");
+
+  assert.match(authPageSource, /method="post"/);
+  assert.match(authPageSource, /action=\{mode === "signup" \? "\/api\/auth\/signup" : "\/api\/auth\/login"\}/);
+  assert.match(authPageSource, /minLength=\{3\}/);
+  assert.match(authPageSource, /maxLength=\{20\}/);
+  assert.match(authPageSource, /pattern="\[A-Za-z0-9_-\]\+"/);
+  assert.match(authPageSource, /minLength=\{8\}/);
+  assert.match(scriptSource, /USERNAME_PATTERN/);
+  assert.match(scriptSource, /MIN_PASSWORD_LENGTH/);
+  assert.match(authRouteSource, /USERNAME_PATTERN/);
+  assert.match(authRouteSource, /Password must be at least 8 characters/);
+  assert.match(authRouteSource, /That username is already taken/);
+});

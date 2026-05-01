@@ -25,6 +25,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --font-sans: var(--font-rajdhani), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-orbitron), system-ui, sans-serif;
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -54,6 +57,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-rajdhani), system-ui, sans-serif;
   }
 
   html:not([data-page-ready="true"]) body {
@@ -68,5 +72,258 @@
   h6 {
     letter-spacing: 0.05em;
     text-transform: uppercase;
+    font-family: var(--font-orbitron), system-ui, sans-serif;
+  }
+}
+
+@keyframes app-grid-sway {
+  0% {
+    transform: scale(1.04) translate3d(calc(var(--ui-lab-grid-sway-x, 0.25px) * -1), calc(var(--ui-lab-grid-sway-y, 0.12px) * -1), 0) rotate(calc(var(--ui-lab-grid-sway-rotate, 0.08deg) * -1));
+  }
+
+  100% {
+    transform: scale(1.05) translate3d(var(--ui-lab-grid-sway-x, 0.25px), var(--ui-lab-grid-sway-y, 0.12px), 0) rotate(var(--ui-lab-grid-sway-rotate, 0.08deg));
+  }
+}
+
+.font-display {
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+}
+
+.landing-title {
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+  font-weight: 900;
+  line-height: 0.86;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--primary);
+  text-shadow:
+    0 0 80px oklch(from var(--primary) l c h / 0.5),
+    0 0 160px oklch(from var(--primary) l c h / 0.3);
+}
+
+@media (max-width: 640px) {
+  .landing-title {
+    letter-spacing: 0.08em;
+  }
+}
+
+.app-grid-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 28%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 96%, black) 0%, var(--background) 100%);
+}
+
+.app-grid-background .ui-lab-grid-stage {
+  inset: -14%;
+  opacity: calc((var(--ui-lab-grid-opacity) + 0.12) * var(--ui-lab-grid-opacity-multiplier, 1));
+  animation: app-grid-sway var(--ui-lab-grid-sway-duration, 18s) ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.app-grid-background .ui-lab-grid-fade {
+  background:
+    radial-gradient(circle at 50% 38%, transparent 0%, color-mix(in oklch, var(--background) 10%, transparent) 52%, color-mix(in oklch, var(--background) 44%, transparent) 100%),
+    linear-gradient(90deg, color-mix(in oklch, var(--background) 22%, transparent) 0%, transparent 30%, transparent 70%, color-mix(in oklch, var(--background) 22%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 10%, transparent) 0%, color-mix(in oklch, var(--background) 50%, transparent) 100%);
+}
+
+.app-grid-3d {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes landing-frame-scan {
+  0% {
+    transform: translateX(-42%);
+    opacity: 0;
+  }
+
+  18%,
+  68% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(42%);
+    opacity: 0;
+  }
+}
+
+@keyframes landing-vertical-scan {
+  0% {
+    transform: translateY(-2px);
+  }
+
+  100% {
+    transform: translateY(100svh);
+  }
+}
+
+.landing-global-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.landing-global-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(color-mix(in oklch, var(--primary) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklch, var(--primary) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 3%, transparent) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, color-mix(in oklch, var(--primary) 4%, transparent) 0 1px, transparent 1px 3px);
+  background-size: 5rem 5rem, 5rem 5rem, 0.75rem 0.75rem, 0.75rem 0.75rem, 100% 3px;
+  opacity: 0.8;
+}
+
+.landing-global-grid::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 42%, transparent), transparent);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--primary) 32%, transparent);
+  animation: landing-vertical-scan 8s linear infinite;
+}
+
+.landing-shell {
+  --landing-frame-inset: 1rem;
+}
+
+.landing-page-frame {
+  position: absolute;
+  inset: var(--landing-frame-inset, 1rem);
+  z-index: 0;
+  border: 1px solid color-mix(in oklch, var(--primary) 22%, transparent);
+  pointer-events: none;
+}
+
+.landing-page-frame::before,
+.landing-page-frame::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background:
+    linear-gradient(var(--primary), var(--primary)) left top / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left top / 2px 9rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right top / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right top / 2px 9rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left bottom / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left bottom / 2px 9rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 2px 9rem no-repeat;
+  opacity: 0.52;
+}
+
+.landing-page-frame::after {
+  inset: 1.5rem;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 20%, transparent), transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 16%, transparent), transparent) bottom / 100% 1px no-repeat;
+  opacity: 1;
+}
+
+.landing-auth-anchor {
+  position: absolute;
+  right: calc(var(--landing-frame-inset, 1rem) + 0.625rem);
+  top: calc(var(--landing-frame-inset, 1rem) + 0.625rem);
+  z-index: 20;
+}
+
+.landing-footer-text {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--landing-frame-inset, 1rem) + 0.625rem);
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--primary) 88%, white 12%);
+  text-shadow: 0 0 12px color-mix(in oklch, var(--primary) 26%, transparent);
+}
+
+.landing-hero-frame {
+  position: absolute;
+  left: 50%;
+  top: clamp(17rem, 32svh, 22rem);
+  transform: translate(-50%, -50%);
+  width: min(calc(100vw - 2rem), 64rem);
+  height: clamp(18rem, 38svh, 30rem);
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, transparent);
+  background: color-mix(in oklch, var(--card) 12%, transparent);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.landing-hero-frame::before,
+.landing-hero-frame::after {
+  content: "";
+  position: absolute;
+  width: 2rem;
+  height: 2rem;
+  border-color: color-mix(in oklch, var(--primary) 68%, transparent);
+}
+
+.landing-hero-frame::before {
+  left: -1px;
+  top: -1px;
+  border-left-width: 2px;
+  border-top-width: 2px;
+}
+
+.landing-hero-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+}
+
+.landing-hero-frame__grid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(color-mix(in oklch, var(--primary) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 14%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 62%);
+  background-size: 2.25rem 2.25rem, 2.25rem 2.25rem, 100% 100%;
+  opacity: 0.56;
+}
+
+.landing-hero-frame__sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in oklch, var(--primary) 10%, transparent) 48%, color-mix(in oklch, var(--primary) 20%, transparent) 50%, color-mix(in oklch, var(--primary) 10%, transparent) 52%, transparent 100%);
+  animation: landing-frame-scan 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-grid-background .ui-lab-grid-stage {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+
+  .landing-hero-frame__sweep {
+    animation: none;
+  }
+
+  .landing-global-grid::after {
+    animation: none;
   }
 }

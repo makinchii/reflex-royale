@@ -28,20 +28,6 @@ export function PageReadyGate() {
     }
 
     async function revealWhenStable() {
-      if (document.readyState !== "complete") {
-        await new Promise<void>((resolve) => {
-          window.addEventListener("load", () => resolve(), { once: true });
-        });
-      }
-
-      if (document.fonts?.ready) {
-        try {
-          await document.fonts.ready;
-        } catch {
-          // Font readiness is a visual optimization; do not block forever on it.
-        }
-      }
-
       await waitForLegacyReady();
 
       frameId = window.requestAnimationFrame(() => {

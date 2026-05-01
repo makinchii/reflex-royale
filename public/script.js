@@ -1,4 +1,6 @@
 const AUTH_STORAGE_KEY = "reflexRoyaleAuth";
+const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,20}$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 function getNextPath() {
   const params = new URLSearchParams(window.location.search);
@@ -106,6 +108,22 @@ async function handleAuthSubmit(event, endpoint) {
   if (endpoint.includes("signup") && confirmPassword !== null && password !== confirmPassword) {
     if (messageElement) {
       messageElement.textContent = "Passwords do not match.";
+      messageElement.classList.add("error");
+    }
+    return;
+  }
+
+  if (!username || !USERNAME_PATTERN.test(username)) {
+    if (messageElement) {
+      messageElement.textContent = "Username must be 3-20 characters and use only letters, numbers, underscores, or hyphens.";
+      messageElement.classList.add("error");
+    }
+    return;
+  }
+
+  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+    if (messageElement) {
+      messageElement.textContent = "Password must be at least 8 characters.";
       messageElement.classList.add("error");
     }
     return;

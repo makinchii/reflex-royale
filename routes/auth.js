@@ -6,18 +6,42 @@ const { createSession, destroySession, getCurrentUser } = require("../lib/sessio
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
+const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,20}$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 function isDatabaseConnected() {
   return mongoose.connection.readyState === 1;
 }
 
-router.post("/signup", async (req, res) => {
-  const { username, password } = req.body;
+function normalizeUsername(username) {
+  return typeof username === "string" ? username.trim() : "";
+}
 
+function validateCredentials(username, password) {
   if (!username || !password) {
+    return "Username and password are required.";
+  }
+
+  if (!USERNAME_PATTERN.test(username)) {
+    return "Username must be 3-20 characters and use only letters, numbers, underscores, or hyphens.";
+  }
+
+  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+    return "Password must be at least 8 characters.";
+  }
+
+  return null;
+}
+
+router.post("/signup", async (req, res) => {
+  const username = normalizeUsername(req.body.username);
+  const { password } = req.body;
+  const validationError = validateCredentials(username, password);
+
+  if (validationError) {
     return res.status(400).json({
       success: false,
-      message: "Username and password are required."
+      message: validationError
     });
   }
 
@@ -56,7 +80,7 @@ router.post("/signup", async (req, res) => {
         });
       }
 
-      createSession(req, newUser);
+      createSession(req, res, newUser);
 
       return res.status(201).json({
         success: true,
@@ -73,7 +97,8 @@ router.post("/signup", async (req, res) => {
 });
 
 router.post("/login", async (req, res) => {
-  const { username, password } = req.body;
+  const username = normalizeUsername(req.body.username);
+  const { password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({
@@ -119,7 +144,7 @@ router.post("/login", async (req, res) => {
         });
       }
 
-      createSession(req, user);
+      createSession(req, res, user);
 
       return res.status(200).json({
         success: true,

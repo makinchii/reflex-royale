@@ -227,13 +227,13 @@ test("auth signup login and logout work end-to-end", async () => {
     const login = getRouteHandler(router, "post", "/login");
     const logout = getRouteHandler(router, "post", "/logout");
 
-    const signupResult = await invokeRoute(signup, { body: { username: "Ada", password: "secret" } });
+    const signupResult = await invokeRoute(signup, { body: { username: "Ada", password: "secret123" } });
     assert.equal(signupResult.res.statusCode, 201);
     assert.equal(signupResult.res.payload.success, true);
     assert.equal(signupResult.req.session.user.username, "Ada");
     assert.equal(users.length, 1);
 
-    const loginResult = await invokeRoute(login, { body: { username: "Ada", password: "secret" } });
+    const loginResult = await invokeRoute(login, { body: { username: "Ada", password: "secret123" } });
     assert.equal(loginResult.res.statusCode, 200);
     assert.equal(loginResult.res.payload.success, true);
     assert.equal(loginResult.req.session.user.username, "Ada");
@@ -252,7 +252,7 @@ test("auth rejects duplicate usernames", async () => {
 
   try {
     const signup = getRouteHandler(router, "post", "/signup");
-    const result = await invokeRoute(signup, { body: { username: "Ada", password: "secret" } });
+    const result = await invokeRoute(signup, { body: { username: "Ada", password: "secret123" } });
     assert.equal(result.res.statusCode, 409);
     assert.equal(result.res.payload.success, false);
   } finally {

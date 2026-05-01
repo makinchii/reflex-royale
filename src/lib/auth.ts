@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import crypto from "crypto";
 import mongoose from "mongoose";
 
@@ -8,7 +9,14 @@ export type AppAuthUser = {
   bestScore: number;
 };
 
+type SessionStoreDocument = {
+  _id: string;
+  session: unknown;
+};
+
 const SESSION_COOKIE_NAME = "connect.sid";
+const AUTH_COOKIE_NAME = "reflexRoyaleAuth";
+const SESSION_SECRET = process.env.SESSION_SECRET || "reflex-royale-dev-secret";
 
 function parseCookies(cookieHeader = "") {
   return cookieHeader
@@ -45,17 +53,60 @@ function unsignSessionCookie(value: string, secret: string) {
   return sessionId;
 }
 
-async function getSessionUserId() {
-  const requestHeaders = await headers();
-  const cookies = parseCookies(requestHeaders.get("cookie") || "");
-  const signedCookie = cookies[SESSION_COOKIE_NAME];
-  if (!signedCookie || !process.env.SESSION_SECRET) return null;
-
-  return unsignSessionCookie(signedCookie, process.env.SESSION_SECRET);
+function signPayload(payload: string) {
+  return crypto
+    .createHmac("sha256", SESSION_SECRET)
+    .update(payload)
+    .digest("base64url");
 }
 
-export async function getCurrentUser(): Promise<AppAuthUser | null> {
-  const sessionId = await getSessionUserId();
+function getSignedAuthUser(value: string): AppAuthUser | null {
+  const lastDot = value.lastIndexOf(".");
+  if (lastDot === -1) return null;
+
+  const payload = value.slice(0, lastDot);
+  const signature = value.slice(lastDot + 1);
+  const expected = signPayload(payload);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length) return null;
+  if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!parsed?.username) return null;
+    return {
+      username: String(parsed.username),
+      bestScore: Number(parsed.bestScore || 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getRequestCookies() {
+  const requestHeaders = await headers();
+  return parseCookies(requestHeaders.get("cookie") || "");
+}
+
+async function getSessionUserId(cookies: Record<string, string>) {
+  const signedCookie = cookies[SESSION_COOKIE_NAME];
+  if (!signedCookie) return null;
+
+  return unsignSessionCookie(signedCookie, SESSION_SECRET);
+}
+
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<AppAuthUser | null> {
+  const cookies = await getRequestCookies();
+  const signedAuthUser = cookies[AUTH_COOKIE_NAME]
+    ? getSignedAuthUser(cookies[AUTH_COOKIE_NAME])
+    : null;
+
+  if (signedAuthUser) {
+    return signedAuthUser;
+  }
+
+  const sessionId = await getSessionUserId(cookies);
   if (!sessionId) {
     return null;
   }
@@ -64,8 +115,10 @@ export async function getCurrentUser(): Promise<AppAuthUser | null> {
     return null;
   }
 
-  const sessions = mongoose.connection.db?.collection("sessions");
-  const sessionDoc = sessions ? await sessions.findOne({ _id: sessionId }) : null;
+  const sessions = mongoose.connection.db?.collection<SessionStoreDocument>("sessions");
+  const sessionDoc = sessions
+    ? await sessions.findOne({ _id: sessionId }, { projection: { _id: 0, session: 1 } })
+    : null;
   if (!sessionDoc) {
     return null;
   }
@@ -88,7 +141,7 @@ export async function getCurrentUser(): Promise<AppAuthUser | null> {
     username: user.username,
     bestScore: Number(user.bestScore || 0),
   };
-}
+});
 
 export async function requireCurrentUser(nextPath = "/dashboard") {
   const user = await getCurrentUser();

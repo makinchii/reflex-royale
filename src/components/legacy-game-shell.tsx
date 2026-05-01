@@ -6,16 +6,21 @@ import Script from "next/script";
 declare global {
   interface Window {
     mountAccountMenu?: (options?: { rootId?: string }) => void;
+    __reflexRoyaleLocalCleanup?: () => void;
     __reflexRoyaleRemoteCleanup?: () => void;
     __reflexRoyaleAccountMenuCleanup?: () => void;
     __reflexRoyaleLegacyReady?: boolean;
   }
 }
 
-export function RemotePlayShell() {
-  const [notificationsReady, setNotificationsReady] = useState(false);
+type LegacyGameShellProps = {
+  mode: "local" | "remote";
+};
+
+export function LegacyGameShell({ mode }: LegacyGameShellProps) {
+  const [notificationsReady, setNotificationsReady] = useState(mode === "local");
   const [accountMenuReady, setAccountMenuReady] = useState(false);
-  const [socketReady, setSocketReady] = useState(false);
+  const [socketReady, setSocketReady] = useState(mode === "local");
   const moduleVersion = useId().replace(/:/g, "");
 
   useEffect(() => {
@@ -34,11 +39,15 @@ export function RemotePlayShell() {
 
     return () => {
       window.removeEventListener("reflex-royale-legacy-ready", handleLegacyReady);
-      window.__reflexRoyaleRemoteCleanup?.();
+      if (mode === "local") {
+        window.__reflexRoyaleLocalCleanup?.();
+      } else {
+        window.__reflexRoyaleRemoteCleanup?.();
+      }
       window.__reflexRoyaleAccountMenuCleanup?.();
       window.__reflexRoyaleLegacyReady = false;
     };
-  }, []);
+  }, [mode]);
 
   return (
     <>
@@ -57,13 +66,11 @@ export function RemotePlayShell() {
           window.mountAccountMenu?.({ rootId: "account-menu-root" });
         }}
       />
-      <Script
-        src={`/socket.io/socket.io.js?v=${moduleVersion}`}
-        strategy="afterInteractive"
-        onLoad={() => setSocketReady(true)}
-      />
+      {mode === "remote" ? (
+        <Script src={`/socket.io/socket.io.js?v=${moduleVersion}`} strategy="afterInteractive" onLoad={() => setSocketReady(true)} />
+      ) : null}
       {notificationsReady && accountMenuReady && socketReady ? (
-        <Script src={`/js/remote.js?v=${moduleVersion}`} strategy="afterInteractive" type="module" />
+        <Script src={`/js/${mode}.js?v=${moduleVersion}`} strategy="afterInteractive" type="module" />
       ) : null}
     </>
   );

@@ -1,5 +1,5 @@
-import { LocalPlayShell } from "@/components/local-play-shell";
+import { LegacyGameShell } from "@/components/legacy-game-shell";
 
 export default function PlayPage() {
-  return <LocalPlayShell />;
+  return <LegacyGameShell mode="local" />;
 }
