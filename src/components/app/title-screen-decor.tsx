@@ -17,20 +17,61 @@ const terminalLines: TerminalLine[] = [
 ];
 
 function Radar({ className }: { className?: string }) {
+  const [rotation, setRotation] = useState(0);
   const targets = [
     { x: 66, y: 28, label: "A1" },
     { x: 34, y: 64, label: "B7" },
     { x: 73, y: 72, label: "C3" },
   ];
+  const sweepArcEnd = { x: 50 + 47 * Math.sin((-58 * Math.PI) / 180), y: 50 - 47 * Math.cos((-58 * Math.PI) / 180) };
+
+  useEffect(() => {
+    let frameId = 0;
+    let lastFrameAt = performance.now();
+
+    function animate(timestamp: number) {
+      const deltaTime = timestamp - lastFrameAt;
+      lastFrameAt = timestamp;
+      setRotation((value) => (value + deltaTime * 0.09) % 360);
+      frameId = requestAnimationFrame(animate);
+    }
+
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  function getTargetIntensity(targetX: number, targetY: number) {
+    const dx = targetX - 50;
+    const dy = targetY - 50;
+    let targetAngle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+    if (targetAngle < 0) targetAngle += 360;
+
+    let angleDiff = rotation - targetAngle;
+    if (angleDiff < 0) angleDiff += 360;
+
+    if (angleDiff < 95) return 1 - angleDiff / 95;
+    return 0;
+  }
 
   return (
     <div className={cn("relative h-72 w-72 overflow-hidden rounded-full border border-primary/40 bg-background/80 shadow-[0_0_36px_color-mix(in_oklch,var(--primary)_22%,transparent)] backdrop-blur-md", className)}>
       <svg viewBox="0 0 100 100" className="h-full w-full">
         <defs>
           <linearGradient id="titleRadarSweep" x1="100%" y1="0%" x2="0%" y2="0%">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.55" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.42" />
+            <stop offset="62%" stopColor="var(--primary)" stopOpacity="0.16" />
             <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
           </linearGradient>
+          <filter id="titleRadarGlow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="1.4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <clipPath id="titleRadarClip">
+            <circle cx="50" cy="50" r="47" />
+          </clipPath>
         </defs>
         <circle cx="50" cy="50" r="47" className="fill-primary/5 stroke-primary" strokeWidth="1" />
         {[12, 24, 36].map((r) => (
@@ -38,19 +79,32 @@ function Radar({ className }: { className?: string }) {
         ))}
         <line x1="50" y1="3" x2="50" y2="97" className="stroke-primary/20" strokeWidth="0.5" />
         <line x1="3" y1="50" x2="97" y2="50" className="stroke-primary/20" strokeWidth="0.5" />
-        <g className="origin-center animate-[spin_4s_linear_infinite]">
-          <path d="M 50 50 L 50 3 A 47 47 0 0 0 83 17 Z" fill="url(#titleRadarSweep)" />
-          <line x1="50" y1="50" x2="50" y2="3" className="stroke-primary" strokeWidth="1.3" strokeLinecap="round" />
-        </g>
-        <circle cx="50" cy="50" r="2" className="fill-primary" />
-        {targets.map((target) => (
-          <g key={target.label}>
-            <circle cx={target.x} cy={target.y} r="4" fill="none" className="stroke-red-500/80" strokeWidth="0.8" />
-            <circle cx={target.x} cy={target.y} r="1.7" className="fill-red-500" />
-            <text x={target.x + 6} y={target.y + 1.5} className="fill-red-500" fontSize="5" fontFamily="monospace">{target.label}</text>
+        <line x1="15" y1="15" x2="85" y2="85" className="stroke-primary/15" strokeWidth="0.5" />
+        <line x1="85" y1="15" x2="15" y2="85" className="stroke-primary/15" strokeWidth="0.5" />
+        <g clipPath="url(#titleRadarClip)">
+          <g style={{ transform: `rotate(${rotation}deg)`, transformOrigin: "50px 50px" }}>
+            <path d={`M 50 50 L 50 3 A 47 47 0 0 0 ${sweepArcEnd.x.toFixed(2)} ${sweepArcEnd.y.toFixed(2)} Z`} fill="url(#titleRadarSweep)" />
+            <line x1="50" y1="50" x2="50" y2="3" className="stroke-primary" strokeWidth="1.3" strokeLinecap="round" style={{ filter: "drop-shadow(0 0 2px var(--primary))" }} />
           </g>
-        ))}
+        </g>
+        <circle cx="50" cy="50" r="2" className="fill-primary" filter="url(#titleRadarGlow)" />
+        {targets.map((target) => {
+          const intensity = getTargetIntensity(target.x, target.y);
+          const baseOpacity = 0.28;
+          const opacity = baseOpacity + intensity * 0.72;
+
+          return (
+            <g key={target.label} style={{ opacity }}>
+              <circle cx={target.x} cy={target.y} r={4 + intensity * 1.8} fill="none" className="stroke-primary" strokeWidth="0.8" style={{ opacity: 0.44 + intensity * 0.5 }} filter={intensity > 0.22 ? "url(#titleRadarGlow)" : undefined} />
+              <circle cx={target.x} cy={target.y} r={1.7 + intensity * 0.8} className="fill-primary" filter={intensity > 0.22 ? "url(#titleRadarGlow)" : undefined} />
+              <text x={target.x + 6} y={target.y + 1.5} className="fill-primary" fontSize="5" fontFamily="monospace" style={{ opacity: 0.46 + intensity * 0.54 }}>{target.label}</text>
+            </g>
+          );
+        })}
         <text x="50" y="8" textAnchor="middle" className="fill-primary/70" fontSize="5" fontFamily="monospace">N</text>
+        <text x="50" y="96" textAnchor="middle" className="fill-primary/45" fontSize="5" fontFamily="monospace">S</text>
+        <text x="7" y="51.5" textAnchor="middle" className="fill-primary/45" fontSize="5" fontFamily="monospace">W</text>
+        <text x="93" y="51.5" textAnchor="middle" className="fill-primary/45" fontSize="5" fontFamily="monospace">E</text>
       </svg>
     </div>
   );
