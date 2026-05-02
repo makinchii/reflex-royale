@@ -2,6 +2,7 @@
  * remote.js - Client for server-authoritative online lobby play.
  */
 import { normalizeGameKey, renderHolographicKeyboard } from "./keyMap.js";
+import { recordRecentMatch } from "./recentMatches.js";
 
 const VERIFIER_KEY = "reflexRoyaleVerifier";
 const HOST_RECLAIM_KEY = "reflexRoyaleHostReclaimToken";
@@ -26,6 +27,8 @@ let hostReclaimToken = localStorage.getItem(HOST_RECLAIM_KEY) || "";
 let savedRoomCode = localStorage.getItem(ROOM_CODE_KEY) || "";
 let savedPlayerName = localStorage.getItem(PLAYER_NAME_KEY) || "";
 let autoReconnectEnabled = true;
+let matchRecorded = false;
+let matchStartedAt = 0;
 
 attemptAutoReconnect();
 window.__reflexRoyaleLegacyReady = true;
@@ -470,6 +473,10 @@ socket.on("removedFromLobby", () => {
 });
 
 socket.on("countdown", ({ remaining }) => {
+  if (!matchStartedAt) {
+    matchStartedAt = Date.now();
+    matchRecorded = false;
+  }
   renderMatchScreen(String(remaining), "off");
 });
 
@@ -526,6 +533,8 @@ socket.on("roundEnd", ({ roundNum, results }) => {
 });
 
 socket.on("gameOver", ({ standings }) => {
+  recordOnlineRecentMatch(standings || []);
+
   root.innerHTML = `
     <div class="game-over">
       <h1 class="winner-banner">🏆 ${esc(standings[0].name)} Wins! 🏆</h1>
@@ -558,6 +567,31 @@ socket.on("gameOver", ({ standings }) => {
   wireChatControls();
   renderChat(roomState?.chatMessages || []);
 });
+
+function recordOnlineRecentMatch(standings) {
+  if (matchRecorded) return;
+  const playerIndex = standings.findIndex((standing) => standing.id === myPlayerId);
+  if (playerIndex < 0) return;
+
+  const player = standings[playerIndex];
+  if (!player.avgTime) return;
+  const reactionTimes = (player.roundTimes || []).filter((time) => Number.isFinite(time) && time > 0);
+  const totalReactionTime = reactionTimes.reduce((total, time) => total + time, 0);
+  const matchDurationSeconds = matchStartedAt ? Math.max(1, Math.round((Date.now() - matchStartedAt) / 1000)) : 0;
+
+  matchRecorded = true;
+
+  recordRecentMatch({
+    averageReactionTime: player.avgTime,
+    falseStarts: player.falseStarts || 0,
+    matchDurationSeconds,
+    mode: "online",
+    place: playerIndex + 1,
+    reactions: reactionTimes.length,
+    totalReactionTime,
+  });
+  matchStartedAt = 0;
+}
 
 socket.on("roomClosed", ({ reason }) => {
   myPlayerId = null;

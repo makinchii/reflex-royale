@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "./navigate/navigate.css";
 @import "./game-shell.css";
+@import "./dashboard/dashboard.css";
 
 :root {
   --background: oklch(0.06 0.02 250);

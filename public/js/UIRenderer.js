@@ -18,6 +18,8 @@ export class UIRenderer {
   constructor(engine, root) {
     this.engine = engine;
     this.root   = root;
+    this.matchStartedAt = 0;
+    this.matchRecorded = false;
 
     this._bindEngineEvents();
     this.renderLobby();
@@ -256,6 +258,9 @@ export class UIRenderer {
   /* ───────── In-game screens ───────── */
 
   _onGameStarted() {
+    this.matchStartedAt = Date.now();
+    this.matchRecorded = false;
+
     // Build the split-screen arena
     const players = this.engine.getPlayers();
     const gridClass = `grid-${players.length}`;

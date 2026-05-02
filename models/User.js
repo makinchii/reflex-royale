@@ -18,6 +18,72 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    gamesPlayed: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    wins: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    currentWinStreak: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    bestWinStreak: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    falseStarts: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    reactions: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    totalReactionTime: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    timeSpentPlayingSeconds: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    recentMatches: {
+      type: [
+        {
+          mode: {
+            type: String,
+            enum: ["local", "online"],
+            required: true
+          },
+          place: {
+            type: Number,
+            required: true,
+            min: 1
+          },
+          averageReactionTime: {
+            type: Number,
+            required: true,
+            min: 1
+          },
+          playedAt: {
+            type: Date,
+            default: Date.now
+          }
+        }
+      ],
+      default: []
+    },
     lastLoginAt: {
       type: Date,
       default: null

@@ -91,8 +91,8 @@ export function NavigationScene({ canPlayOnline }: { canPlayOnline: boolean }) {
             )}
           </div>
           <div className="navigate-route-row navigate-route-row--exit">
-            <Link href="/" className="navigate-tab navigate-tab--exit">
-              <span>Exit</span>
+            <Link href={canPlayOnline ? "/dashboard" : "/"} className="navigate-tab navigate-tab--exit">
+              <span>{canPlayOnline ? "Dashboard" : "Exit"}</span>
             </Link>
           </div>
         </div>
