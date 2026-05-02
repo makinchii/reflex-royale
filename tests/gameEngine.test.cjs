@@ -73,6 +73,10 @@ function loadGameEngine(clock = new FakeClock()) {
 
   source = source.replace("export const GameState = Object.freeze({", "const GameState = Object.freeze({");
   source = source.replace("export class GameEngine {", "class GameEngine {");
+  source = source.replace(
+    'import { normalizeGameKey } from "./keyMap.js";\n',
+    "const { normalizeGameKey } = globalThis.__gameKeys;\n"
+  );
   source += "\nmodule.exports = { GameState, GameEngine };";
 
   const math = Object.create(Math);
@@ -88,7 +92,8 @@ function loadGameEngine(clock = new FakeClock()) {
     setTimeout: clock.setTimeout.bind(clock),
     setInterval: clock.setInterval.bind(clock),
     clearTimeout: clock.clearTimeout.bind(clock),
-    clearInterval: clock.clearInterval.bind(clock)
+    clearInterval: clock.clearInterval.bind(clock),
+    __gameKeys: require("../lib/gameKeys.cjs")
   };
 
   sandbox.globalThis = sandbox;
@@ -124,6 +129,34 @@ test("toggles ready state and rejects duplicate keys", () => {
 
   assert.equal(engine.confirmPlayerByKey("a"), true);
   assert.equal(engine.getPlayer("p1").ready, false);
+});
+
+test("normalizes shifted keys before storing and matching players", () => {
+  const { GameEngine } = loadGameEngine();
+  const engine = new GameEngine();
+
+  assert.equal(engine.addPlayer("p1", "Ada", "!"), true);
+  assert.equal(engine.getPlayer("p1").key, "1");
+  assert.equal(engine.addPlayer("p2", "Bea", "1"), false);
+  assert.equal(engine.confirmPlayerByKey("!"), true);
+  assert.equal(engine.getPlayer("p1").ready, true);
+  assert.equal(engine.findPlayerByKey("!"), "p1");
+  assert.equal(engine.addPlayer("p3", "Cal", "Enter"), false);
+});
+
+test("moves an unready player key to an empty normalized key", () => {
+  const { GameEngine } = loadGameEngine();
+  const engine = new GameEngine();
+
+  engine.addPlayer("p1", "Ada", "a");
+  engine.addPlayer("p2", "Bea", "b");
+
+  assert.equal(engine.movePlayerKey("p1", "!"), true);
+  assert.equal(engine.getPlayer("p1").key, "1");
+  assert.equal(engine.movePlayerKey("p1", "b"), false);
+
+  engine.confirmPlayerByKey("1");
+  assert.equal(engine.movePlayerKey("p1", "c"), false);
 });
 
 test("requires every player to be ready before starting", () => {

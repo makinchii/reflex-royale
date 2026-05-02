@@ -2,10 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, BarChart3, ChevronLeft, Gamepad2, Globe2, Power, RadioTower, Settings2, ShieldCheck, Timer, Trophy, UserRound, Zap } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, ChevronLeft, Gamepad2, Globe2, Power, RadioTower, Settings2, ShieldCheck, Timer, Trophy, UserRound, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { performLogout } from "@/components/app/auth-menu";
+import { AuthMenu, performLogout } from "@/components/app/auth-menu";
+import { playUiClick } from "@/lib/audio";
 import { Badge } from "@/components/thegridcn/badge";
 import { Button } from "@/components/thegridcn/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/thegridcn/card";
@@ -17,7 +18,7 @@ type LeaderboardEntry = {
   bestScore: number;
 };
 
-type TabId = "playing" | "analytics" | "settings" | "profile";
+type TabId = "play" | "analytics" | "settings" | "profile";
 
 type NavItem = {
   id: TabId;
@@ -39,7 +40,7 @@ function SidebarButton({ active, collapsed, icon, label, onClick }: { active: bo
       onClick={onClick}
       aria-selected={active}
       title={label}
-      className={`group relative grid h-10 w-full grid-cols-[5rem_minmax(0,1fr)] items-center overflow-hidden text-left transition-colors duration-300 ${
+      className={`group relative grid h-10 w-full grid-cols-[5rem_minmax(0,1fr)] items-center overflow-hidden text-left transition-[background-color,color,border-color,transform,box-shadow] duration-500 active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
         active
           ? "bg-primary/10 text-primary shadow-[inset_4px_0_0_var(--primary),0_0_26px_color-mix(in_oklch,var(--primary)_22%,transparent)]"
           : "text-muted-foreground hover:bg-primary/5 hover:text-primary"
@@ -64,10 +65,10 @@ export function DashboardTabs({
   onlineHref: string;
   topPlayers: LeaderboardEntry[];
 }) {
-  const [tab, setTab] = useState<TabId>("playing");
+  const [tab, setTab] = useState<TabId>("play");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const sectionRefs = useRef<Record<TabId, HTMLElement | null>>({
-    playing: null,
+    play: null,
     analytics: null,
     settings: null,
     profile: null,
@@ -76,7 +77,7 @@ export function DashboardTabs({
 
   const leaderboardRows = useMemo(() => Array.from({ length: 10 }, (_, index) => topPlayers[index] ?? null), [topPlayers]);
   const navItems: NavItem[] = [
-    { id: "playing", label: "Playing", icon: <Gamepad2 className="h-10 w-7" /> },
+    { id: "play", label: "Play Now", icon: <Gamepad2 className="h-10 w-7" /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-10 w-7" /> },
     { id: "settings", label: "Settings", icon: <Settings2 className="h-10 w-7" /> },
     { id: "profile", label: "Profile", icon: <UserRound className="h-10 w-7" /> },
@@ -111,17 +112,19 @@ export function DashboardTabs({
   }, []);
 
   function scrollToSection(id: TabId) {
+    playUiClick();
     setTab(id);
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  const sidebarClassName = `hidden overflow-hidden transition-[width] duration-300 ease-out md:flex md:flex-col md:rounded md:border md:border-primary/25 md:bg-background/80 md:backdrop-blur-xl ${
+    sidebarCollapsed ? "md:w-20" : "md:w-64"
+  }`;
+
   return (
     <div className="grid flex-1 items-stretch gap-5 md:grid-cols-[auto_minmax(0,1fr)]">
-      <aside
-        className={`hidden min-h-[calc(100svh-12rem)] overflow-hidden transition-[width] duration-300 ease-out md:flex md:flex-col md:rounded md:border md:border-primary/25 md:bg-background/80 md:backdrop-blur-xl ${
-          sidebarCollapsed ? "md:w-20" : "md:w-64"
-        }`}
-      >
+      <div className={`hidden transition-[width] duration-300 ease-out md:block ${sidebarCollapsed ? "md:w-20" : "md:w-64"}`}>
+      <aside className={`${sidebarClassName} md:fixed md:left-8 md:top-12 md:z-30 md:h-[calc(100svh-6rem)] md:max-h-[calc(100svh-6rem)] md:overflow-y-auto md:overflow-x-hidden`}>
         <div className="flex h-16 items-center border-b border-primary/20 p-2">
           {!sidebarCollapsed ? (
             <div className="flex flex-1 min-w-0 items-center gap-3 pl-1">
@@ -134,8 +137,11 @@ export function DashboardTabs({
           <button
             type="button"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => setSidebarCollapsed((value) => !value)}
-            className={`${sidebarCollapsed ? "w-full" : ""} flex items-center justify-center rounded p-1.5 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary`}
+            onClick={() => {
+              playUiClick();
+              setSidebarCollapsed((value) => !value);
+            }}
+            className={`${sidebarCollapsed ? "w-full" : ""} flex items-center justify-center rounded p-1.5 text-primary/70 transition-[background-color,color,transform] duration-500 active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 hover:bg-primary/10 hover:text-primary`}
           >
             <ChevronLeft className={`h-8 w-6 transition-transform duration-300 ${sidebarCollapsed ? "rotate-180" : "rotate-0"}`} />
           </button>
@@ -155,7 +161,7 @@ export function DashboardTabs({
         <div className="border-t border-primary/20 p-2">
           <Dialog>
             <DialogTrigger asChild>
-              <button type="button" className="group relative grid h-10 w-full grid-cols-[5rem_minmax(0,1fr)] items-center overflow-hidden text-left text-muted-foreground transition-colors duration-300 hover:bg-primary/5 hover:text-primary" title="Power options">
+              <button type="button" className="group relative grid h-10 w-full grid-cols-[5rem_minmax(0,1fr)] items-center overflow-hidden text-left text-muted-foreground transition-[background-color,color,transform] duration-500 active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 hover:bg-primary/5 hover:text-primary" title="Power options" onClick={() => playUiClick()}>
                 <span className="flex h-full w-15 items-center justify-center text-muted-foreground group-hover:text-primary"><Power className="h-8 w-6" /></span>
                 <span className={`truncate font-mono text-sm font-semibold tracking-[0.04em] transition-all duration-300 ${sidebarCollapsed ? "translate-x-2 opacity-0" : "translate-x-0 opacity-100"}`}>Retire</span>
               </button>
@@ -182,15 +188,34 @@ export function DashboardTabs({
           </Dialog>
         </div>
       </aside>
+      </div>
 
       <div className="flex flex-1 flex-col gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-primary/25 bg-card/15 px-4 py-2 backdrop-blur-xl">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded border border-primary/25 bg-primary/10 text-primary">
+              <Activity className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Reflex Royale Dashboard</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Protected command center</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="border-primary/30 text-primary">
+              Ready
+            </Badge>
+            <AuthMenu user={user} />
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2 rounded border border-primary/20 bg-card/15 p-2 md:hidden">
           {navItems.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => scrollToSection(item.id)}
-              className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.22em] transition-colors ${
+              className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[0.22em] transition-[background-color,color,border-color,transform] duration-500 active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
                 tab === item.id
                   ? "border-primary bg-primary/15 text-primary shadow-[0_0_18px_color-mix(in_oklch,var(--primary)_35%,transparent)]"
                   : "border-primary/20 bg-card/20 text-muted-foreground hover:border-primary/35 hover:text-primary"
@@ -203,12 +228,12 @@ export function DashboardTabs({
 
         <section
           ref={(el) => {
-            sectionRefs.current.playing = el;
+            sectionRefs.current.play = el;
           }}
-          data-section-id="playing"
+          data-section-id="play"
           className="scroll-mt-24 rounded border border-primary/20 bg-card/10 p-4"
         >
-          <div className="mb-4 border-b border-primary/20 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Playing</div>
+          <div className="mb-4 border-b border-primary/20 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Play Now</div>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(380px,0.85fr)]">
             <Card className="border-primary/35 bg-card/15 backdrop-blur-xl">
               <CardContent className="px-6 py-8 sm:px-10 sm:py-10">
@@ -224,12 +249,12 @@ export function DashboardTabs({
                 </div>
 
                 <div className="mt-40 flex flex-wrap gap-4">
-                  <Button asChild size="lg" className="h-24 min-w-[20rem] cursor-pointer border border-primary bg-primary/20 px-12 text-2xl font-bold uppercase tracking-[0.26em] text-primary shadow-[var(--tron-border-glow)] hover:bg-primary/30">
+                  <Button asChild size="lg" className="h-24 min-w-[20rem] cursor-pointer border border-primary bg-primary/20 px-12 text-3xl font-bold uppercase tracking-[0.26em] text-primary shadow-[var(--tron-border-glow)] hover:bg-primary/30">
                     <Link href={playNowHref}>Local Play</Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="h-24 min-w-[18rem] cursor-pointer border-primary/35 bg-card/30 px-10 text-xl font-semibold uppercase tracking-[0.22em] text-foreground/70 shadow-[var(--tron-border-glow)] hover:border-primary/60 hover:bg-primary/10 hover:text-primary">
+                  <Button asChild size="lg" variant="outline" className="h-24 min-w-[18rem] cursor-pointer border-primary/35 bg-card/30 px-10 text-3xl font-semibold uppercase tracking-[0.22em] text-foreground/70 shadow-[var(--tron-border-glow)] hover:border-primary/60 hover:bg-primary/10 hover:text-primary">
                     <Link href={onlineHref}>
-                      <Globe2 className="h-10 w-10" />
+                      <Globe2 className="h-20 w-20" />
                       Online Play
                     </Link>
                   </Button>
@@ -397,7 +422,7 @@ export function DashboardTabs({
                   <p className="mt-2 font-semibold text-foreground">Quick entry to local or online play.</p>
                   <div className="mt-4 grid gap-2">
                     <Button asChild variant="outline" className="w-full cursor-pointer font-mono uppercase tracking-[0.18em]">
-                      <Link href="/play">Local Play</Link>
+                      <Link href="/local">Local Play</Link>
                     </Button>
                     <Button asChild variant="outline" className="w-full cursor-pointer font-mono uppercase tracking-[0.18em]">
                       <Link href={onlineHref}>Online Play</Link>

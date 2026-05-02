@@ -86,8 +86,9 @@ function createApp(options = {}) {
     app.get("/signup", nextProxy);
     app.get("/login", nextProxy);
     app.get("/dashboard", nextProxy);
-    app.get("/play", nextProxy);
-    app.get("/play/online", nextProxy);
+    app.get("/navigate", nextProxy);
+    app.get("/local", nextProxy);
+    app.get("/online", nextProxy);
     app.get("/ui-lab", nextProxy);
   } else {
     app.get("/", (req, res) => {
@@ -106,16 +107,20 @@ function createApp(options = {}) {
       res.sendFile(path.join(__dirname, "views", "dashboard.html"));
     });
 
+    app.get("/navigate", (req, res) => {
+      res.sendFile(path.join(__dirname, "views", "index.html"));
+    });
+
     app.get("/leaderboard-page", (req, res) => {
       res.sendFile(path.join(__dirname, "views", "leaderboard.html"));
     });
 
     // ── Game routes ──
-    app.get("/play", (req, res) => {
+    app.get("/local", (req, res) => {
       res.sendFile(path.join(__dirname, "views", "game-local.html"));
     });
 
-    app.get("/play/online", (req, res) => {
+    app.get("/online", (req, res) => {
       res.sendFile(path.join(__dirname, "views", "game-remote.html"));
     });
   }

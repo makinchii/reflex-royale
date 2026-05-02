@@ -87,18 +87,18 @@
 - Notes:
   - Restored dev webpack cache disable (`config.cache = false`) to reduce recurring Windows dev chunk/cache corruption.
 
-- Local files: `src/app/ui-lab/page.tsx`, `public/ui-lab.css`
+- Local files: `src/app/ui-lab/page.tsx`, `src/app/ui-lab/ui-lab.css`
 - Source reference: GridCN primitives remain sourced in component files listed above.
 - Status: compatibility fallback
 - Notes:
-  - Added a direct stylesheet link (`/ui-lab.css`) on the `/ui-lab` page to avoid dependence on failing dev CSS chunk resolution.
+  - UI Lab styles now load through the route-local stylesheet imported by `src/app/ui-lab/layout.tsx`.
   - Added a CSS sentinel badge so style pipeline success/failure is immediately visible.
 
 ## Rollback reimplementation note
 - If styles disappear again after rollback, reapply these three items together:
   - `server.js`: keep `/static` proxied to Next request handler in Next frontend mode.
   - `next.config.js`: keep dev webpack cache disabled (`config.cache = false`).
-  - `src/app/ui-lab/page.tsx` + `public/ui-lab.css`: keep explicit `/ui-lab.css` link fallback and sentinel badge.
+  - `src/app/ui-lab/page.tsx` + `src/app/ui-lab/ui-lab.css`: keep the route-local stylesheet and sentinel badge.
 
 ## UI Lab direct GridCN sourcing pass (2026-04-28)
 - Source repo: `https://github.com/educlopez/thegridcn-ui` (branch `main`)

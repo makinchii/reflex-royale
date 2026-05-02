@@ -1,0 +1,248 @@
+.play-cockpit-shell {
+  --play-shell-inset-x: clamp(1rem, 2.5vw, 3rem);
+  --play-shell-inset-y: clamp(1rem, 2vw, 2rem);
+  padding: var(--play-shell-inset-y) var(--play-shell-inset-x);
+}
+
+.play-cockpit-shell > header {
+  margin-inline: clamp(0.25rem, 1vw, 1rem);
+}
+
+.play-command-banner {
+  display: grid;
+  grid-template-columns: auto minmax(16rem, 1fr) auto;
+  align-items: center;
+  column-gap: clamp(1rem, 2vw, 2rem);
+  row-gap: 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 24%, transparent);
+  background: color-mix(in oklch, var(--background) 45%, transparent);
+  padding: clamp(0.85rem, 1.4vw, 1.25rem);
+  box-shadow: 0 0 22px color-mix(in oklch, var(--primary) 12%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.play-command-banner__identity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.play-command-banner__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 38%, transparent);
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+  color: var(--primary);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
+.play-command-banner__summary {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding-inline: clamp(0.5rem, 1vw, 1rem);
+}
+
+.play-command-banner__telemetry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.play-command-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.play-command-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--primary);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  padding: 0.5rem 2.25rem;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: background-color 500ms ease, border-color 500ms ease, box-shadow 500ms ease, color 500ms ease, opacity 180ms ease, transform 120ms ease;
+}
+
+.play-command-button:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow:
+    0 0 18px color-mix(in oklch, var(--primary) 40%, transparent),
+    0 0 38px color-mix(in oklch, var(--primary) 22%, transparent);
+}
+
+.play-command-button:active {
+  transform: translateY(1px);
+}
+
+.play-command-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 36%, transparent);
+}
+
+.play-telemetry-chip {
+  display: flex;
+  min-width: 0;
+  min-height: 1.8rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
+  background: color-mix(in oklch, var(--card) 25%, transparent);
+  padding: 0.35rem 0.7rem;
+  backdrop-filter: blur(12px);
+}
+
+.game-hud-frame {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 520px;
+  min-width: 0;
+  margin-inline: clamp(1rem, 2.5vw, 3rem);
+  margin-bottom: clamp(1rem, 2.5vw, 2rem);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in oklch, var(--primary) 7%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 76%, transparent) 0%, color-mix(in oklch, var(--background) 86%, transparent) 100%);
+}
+
+.game-hud-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 2px, color-mix(in oklch, var(--primary) 3%, transparent) 2px, color-mix(in oklch, var(--primary) 3%, transparent) 4px),
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 7%, transparent) 0 1px, transparent 1px calc(100% - 1px), color-mix(in oklch, var(--primary) 7%, transparent) calc(100% - 1px));
+  opacity: 0.58;
+}
+
+.game-hud-frame::after {
+  content: "";
+  position: absolute;
+  inset: clamp(1.75rem, 3vw, 3rem) clamp(1.25rem, 2.5vw, 2.5rem);
+  pointer-events: none;
+  border-left: 1px solid color-mix(in oklch, var(--primary) 13%, transparent);
+  border-right: 1px solid color-mix(in oklch, var(--primary) 13%, transparent);
+}
+
+.game-hud-frame__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: clamp(2rem, 4vw, 4.5rem);
+}
+
+.game-hud-frame__rail {
+  position: absolute;
+  left: clamp(2rem, 6vw, 9rem);
+  right: clamp(2rem, 6vw, 9rem);
+  z-index: 2;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 48%, transparent), transparent);
+  box-shadow: 0 0 14px color-mix(in oklch, var(--primary) 20%, transparent);
+}
+
+.game-hud-frame__rail--top {
+  top: clamp(1.25rem, 2.4vw, 2rem);
+}
+
+.game-hud-frame__rail--bottom {
+  bottom: clamp(1.25rem, 2.4vw, 2rem);
+}
+
+.game-hud-frame__corner {
+  position: absolute;
+  z-index: 2;
+  width: clamp(2rem, 5vw, 5rem);
+  height: clamp(2rem, 5vw, 5rem);
+  pointer-events: none;
+  border-color: color-mix(in oklch, var(--primary) 44%, transparent);
+  filter: drop-shadow(0 0 9px color-mix(in oklch, var(--primary) 18%, transparent));
+}
+
+.game-hud-frame__corner--tl {
+  left: 0;
+  top: 0;
+  border-left-width: 2px;
+  border-top-width: 2px;
+}
+
+.game-hud-frame__corner--tr {
+  right: 0;
+  top: 0;
+  border-right-width: 2px;
+  border-top-width: 2px;
+}
+
+.game-hud-frame__corner--bl {
+  left: 0;
+  bottom: 0;
+  border-left-width: 2px;
+  border-bottom-width: 2px;
+}
+
+.game-hud-frame__corner--br {
+  right: 0;
+  bottom: 0;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+}
+
+
+@media (max-width: 760px) {
+  .play-cockpit-shell {
+    padding: 0.75rem;
+  }
+
+  .play-cockpit-shell > header,
+  .game-hud-frame {
+    margin-inline: 0;
+  }
+
+  .play-command-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .play-command-banner__summary {
+    padding-inline: 0;
+  }
+
+  .play-command-banner__actions {
+    justify-content: flex-start;
+  }
+
+  .game-hud-frame {
+    min-height: 620px;
+    margin-bottom: 0;
+  }
+
+  .game-hud-frame__content {
+    padding: 1.25rem;
+  }
+}

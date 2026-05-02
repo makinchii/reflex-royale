@@ -7,6 +7,7 @@
 
 const crypto = require("crypto");
 const { performance } = require("perf_hooks");
+const { normalizeGameKey } = require("../lib/gameKeys.cjs");
 
 const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
 const STALE_SLOT_MS = 60_000;
@@ -202,9 +203,15 @@ class RoomGame {
       return { ok: false, message: "Player not found." };
     }
 
-    const normalized = String(key || "").trim().toLowerCase();
-    if (!normalized || normalized.length !== 1) {
-      return { ok: false, message: "Pick a single keyboard key." };
+    const normalized = normalizeGameKey(String(key || "").trim());
+    if (!normalized) {
+      return { ok: false, message: "Pick a displayed keyboard key." };
+    }
+
+    for (const other of this.players.values()) {
+      if (other.id !== socketId && other.keyBinding === normalized) {
+        return { ok: false, message: "That key is already in use." };
+      }
     }
 
     player.keyBinding = normalized;
@@ -444,6 +451,7 @@ class RoomGame {
         isHost: player.isHost,
         keySet: Boolean(player.keyBinding),
         hasKeyBinding: Boolean(player.keyBinding),
+        keyBinding: player.keyBinding,
         isInLobbyView: player.isInLobbyView,
         lastSeenAt: player.lastSeenAt,
         joinedAt: player.joinedAt

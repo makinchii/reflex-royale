@@ -283,6 +283,14 @@ test("lobby join, chat, kick, blacklist, and host reclaim work", async () => {
     player.trigger("joinRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
 
     assert.ok(lastEvent(player, "roomJoined"));
+    player.trigger("bindKey", { key: "!" });
+    const bound = lastEvent(player, "keyBound");
+    assert.equal(bound.payload.key, "1");
+
+    player.trigger("bindKey", { key: "Enter" });
+    const invalidKey = lastEvent(player, "error");
+    assert.equal(invalidKey.payload.message, "Pick a displayed keyboard key.");
+
     host.trigger("sendChatMessage", { content: "Welcome" });
     const chat = lastEvent(player, "chatMessage");
     assert.equal(chat.payload.messages.at(-1).content, "Welcome");

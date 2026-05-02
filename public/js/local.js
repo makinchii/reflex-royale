@@ -6,6 +6,7 @@
  */
 
 import { GameEngine, GameState } from "./GameEngine.js";
+import { normalizeGameKey } from "./keyMap.js";
 import { UIRenderer } from "./UIRenderer.js";
 
 if (window.__reflexRoyaleLocalCleanup) {
@@ -27,7 +28,8 @@ function isTypingInLobby() {
 
 /* ── Keyboard listener ── */
 const handleKeyDown = (e) => {
-  const key = e.key.toLowerCase();
+  const key = normalizeGameKey(e.key);
+  if (!key) return;
 
   if (engine.state === GameState.LOBBY && !isTypingInLobby()) {
     const confirmed = engine.confirmPlayerByKey(key);

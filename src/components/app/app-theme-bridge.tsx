@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import type { Theme } from "@/components/theme";
 
 type Intensity = "none" | "light" | "medium" | "heavy";
@@ -25,6 +26,8 @@ function getCookie(name: string) {
 }
 
 export function AppThemeBridge({ theme = "tron", intensity = "light" }: { theme?: Theme; intensity?: Intensity }) {
+  const pathname = usePathname();
+
   useEffect(() => {
     const storedTheme = window.localStorage.getItem(THEME_KEY) ?? getCookie(THEME_KEY);
     const storedIntensity = window.localStorage.getItem(INTENSITY_KEY) ?? getCookie(INTENSITY_KEY);
@@ -35,7 +38,9 @@ export function AppThemeBridge({ theme = "tron", intensity = "light" }: { theme?
     document.documentElement.dataset.tronIntensity = nextIntensity;
     document.body.dataset.theme = nextTheme;
     document.body.dataset.tronIntensity = nextIntensity;
-  }, [theme, intensity]);
+
+    window.__reflexRoyaleSetFavicon?.();
+  }, [theme, intensity, pathname]);
 
   return null;
 }

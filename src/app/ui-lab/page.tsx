@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import UiLabClient from "./ui-lab-client";
 import { parseAtmosphere } from "./atmosphere";
+import { pageTitle } from "@/lib/site-metadata";
+
+export const metadata = {
+  title: pageTitle("UI Lab"),
+};
 
 export default async function UiLabPage() {
   const cookieStore = await cookies();

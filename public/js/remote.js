@@ -1,6 +1,7 @@
 /**
  * remote.js - Client for server-authoritative online lobby play.
  */
+import { normalizeGameKey, renderHolographicKeyboard } from "./keyMap.js";
 
 const VERIFIER_KEY = "reflexRoyaleVerifier";
 const HOST_RECLAIM_KEY = "reflexRoyaleHostReclaimToken";
@@ -82,6 +83,7 @@ function renderJoinScreen(message = "") {
 function renderLobby(state) {
   roomState = state;
   const currentPlayer = state.players.find((player) => player.id === myPlayerId);
+  selectedKey = normalizeGameKey(currentPlayer?.keyBinding || selectedKey || "") || null;
   const readyText = `${state.readyCount}/${Math.max(state.playerCount, 2)} ready`;
   const roundText = `Rounds: ${state.totalRounds}`;
   const waitingText = state.waitingFor?.length ? `Waiting for: ${state.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
@@ -90,12 +92,16 @@ function renderLobby(state) {
 
   root.innerHTML = `
     <div class="lobby">
-      <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
-      <p class="subtitle">Room ${esc(state.room)}</p>
-      <p id="roomHint" class="hint">${esc(readyText)} · ${esc(roundText)}</p>
-      <p id="waitingHint" class="hint">${esc(waitingText)}</p>
-      <div id="remotePlayerSlots" class="player-slots"></div>
-      ${isHost ? `<div id="hostRosterControls" class="game-over-actions"></div>` : ""}
+      <div class="lobby-layout-top">
+        <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
+        <p class="subtitle">Room ${esc(state.room)}</p>
+        <p id="roomHint" class="hint">${esc(readyText)} · ${esc(roundText)}</p>
+        <p id="waitingHint" class="hint">${esc(waitingText)}</p>
+        <div id="remotePlayerSlots" class="player-slots"></div>
+        ${isHost ? `<div id="hostRosterControls" class="game-over-actions"></div>` : ""}
+      </div>
+
+      <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
 
       <div class="chat-panel">
         <div id="chatMessages" class="chat-messages"></div>
@@ -112,20 +118,32 @@ function renderLobby(state) {
           <button id="readyBtn" class="btn btn-primary" ${canToggleReady ? "" : "disabled"}>${currentPlayer?.isReady ? "Unready" : canToggleReady ? "Ready Up" : "Set Key First"}</button>
           <button id="returnLobbyBtn" class="btn btn-secondary">${lobbyButtonText}</button>
         </div>
-        <p class="hint">Pick your buzzer key, then click the same key again to confirm ready.</p>
+        <p class="hint">Click a holographic key or press a character key, then set it. Press your assigned key to toggle ready.</p>
       </div>
 
       <div class="game-over-actions">
         ${isHost ? `
-          <label class="host-control">Round count
-            <input id="roundCountInput" type="number" min="1" max="20" value="${state.totalRounds}" />
-          </label>
+          <div class="host-control host-control--rounds">
+            <div data-slot="tron-slider" class="round-slider round-slider--host" aria-label="Round count slider">
+              <div class="round-slider__header">
+                <span class="round-control">Round count</span>
+                <span id="roundCountInputValue" class="round-slider__value">${state.totalRounds}</span>
+              </div>
+              <div class="round-slider__track-wrap">
+                <div data-slot="slider-track" class="round-slider__track"></div>
+                <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
+                <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
+                <input id="roundCountInput" class="round-slider__input" type="range" min="1" max="20" step="1" value="${state.totalRounds}" />
+              </div>
+            </div>
+          </div>
           <button id="applyRoundCountBtn" class="btn btn-secondary">Update Rounds</button>
-          <button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button>
           <button id="closeRoomBtn" class="btn btn-secondary">Close Room</button>
         ` : ""}
         <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
       </div>
+
+      ${isHost ? `<div class="lobby-layout-bottom"><button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button></div>` : ""}
     </div>
   `;
 
@@ -136,7 +154,7 @@ function renderLobby(state) {
   if (bindKeyBtn) {
     bindKeyBtn.addEventListener("click", () => {
       const input = document.getElementById("keyInput");
-      const key = input.value.trim().toLowerCase();
+      const key = normalizeGameKey(input.value.trim());
       if (!key) return showPageNotification("Pick a single key first.", "error");
       socket.emit("bindKey", { key });
     });
@@ -146,12 +164,14 @@ function renderLobby(state) {
   if (keyInput) {
     keyInput.addEventListener("keydown", (event) => {
       event.preventDefault();
-      keyInput.value = event.key.length === 1 ? event.key.toUpperCase() : "";
+      keyInput.value = normalizeGameKey(event.key).toUpperCase();
     });
     keyInput.addEventListener("input", () => {
-      keyInput.value = keyInput.value.slice(0, 1).toUpperCase();
+      keyInput.value = normalizeGameKey(keyInput.value).toUpperCase();
     });
   }
+
+  wireKeyboardKeys();
 
   const returnLobbyBtn = document.getElementById("returnLobbyBtn");
   if (returnLobbyBtn) returnLobbyBtn.addEventListener("click", () => socket.emit("requestLobbyView"));
@@ -175,6 +195,26 @@ function renderLobby(state) {
     });
   }
 
+  const roundCountInput = document.getElementById("roundCountInput");
+  const roundCountInputValue = document.getElementById("roundCountInputValue");
+  if (roundCountInput) {
+    const updateRoundSlider = () => {
+      const min = Number(roundCountInput.min || 1);
+      const max = Number(roundCountInput.max || 20);
+      const current = Number(roundCountInput.value || 1);
+      const percent = ((current - min) / (max - min)) * 100;
+
+      if (roundCountInputValue) roundCountInputValue.textContent = String(current);
+      const range = document.querySelector('[data-slot="slider-range"]');
+      const thumb = document.querySelector('[data-slot="slider-thumb"]');
+      if (range) range.style.width = `${percent}%`;
+      if (thumb) thumb.style.left = `${percent}%`;
+    };
+
+    roundCountInput.addEventListener("input", updateRoundSlider);
+    updateRoundSlider();
+  }
+
   const closeBtn = document.getElementById("closeRoomBtn");
   if (closeBtn) closeBtn.addEventListener("click", () => socket.emit("closeRoom"));
 
@@ -188,11 +228,8 @@ function renderRoster(players) {
   if (!container) return;
 
   container.innerHTML = players.map((player) => `
-    <div class="player-slot" style="border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
+    <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
       <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
-      ${player.isHost ? '<span class="you-tag">HOST</span>' : ''}
-      ${player.id === myPlayerId ? '<span class="you-tag">YOU</span>' : ''}
-      <span class="ready-state">${player.connected ? (player.isReady ? "Ready" : "Not ready") : "Disconnected"}</span>
     </div>
   `).join("");
 }
@@ -370,7 +407,7 @@ socket.on("roomState", (state) => {
 });
 
 socket.on("keyBound", ({ key }) => {
-  selectedKey = key;
+  selectedKey = normalizeGameKey(key);
   if (roomState && (roomState.status === "waiting_for_players" || roomState.status === "ready_check")) {
     renderLobby(roomState);
   }
@@ -548,8 +585,11 @@ const handleKeyDown = (e) => {
     return;
   }
 
+  const key = normalizeGameKey(e.key);
+  if (!key) return;
+
   if (roomState && (roomState.status === "waiting_for_players" || roomState.status === "ready_check") && selectedKey) {
-    if (e.key.toLowerCase() === selectedKey) {
+    if (key === selectedKey) {
       e.preventDefault();
       socket.emit("toggleReady");
     }
@@ -558,11 +598,69 @@ const handleKeyDown = (e) => {
 
   if (!roomState || (roomState.status !== "countdown" && roomState.status !== "waiting" && roomState.status !== "react")) return;
 
-  if (selectedKey && e.key.toLowerCase() === selectedKey) {
+  if (selectedKey && key === selectedKey) {
     e.preventDefault();
     socket.emit("playerInput");
   }
 };
+
+function wireKeyboardKeys() {
+  const keyInput = document.getElementById("keyInput");
+  if (!keyInput) return;
+
+  document.querySelectorAll(".holo-key").forEach((button) => {
+    button.addEventListener("click", () => {
+      keyInput.value = normalizeGameKey(button.dataset.key || "").toUpperCase();
+      keyInput.focus();
+    });
+
+    button.addEventListener("dragstart", (event) => {
+      if (button.dataset.draggable !== "true") {
+        event.preventDefault();
+        return;
+      }
+
+      button.classList.add("holo-key--dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", button.dataset.key || "");
+      event.dataTransfer.setData("application/x-player-color", button.style.getPropertyValue("--key-color"));
+    });
+
+    button.addEventListener("dragend", () => {
+      button.classList.remove("holo-key--dragging");
+      document.querySelectorAll(".holo-key--drop-target").forEach((key) => {
+        key.classList.remove("holo-key--drop-target");
+        key.style.removeProperty("--drop-color");
+      });
+    });
+
+    button.addEventListener("dragover", (event) => {
+      if (button.dataset.occupied === "true") return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      button.style.setProperty("--drop-color", event.dataTransfer.getData("application/x-player-color"));
+      button.classList.add("holo-key--drop-target");
+    });
+
+    button.addEventListener("dragleave", () => {
+      button.classList.remove("holo-key--drop-target");
+      button.style.removeProperty("--drop-color");
+    });
+
+    button.addEventListener("drop", (event) => {
+      event.preventDefault();
+      button.classList.remove("holo-key--drop-target");
+      button.style.removeProperty("--drop-color");
+
+      const targetKey = normalizeGameKey(button.dataset.key || "");
+      if (!targetKey || button.dataset.occupied === "true") return;
+
+      keyInput.value = targetKey.toUpperCase();
+      selectedKey = targetKey;
+      socket.emit("bindKey", { key: targetKey });
+    });
+  });
+}
 
 const handleTouchStart = (e) => {
   if (!roomState || (roomState.status !== "countdown" && roomState.status !== "waiting" && roomState.status !== "react")) return;

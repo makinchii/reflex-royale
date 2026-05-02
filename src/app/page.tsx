@@ -1,85 +1,27 @@
 import { cookies } from "next/headers";
-import mongoose from "mongoose";
 import Link from "next/link";
 import { AuthMenu } from "@/components/app/auth-menu";
 import { GridBackground } from "@/components/app/grid-background";
+import { Reticle, TitleScreenDecor } from "@/components/app/title-screen-decor";
 import { parseAtmosphere } from "@/app/ui-lab/atmosphere";
 import { getCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/thegridcn/button";
 import { Card, CardContent } from "@/components/thegridcn/card";
-import type { Theme } from "@/components/theme";
+import { getTopPlayers } from "@/lib/leaderboard";
+import { pageTitle } from "@/lib/site-metadata";
+import { parseIntensity, parseTheme, safeDecode } from "@/lib/ui-preferences";
 
 export const dynamic = "force-dynamic";
 
-function parseTheme(value: string | undefined): Theme {
-  return value === "ares" || value === "clu" || value === "athena" || value === "aphrodite" || value === "poseidon" ? value : "tron";
-}
-
-function parseIntensity(value: string | undefined) {
-  return value === "none" || value === "medium" || value === "heavy" ? value : "light";
-}
-
-function safeDecode(value: string | undefined) {
-  if (!value) return value;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-type LeaderboardEntry = {
-  username: string;
-  bestScore: number;
+export const metadata = {
+  title: pageTitle("Landing"),
 };
-
-async function getTopPlayers(): Promise<LeaderboardEntry[]> {
-  if (mongoose.connection.readyState !== 1) {
-    return [];
-  }
-
-  const users = mongoose.connection.db?.collection("users");
-  if (!users) {
-    return [];
-  }
-
-  const leaderboard = await users
-    .aggregate<LeaderboardEntry>([
-      {
-        $project: {
-          username: 1,
-          bestScore: { $ifNull: ["$bestScore", 0] },
-          hasScore: {
-            $cond: [{ $gt: [{ $ifNull: ["$bestScore", 0] }, 0] }, 0, 1],
-          },
-        },
-      },
-      {
-        $sort: {
-          hasScore: 1,
-          bestScore: 1,
-          username: 1,
-        },
-      },
-      { $limit: 5 },
-      {
-        $project: {
-          _id: 0,
-          username: 1,
-          bestScore: 1,
-        },
-      },
-    ])
-    .toArray();
-
-  return leaderboard;
-}
 
 export default async function HomePage() {
   const cookieStore = await cookies();
   const user = await getCurrentUser();
-  const playNowHref = "/dashboard";
-  const topPlayers = await getTopPlayers();
+  const playNowHref = "/navigate";
+  const topPlayers = await getTopPlayers(5);
   const leaderboardRows = Array.from({ length: 10 }, (_, i) => topPlayers[i] ?? null);
   const theme = parseTheme(cookieStore.get("ui-lab-theme")?.value);
   const intensity = parseIntensity(cookieStore.get("ui-lab-intensity")?.value);
@@ -90,6 +32,7 @@ export default async function HomePage() {
       <GridBackground theme={theme} intensity={intensity} atmosphere={atmosphere} />
       <div className="landing-global-grid" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-px bg-primary/40" />
+      <TitleScreenDecor />
 
       <section className="landing-shell relative z-10 flex h-svh w-full flex-col px-4 pb-6 pt-6">
         <div className="landing-page-frame" aria-hidden="true" />
@@ -98,6 +41,7 @@ export default async function HomePage() {
         </div>
         <div className="relative z-[1] mx-auto mt-16 w-full max-w-5xl text-center">
           <Card className="relative mx-auto flex min-h-[34svh] w-full items-center justify-center overflow-hidden border-primary/45 bg-transparent py-0 shadow-none backdrop-blur-0 lg:min-h-[38svh]">
+              <Reticle />
               <div className="pointer-events-none absolute left-0 top-0 h-7 w-7 border-l border-t border-primary/70" />
               <div className="pointer-events-none absolute right-0 top-0 h-7 w-7 border-r border-t border-primary/70" />
               <div className="pointer-events-none absolute bottom-0 left-0 h-7 w-7 border-b border-l border-primary/70" />

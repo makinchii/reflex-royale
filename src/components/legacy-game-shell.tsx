@@ -15,11 +15,12 @@ declare global {
 
 type LegacyGameShellProps = {
   mode: "local" | "remote";
+  showAccountMenu?: boolean;
 };
 
-export function LegacyGameShell({ mode }: LegacyGameShellProps) {
+export function LegacyGameShell({ mode, showAccountMenu = true }: LegacyGameShellProps) {
   const [notificationsReady, setNotificationsReady] = useState(mode === "local");
-  const [accountMenuReady, setAccountMenuReady] = useState(false);
+  const [accountMenuReady, setAccountMenuReady] = useState(!showAccountMenu);
   const [socketReady, setSocketReady] = useState(mode === "local");
   const moduleVersion = useId().replace(/:/g, "");
 
@@ -52,20 +53,22 @@ export function LegacyGameShell({ mode }: LegacyGameShellProps) {
   return (
     <>
       <link rel="stylesheet" href="/game.css" />
-      <div data-wait-for-legacy-ready="true">
-        <div id="account-menu-root" className="account-menu-root" suppressHydrationWarning />
+      <div data-wait-for-legacy-ready="true" className="flex min-h-0 w-full flex-1">
+        {showAccountMenu ? <div id="account-menu-root" className="account-menu-root" suppressHydrationWarning /> : null}
         <div id="game-root" suppressHydrationWarning />
       </div>
 
       <Script src={`/js/pageNotifications.js?v=${moduleVersion}`} strategy="afterInteractive" onLoad={() => setNotificationsReady(true)} />
-      <Script
-        src={`/js/accountMenu.js?v=${moduleVersion}`}
-        strategy="afterInteractive"
-        onLoad={() => {
-          setAccountMenuReady(true);
-          window.mountAccountMenu?.({ rootId: "account-menu-root" });
-        }}
-      />
+      {showAccountMenu ? (
+        <Script
+          src={`/js/accountMenu.js?v=${moduleVersion}`}
+          strategy="afterInteractive"
+          onLoad={() => {
+            setAccountMenuReady(true);
+            window.mountAccountMenu?.({ rootId: "account-menu-root" });
+          }}
+        />
+      ) : null}
       {mode === "remote" ? (
         <Script src={`/socket.io/socket.io.js?v=${moduleVersion}`} strategy="afterInteractive" onLoad={() => setSocketReady(true)} />
       ) : null}
