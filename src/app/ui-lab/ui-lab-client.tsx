@@ -543,16 +543,25 @@ function UiLabContent({
                 </Dialog>
               </ComponentSpecimen>
 
-              <ComponentSpecimen label="Component: Toast" description="Notification variants for status, warning, and error states.">
-                <div className="ui-lab-row">
-                  <Button onClick={() => addToast({ title: "Connected", description: "Live room sync active", variant: "success" })}>
-                    Success Toast
+              <ComponentSpecimen label="Component: Toast" description="Notification variants and online error examples.">
+                <div className="ui-lab-notification-actions">
+                  <Button variant="outline" onClick={() => addToast({ title: "Info", description: "Room sync heartbeat received", variant: "info" })}>
+                    Info
                   </Button>
-                  <Button variant="outline" onClick={() => addToast({ title: "Heads up", description: "A player reconnected", variant: "warning" })}>
-                    Warning Toast
+                  <Button onClick={() => addToast({ title: "Connected", description: "Live room sync active", variant: "success" })}>
+                    Success
+                  </Button>
+                  <Button variant="secondary" onClick={() => addToast({ title: "Heads up", description: "A player reconnected", variant: "warning" })}>
+                    Warning
                   </Button>
                   <Button variant="ghost" onClick={() => addToast({ title: "Error", description: "Socket timeout", variant: "error" })}>
-                    Error Toast
+                    Error
+                  </Button>
+                  <Button variant="outline" onClick={() => addToast({ title: "Room Not Found", description: "This room is no longer available.", variant: "error" })}>
+                    Room Not Found
+                  </Button>
+                  <Button variant="outline" onClick={() => addToast({ title: "Removed", description: "You were kicked from this lobby.", variant: "error" })}>
+                    Kicked
                   </Button>
                 </div>
               </ComponentSpecimen>

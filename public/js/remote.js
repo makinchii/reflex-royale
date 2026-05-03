@@ -1,14 +1,14 @@
 /**
  * remote.js - Client for server-authoritative online lobby play.
  */
-import { normalizeGameKey, renderHolographicKeyboard } from "./keyMap.js";
+import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyboardInputHighlights } from "./keyMap.js";
 import { recordRecentMatch } from "./recentMatches.js";
 
 const VERIFIER_KEY = "reflexRoyaleVerifier";
 const HOST_RECLAIM_KEY = "reflexRoyaleHostReclaimToken";
 const ROOM_CODE_KEY = "reflexRoyaleRoomCode";
 const PLAYER_NAME_KEY = "reflexRoyalePlayerName";
-const CHAT_LIMIT = 280;
+const CHAT_LIMIT = 250;
 
 if (window.__reflexRoyaleRemoteCleanup) {
   window.__reflexRoyaleRemoteCleanup();
@@ -29,6 +29,8 @@ let savedPlayerName = localStorage.getItem(PLAYER_NAME_KEY) || "";
 let autoReconnectEnabled = true;
 let matchRecorded = false;
 let matchStartedAt = 0;
+let pendingJoinSource = null;
+let roomEntryMode = "join";
 
 attemptAutoReconnect();
 window.__reflexRoyaleLegacyReady = true;
@@ -37,6 +39,7 @@ window.dispatchEvent(new Event("reflex-royale-legacy-ready"));
 function attemptAutoReconnect() {
   if (autoReconnectEnabled && savedRoomCode && savedPlayerName) {
     renderJoinScreen();
+    pendingJoinSource = "auto";
     socket.emit("joinRoom", {
       name: savedPlayerName,
       room: savedRoomCode,
@@ -50,37 +53,102 @@ function attemptAutoReconnect() {
 }
 
 function renderJoinScreen(message = "") {
+  const isCreateMode = roomEntryMode === "create";
   root.innerHTML = `
     <div class="lobby">
       <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
       <p class="subtitle">Online Mode — Join a Room</p>
-      <div class="lobby-form">
-        <div class="input-row">
-          <input id="roomCode" type="text" placeholder="Room code" maxlength="6" autocomplete="off" />
-          <input id="playerName" type="text" placeholder="Your name" maxlength="12" autocomplete="off" />
-          <button id="joinBtn" class="btn btn-primary">Join</button>
-        </div>
-        <p class="hint">Share the room code with friends so they can join on their own devices.</p>
-        <button id="createRoomBtn" class="btn btn-secondary">Create New Room</button>
+      <div class="room-entry-tabs" role="tablist" aria-label="Room entry mode">
+        <button id="createTabBtn" type="button" class="room-entry-tab ${isCreateMode ? "room-entry-tab--active" : ""}" role="tab" aria-selected="${isCreateMode}">Create</button>
+        <button id="joinTabBtn" type="button" class="room-entry-tab ${!isCreateMode ? "room-entry-tab--active" : ""}" role="tab" aria-selected="${!isCreateMode}">Join</button>
       </div>
+      <div class="lobby-form">
+        <div class="online-entry-grid">
+          <div class="input-row input-row--online-entry ${isCreateMode ? "input-row--create-room" : ""}">
+            ${isCreateMode ? "" : `<input id="roomCode" type="text" placeholder="Room code" maxlength="6" autocomplete="off" />`}
+            <input id="playerName" type="text" placeholder="Your name" maxlength="12" autocomplete="off" />
+            ${isCreateMode ? `<button id="createRoomBtn" class="btn btn-primary">Create Room</button>` : `<button id="joinBtn" class="btn btn-primary">Join</button>`}
+          </div>
+        </div>
+        <p class="hint">${isCreateMode ? "Create a room, then share the generated room code with friends." : "Enter a room code from the host, then join on your own device."}</p>
+      </div>
+      <div id="holoKeyboardMount">${renderHolographicKeyboard([], { title: "ROOM ENTRY MATRIX" })}</div>
     </div>
   `;
 
-  document.getElementById("createRoomBtn").addEventListener("click", () => {
+  const roomInput = document.getElementById("roomCode");
+  const nameInput = document.getElementById("playerName");
+  wireInputKeyboardHighlights([roomInput, nameInput]);
+  wireEntryKeyboardKeys([roomInput, nameInput]);
+
+  document.getElementById("createTabBtn").addEventListener("click", () => {
+    roomEntryMode = "create";
+    renderJoinScreen();
+  });
+
+  document.getElementById("joinTabBtn").addEventListener("click", () => {
+    roomEntryMode = "join";
+    renderJoinScreen();
+  });
+
+  const createRoomBtn = document.getElementById("createRoomBtn");
+  const createRoom = () => {
     const name = document.getElementById("playerName").value.trim();
     if (!name) return showPageNotification("Enter your name first.", "error");
     localStorage.setItem(PLAYER_NAME_KEY, name);
     socket.emit("createRoom", { name, verifier });
-  });
+  };
+  if (createRoomBtn) createRoomBtn.addEventListener("click", createRoom);
 
-  document.getElementById("joinBtn").addEventListener("click", () => {
+  const joinBtn = document.getElementById("joinBtn");
+  const joinRoom = () => {
     const name = document.getElementById("playerName").value.trim();
     const room = document.getElementById("roomCode").value.trim().toUpperCase();
     if (!name || !room) return showPageNotification("Enter both name and room code.", "error");
     localStorage.setItem(PLAYER_NAME_KEY, name);
     localStorage.setItem(ROOM_CODE_KEY, room);
+    pendingJoinSource = "manual";
     socket.emit("joinRoom", { name, room, verifier, hostReclaimToken });
+  };
+  if (joinBtn) joinBtn.addEventListener("click", joinRoom);
+
+  [roomInput, nameInput].filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      if (isCreateMode) {
+        createRoom();
+        return;
+      }
+      joinRoom();
+    });
   });
+}
+
+function clearSavedRoom() {
+  localStorage.removeItem(ROOM_CODE_KEY);
+  localStorage.removeItem(HOST_RECLAIM_KEY);
+  savedRoomCode = "";
+  hostReclaimToken = "";
+}
+
+function renderChatPanel() {
+  return `
+    <section class="chat-panel chat-panel--terminal" aria-label="Room chat terminal">
+      <div class="chat-terminal-bar" aria-hidden="true">
+        <span class="chat-terminal-led"></span>
+        <span>CHAT://ROOM</span>
+        <span class="chat-terminal-status">LIVE</span>
+      </div>
+      <div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+      <div class="input-row chat-command-row">
+        <span class="chat-prompt" aria-hidden="true">&gt;</span>
+        <input id="chatInput" type="text" placeholder="Press Enter to chat" maxlength="${CHAT_LIMIT}" autocomplete="off" aria-label="Chat message" />
+        <span id="chatCharCounter" class="chat-char-counter" aria-live="polite">${CHAT_LIMIT}</span>
+        <button id="sendChatBtn" class="btn btn-secondary">Send</button>
+      </div>
+    </section>
+  `;
 }
 
 function renderLobby(state) {
@@ -106,13 +174,7 @@ function renderLobby(state) {
 
       <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
 
-      <div class="chat-panel">
-        <div id="chatMessages" class="chat-messages"></div>
-        <div class="input-row">
-          <input id="chatInput" type="text" placeholder="Send a message" maxlength="${CHAT_LIMIT}" autocomplete="off" />
-          <button id="sendChatBtn" class="btn btn-secondary">Send</button>
-        </div>
-      </div>
+      ${renderChatPanel()}
 
       <div class="lobby-form">
         <div class="input-row">
@@ -171,7 +233,9 @@ function renderLobby(state) {
     });
     keyInput.addEventListener("input", () => {
       keyInput.value = normalizeGameKey(keyInput.value).toUpperCase();
+      syncKeyboardInputHighlights(root, keyInput.value);
     });
+    wireInputKeyboardHighlights([keyInput]);
   }
 
   wireKeyboardKeys();
@@ -256,11 +320,12 @@ function renderHostControls(players) {
 function renderChat(messages = []) {
   const container = document.getElementById("chatMessages");
   if (!container) return;
+  const playerColors = new Map((roomState?.players || []).map((player) => [player.id, player.color]));
 
   container.innerHTML = messages.length
     ? messages.map((message) => `
       <div class="chat-message">
-        <span class="chat-sender">${esc(message.senderName || "Player")}</span>
+        <span class="chat-sender" style="--chat-sender-color: ${esc(playerColors.get(message.senderPlayerId) || message.senderColor || "var(--primary, #68e8ff)")}">${esc(message.senderName || "Player")}:</span>
         <span class="chat-content">${esc(message.content)}</span>
       </div>
     `).join("")
@@ -271,13 +336,20 @@ function renderChat(messages = []) {
 function wireChatControls() {
   const chatInput = document.getElementById("chatInput");
   const sendChatBtn = document.getElementById("sendChatBtn");
+  const chatCharCounter = document.getElementById("chatCharCounter");
   if (!chatInput || !sendChatBtn) return;
+
+  const updateCounter = () => {
+    if (!chatCharCounter) return;
+    chatCharCounter.textContent = String(CHAT_LIMIT - chatInput.value.length);
+  };
 
   const sendChat = () => {
     const content = chatInput.value.trim();
     if (!content) return;
     socket.emit("sendChatMessage", { content });
     chatInput.value = "";
+    updateCounter();
   };
 
   chatInput.addEventListener("keydown", (event) => {
@@ -287,7 +359,18 @@ function wireChatControls() {
     }
   });
 
+  chatInput.addEventListener("input", updateCounter);
   sendChatBtn.addEventListener("click", sendChat);
+  updateCounter();
+}
+
+function focusChatInputFromShortcut() {
+  const chatInput = document.getElementById("chatInput");
+  if (!chatInput) return false;
+
+  chatInput.focus();
+  chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+  return true;
 }
 
 function renderMatchScreen(message, lightClass) {
@@ -309,17 +392,11 @@ function renderPostMatchScreen(state) {
   const waitingText = state.waitingFor?.length ? `Waiting for: ${state.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
 
   root.innerHTML = `
-    <div class="game-over">
+      <div class="game-over">
       <h1 class="winner-banner">Room ${esc(state.room)}</h1>
       <p class="hint">${esc(waitingText)}</p>
       <p class="hint">Rounds: ${state.totalRounds}</p>
-      <div class="chat-panel">
-        <div id="chatMessages" class="chat-messages"></div>
-        <div class="input-row">
-          <input id="chatInput" type="text" placeholder="Send a message" maxlength="${CHAT_LIMIT}" autocomplete="off" />
-          <button id="sendChatBtn" class="btn btn-secondary">Send</button>
-        </div>
-      </div>
+      ${renderChatPanel()}
       <div class="game-over-actions">
         <button id="returnLobbyBtn" class="btn btn-primary btn-big">${currentPlayer?.isInLobbyView ? "Back in Lobby" : "Return to Lobby"}</button>
         <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
@@ -356,6 +433,7 @@ function renderPostMatchScreen(state) {
 }
 
 socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier }) => {
+  pendingJoinSource = null;
   myPlayerId = playerId;
   isHost = true;
   verifier = createdVerifier || verifier;
@@ -373,6 +451,7 @@ socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier }) => {
 });
 
 socket.on("roomJoined", ({ room, playerId }) => {
+  pendingJoinSource = null;
   myPlayerId = playerId;
   isHost = room.hostId === playerId;
   savedRoomCode = room.room;
@@ -513,13 +592,7 @@ socket.on("roundEnd", ({ roundNum, results }) => {
             </li>
           `).join("")}
         </ol>
-        <div class="chat-panel">
-          <div id="chatMessages" class="chat-messages"></div>
-          <div class="input-row">
-            <input id="chatInput" type="text" placeholder="Send a message" maxlength="${CHAT_LIMIT}" autocomplete="off" />
-            <button id="sendChatBtn" class="btn btn-secondary">Send</button>
-          </div>
-        </div>
+        ${renderChatPanel()}
         ${isHost ? '<button id="nextRoundBtn" class="btn btn-primary btn-big">Next Round</button>' : '<p class="hint">Waiting for host…</p>'}
       </div>
     </div>
@@ -599,23 +672,33 @@ socket.on("roomClosed", ({ reason }) => {
   roomState = null;
   selectedKey = null;
   if (reason === "left" || reason === "host_closed") {
-    localStorage.removeItem(ROOM_CODE_KEY);
+    clearSavedRoom();
     localStorage.removeItem(PLAYER_NAME_KEY);
-    localStorage.removeItem(HOST_RECLAIM_KEY);
-    savedRoomCode = "";
     savedPlayerName = "";
-    hostReclaimToken = "";
   }
   renderJoinScreen();
 });
 
 socket.on("error", ({ message }) => {
+  if (pendingJoinSource === "auto" && message === "Room not found.") {
+    pendingJoinSource = null;
+    clearSavedRoom();
+    renderJoinScreen();
+    return;
+  }
+
+  pendingJoinSource = null;
   showPageNotification(message, "error");
 });
 
 const handleKeyDown = (e) => {
   const active = document.activeElement;
   if (active && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(active.tagName)) {
+    return;
+  }
+
+  if (e.key === "Enter" && focusChatInputFromShortcut()) {
+    e.preventDefault();
     return;
   }
 
@@ -646,6 +729,7 @@ function wireKeyboardKeys() {
     button.addEventListener("click", () => {
       keyInput.value = normalizeGameKey(button.dataset.key || "").toUpperCase();
       keyInput.focus();
+      syncKeyboardInputHighlights(root, keyInput.value);
     });
 
     button.addEventListener("dragstart", (event) => {
@@ -692,6 +776,31 @@ function wireKeyboardKeys() {
       keyInput.value = targetKey.toUpperCase();
       selectedKey = targetKey;
       socket.emit("bindKey", { key: targetKey });
+    });
+  });
+}
+
+function wireInputKeyboardHighlights(inputs) {
+  inputs.filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", (event) => pulseKeyboardKey(root, event.key));
+    input.addEventListener("input", () => syncKeyboardInputHighlights(root, input.value));
+  });
+}
+
+function wireEntryKeyboardKeys(inputs) {
+  const focusableInputs = inputs.filter(Boolean);
+  document.querySelectorAll(".holo-key").forEach((button) => {
+    button.addEventListener("click", () => {
+      const active = focusableInputs.includes(document.activeElement) ? document.activeElement : focusableInputs[0];
+      if (!active) return;
+
+      const key = normalizeGameKey(button.dataset.key || "").toUpperCase();
+      const maxLength = Number(active.maxLength || 0);
+      if (maxLength > 0 && active.value.length >= maxLength) return;
+
+      active.value = `${active.value || ""}${key}`;
+      active.focus();
+      active.dispatchEvent(new Event("input", { bubbles: true }));
     });
   });
 }

@@ -30,6 +30,7 @@ export const SHIFTED_KEY_MAP = Object.freeze({
 });
 
 const ALLOWED_GAME_KEYS = new Set(KEYBOARD_ROWS.flat());
+const highlightTimeouts = new WeakMap();
 
 export function normalizeGameKey(value) {
   if (typeof value !== "string") return "";
@@ -77,6 +78,28 @@ export function renderHolographicKeyboard(players = [], { currentPlayerId = null
   `;
 }
 
+export function pulseKeyboardKey(root, value = "") {
+  const scope = root || document;
+  const key = normalizeGameKey(String(value));
+  if (!key) return;
+
+  scope.querySelectorAll(`.holo-key[data-key="${cssEscape(key)}"]`).forEach((button) => {
+    const existingTimeout = highlightTimeouts.get(button);
+    if (existingTimeout) window.clearTimeout(existingTimeout);
+
+    button.classList.add("holo-key--input-active");
+    const timeout = window.setTimeout(() => {
+      button.classList.remove("holo-key--input-active");
+      highlightTimeouts.delete(button);
+    }, 420);
+    highlightTimeouts.set(button, timeout);
+  });
+}
+
+export function syncKeyboardInputHighlights(root, value = "") {
+  pulseKeyboardKey(root, String(value).slice(-1));
+}
+
 function renderKey(key, owner) {
   const className = owner ? `holo-key holo-key--bound${owner.ready ? " holo-key--ready" : ""}` : "holo-key";
   const style = owner ? ` style="--key-color:${escapeAttr(owner.color)}"` : "";
@@ -99,4 +122,9 @@ function escapeHtml(value) {
 
 function escapeAttr(value) {
   return escapeHtml(value);
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return window.CSS.escape(value);
+  return String(value).replace(/(["\\])/g, "\\$1");
 }

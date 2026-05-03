@@ -248,6 +248,22 @@
   z-index: 20;
 }
 
+.landing-play-button {
+  transition:
+    background-color 700ms ease-out,
+    border-color 700ms ease-out,
+    box-shadow 700ms ease-out,
+    color 700ms ease-out,
+    transform 120ms ease-out !important;
+}
+
+.landing-play-button:hover,
+.landing-play-button:focus-visible {
+  box-shadow:
+    0 0 28px color-mix(in oklch, var(--primary) 48%, transparent),
+    0 0 80px color-mix(in oklch, var(--primary) 20%, transparent) !important;
+}
+
 .landing-footer-text {
   position: absolute;
   left: 50%;

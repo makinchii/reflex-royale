@@ -290,8 +290,8 @@ class RoomGame {
       return { ok: false, message: "Message cannot be empty." };
     }
 
-    if (normalized.length > 280) {
-      return { ok: false, message: "Messages must be 280 characters or fewer." };
+    if (normalized.length > 250) {
+      return { ok: false, message: "Messages must be 250 characters or fewer." };
     }
 
     if (!this._canChat()) {

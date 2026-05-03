@@ -203,6 +203,16 @@
   gap: 10px;
 }
 
+.ui-lab-notification-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ui-lab-notification-actions [data-slot="button"] {
+  width: 100%;
+}
+
 .ui-lab-nav {
   display: flex;
   flex-wrap: wrap;

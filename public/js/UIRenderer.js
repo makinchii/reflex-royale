@@ -6,7 +6,7 @@
  */
 
 import { GameState } from "./GameEngine.js";
-import { normalizeGameKey, renderHolographicKeyboard } from "./keyMap.js";
+import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyboardInputHighlights } from "./keyMap.js";
 
 const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
 
@@ -131,6 +131,8 @@ export class UIRenderer {
       keyInp.value = normalizeGameKey(keyInp.value).toUpperCase();
     });
 
+    this._wireInputKeyboardHighlights([nameInp, keyInp]);
+
     startBtn.addEventListener("click", () => {
       const rounds = parseInt(roundInp.value, 10) || 5;
       this.engine.totalRounds = rounds;
@@ -140,6 +142,13 @@ export class UIRenderer {
     roundInp.addEventListener("input", updateRoundSlider);
     updateRoundSlider();
     this._wireKeyboardKeys();
+  }
+
+  _wireInputKeyboardHighlights(inputs) {
+    inputs.filter(Boolean).forEach((input) => {
+      input.addEventListener("keydown", (event) => pulseKeyboardKey(this.root, event.key));
+      input.addEventListener("input", () => syncKeyboardInputHighlights(this.root, input.value));
+    });
   }
 
   _addPlayerFromForm() {
@@ -177,6 +186,8 @@ export class UIRenderer {
     if (keyboard) {
       keyboard.innerHTML = renderHolographicKeyboard(players, { title: "LOCAL KEYBOARD MATRIX", draggable: true });
       this._wireKeyboardKeys();
+      const activeInput = this.root.querySelector("#playerName:focus, #playerKey:focus");
+      if (activeInput) syncKeyboardInputHighlights(this.root, activeInput.value.slice(-1));
     }
 
     container.innerHTML = players.map((p, i) => `
@@ -206,6 +217,7 @@ export class UIRenderer {
       button.addEventListener("click", () => {
         keyInp.value = normalizeGameKey(button.dataset.key || "").toUpperCase();
         keyInp.focus();
+        syncKeyboardInputHighlights(this.root, keyInp.value);
       });
 
       button.addEventListener("dragstart", (event) => {

@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { AuthMenu } from "@/components/app/auth-menu";
 import { GridBackground } from "@/components/app/grid-background";
 import { Reticle, TitleScreenDecor } from "@/components/app/title-screen-decor";
 import { parseAtmosphere } from "@/app/ui-lab/atmosphere";
@@ -36,9 +35,6 @@ export default async function HomePage() {
 
       <section className="landing-shell relative z-10 flex h-svh w-full flex-col px-4 pb-6 pt-6">
         <div className="landing-page-frame" aria-hidden="true" />
-        <div className="landing-auth-anchor">
-          <AuthMenu user={user} />
-        </div>
         <div className="relative z-[1] mx-auto mt-16 w-full max-w-5xl text-center">
           <Card className="relative mx-auto flex min-h-[34svh] w-full items-center justify-center overflow-hidden border-primary/45 bg-transparent py-0 shadow-none backdrop-blur-0 lg:min-h-[38svh]">
               <Reticle />
@@ -58,10 +54,15 @@ export default async function HomePage() {
               </CardContent>
             </Card>
 
-            <div className="mt-6 flex justify-center">
-              <Button asChild size="lg" className="h-24 min-w-[24rem] cursor-pointer border border-primary bg-primary/20 px-14 text-2xl font-bold uppercase tracking-[0.28em] text-primary shadow-[var(--tron-border-glow)] hover:bg-primary/30">
+            <div className="mt-6 flex flex-wrap justify-center gap-4">
+              <Button asChild size="lg" className="landing-play-button h-24 min-w-[24rem] cursor-pointer border border-primary bg-primary/20 px-14 text-2xl font-bold uppercase tracking-[0.28em] text-primary shadow-[var(--tron-border-glow)] hover:bg-primary/30">
                 <Link href={playNowHref}>Play Now!</Link>
               </Button>
+              {!user ? (
+                <Button asChild size="lg" variant="outline" className="h-24 min-w-[20rem] cursor-pointer border-primary/40 bg-background/45 px-12 text-2xl font-bold uppercase tracking-[0.28em] text-primary hover:border-primary/70 hover:bg-primary/10">
+                  <Link href="/signup">Sign Up!</Link>
+                </Button>
+              ) : null}
             </div>
 
             <section className="mx-auto mt-6 w-full max-w-3xl overflow-hidden rounded border border-primary/30 bg-background/85 backdrop-blur-md">
