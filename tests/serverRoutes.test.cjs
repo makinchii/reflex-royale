@@ -162,7 +162,7 @@ test("ui-lab imports only direct thegridcn components", () => {
   assert.match(gridSource, /camera\.position\.set\(0, 7\.2, 28\)/);
   assert.match(gridSource, /particleCount = 180/);
   assert.match(gridSource, /beamThickness = 0\.045/);
-  assert.match(gridSource, /cylinderGeometry args=\{\[thickness, thickness, 26, 8\]\}/);
+  assert.match(gridSource, /cylinderGeometry args=\{\[thickness, thickness, BEAM_HEIGHT, 8\]\}/);
   assert.match(gridSource, /opacity = 0\.42/);
   assert.match(gridSource, /function SceneSway/);
   assert.match(gridSource, /rotation\.z = Math\.sin\(time \* 0\.8\)/);
