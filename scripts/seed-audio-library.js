@@ -9,6 +9,7 @@ dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const AUDIO_DIR = path.join(__dirname, "..", "public", "audio");
+const ALLOW_MISSING_AUDIO = process.env.ALLOW_MISSING_AUDIO === "true";
 
 function effectiveDuration(track) {
   return track.maxExtractSeconds || track.durationSeconds;
@@ -31,6 +32,38 @@ function variantInputsFor(track) {
   ];
 }
 
+function variantsFor(track) {
+  const missingFiles = [];
+  const variants = [];
+
+  for (const variant of variantInputsFor(track)) {
+    const filePath = path.join(AUDIO_DIR, variant.fileName);
+    if (!fs.existsSync(filePath)) {
+      missingFiles.push(variant.fileName);
+      continue;
+    }
+
+    const data = fs.readFileSync(filePath);
+    variants.push({
+      format: variant.format,
+      mimeType: variant.mimeType,
+      bitrateKbps: variant.bitrateKbps,
+      sizeBytes: data.length,
+      data
+    });
+  }
+
+  if (missingFiles.length > 0 && !ALLOW_MISSING_AUDIO) {
+    throw new Error(`Missing audio files for ${track.trackId}: ${missingFiles.join(", ")}. Provide assets or run with ALLOW_MISSING_AUDIO=true to seed metadata only.`);
+  }
+
+  if (missingFiles.length > 0) {
+    console.warn(`Metadata-only seed for ${track.trackId}; missing ${missingFiles.join(", ")}.`);
+  }
+
+  return variants;
+}
+
 async function main() {
   if (!MONGODB_URI) {
     throw new Error("MONGODB_URI is required to seed the audio library.");
@@ -40,17 +73,7 @@ async function main() {
 
   let totalBytes = 0;
   for (const baseTrack of AUDIO_LIBRARY) {
-    const variants = variantInputsFor(baseTrack).map((variant) => {
-      const filePath = path.join(AUDIO_DIR, variant.fileName);
-      const data = fs.readFileSync(filePath);
-      return {
-        format: variant.format,
-        mimeType: variant.mimeType,
-        bitrateKbps: variant.bitrateKbps,
-        sizeBytes: data.length,
-        data
-      };
-    });
+    const variants = variantsFor(baseTrack);
 
     await AudioTrack.findOneAndUpdate(
       { trackId: baseTrack.trackId },
@@ -62,6 +85,7 @@ async function main() {
         durationSeconds: effectiveDuration(baseTrack),
         category: baseTrack.category,
         coverImage: baseTrack.coverImage,
+        thumbnailImage: baseTrack.thumbnailImage,
         sourceUrl: baseTrack.sourceUrl,
         sourceTimestamp: baseTrack.sourceTimestamp,
         variants

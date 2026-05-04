@@ -14,8 +14,15 @@ router.get("/tracks", async (req, res) => {
     return res.json({ tracks: AUDIO_LIBRARY.map((track) => serializeTrack(track, req)), storage: "static-fallback" });
   }
 
-  const dbTracks = await AudioTrack.find({}, "trackId title artist album durationSeconds category coverImage sourceUrl sourceTimestamp updatedAt variants.format variants.mimeType variants.sizeBytes").lean();
-  const tracks = dbTracks.length > 0 ? dbTracks : AUDIO_LIBRARY;
+  const dbTracks = await AudioTrack.find({}, "trackId title artist album durationSeconds category coverImage thumbnailImage sourceUrl sourceTimestamp updatedAt variants.format variants.mimeType variants.sizeBytes").lean();
+  const catalogIds = new Set(AUDIO_LIBRARY.map((track) => track.trackId));
+  const dbTracksById = new Map(dbTracks.map((track) => [track.trackId, track]));
+  const tracks = dbTracks.length > 0
+    ? [
+        ...AUDIO_LIBRARY.map((track) => ({ ...track, ...dbTracksById.get(track.trackId) })),
+        ...dbTracks.filter((track) => !catalogIds.has(track.trackId))
+      ]
+    : AUDIO_LIBRARY;
   return res.json({ tracks: tracks.map((track) => serializeTrack(track, req)), storage: dbTracks.length > 0 ? "mongodb" : "static-fallback" });
 });
 

@@ -52,6 +52,7 @@ const audioTrackSchema = new mongoose.Schema(
       index: true
     },
     coverImage: String,
+    thumbnailImage: String,
     sourceUrl: String,
     sourceTimestamp: String,
     variants: {

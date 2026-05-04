@@ -520,6 +520,12 @@ test("game routes render inside the modern game shell", () => {
   assert.match(audioLibSource, /Break What You Must/);
   assert.match(audioLibSource, /Destiny 2/);
   assert.match(audioLibSource, /durationSeconds: 296/);
+  assert.match(audioLibSource, /Mirror's Edge/);
+  assert.match(audioLibSource, /Future セルフ/);
+  assert.match(audioLibSource, /Peace of Mind Before Death/);
+  assert.match(audioLibSource, /thumbnailImage/);
+  assert.match(audioCatalogSource, /requestedTrack/);
+  assert.match(audioCatalogSource, /extractStartSeconds: 7122/);
   assert.match(audioCatalogSource, /extractStartSeconds: 8137/);
   assert.match(audioCatalogSource, /maxExtractSeconds: 360/);
   assert.match(audioLibSource, /\/audio\/break-what-you-must\.mp3/);
@@ -530,11 +536,14 @@ test("game routes render inside the modern game shell", () => {
   assert.match(audioLibSource, /youtube\.com\/watch\?v=J4njTYvvENQ&t=8137s/);
   assert.match(audioRoutesSource, /router\.get\("\/tracks"/);
   assert.match(audioRoutesSource, /category/);
+  assert.match(audioRoutesSource, /thumbnailImage/);
+  assert.match(audioRoutesSource, /dbTracksById/);
   assert.match(audioRoutesSource, /updatedAt/);
   assert.match(audioRoutesSource, /\/tracks\/:trackId\/stream/);
   assert.match(audioRoutesSource, /Accept-Ranges/);
   assert.match(audioModelSource, /variants/);
   assert.match(audioModelSource, /category/);
+  assert.match(audioModelSource, /thumbnailImage/);
   assert.match(audioModelSource, /data: \{/);
   assert.match(audioCatalogSource, /category: "lobby"/);
   assert.match(audioCatalogSource, /category: "battle"/);
@@ -543,6 +552,7 @@ test("game routes render inside the modern game shell", () => {
   assert.match(audioCatalogSource, /appendSourceVersion/);
   assert.match(audioCatalogSource, /FLOWER_FIELDS_TRACK_ID/);
   assert.match(seedAudioSource, /AudioTrack\.findOneAndUpdate/);
+  assert.match(seedAudioSource, /ALLOW_MISSING_AUDIO/);
   assert.match(videoPlayerSource, /data-slot="video-player"/);
   assert.match(videoPlayerSource, /relative aspect-video overflow-hidden/);
   assert.match(videoPlayerSource, /bottom-3 left-3/);

@@ -1041,7 +1041,7 @@ export function DashboardTabs({
                             return (
                               <button key={track.trackId} type="button" className={`dashboard-audio-catalog-row ${selected ? "is-active" : ""}`} onClick={() => selectAudioTrack(track.trackId)} role="listitem">
                                 <span className="dashboard-audio-catalog-row__thumb">
-                                  {track.coverImage ? <img src={track.coverImage} alt="" /> : <Music2 className="h-4 w-4" />}
+                                  {track.thumbnailImage || track.coverImage ? <img src={track.thumbnailImage || track.coverImage} alt="" /> : <Music2 className="h-4 w-4" />}
                                 </span>
                                 <span className="dashboard-audio-catalog-row__meta">
                                   <strong>{track.title}</strong>

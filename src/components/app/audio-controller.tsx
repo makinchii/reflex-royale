@@ -589,7 +589,7 @@ export function AudioController() {
               const selected = track.trackId === activeTrack.trackId;
               return (
                 <button key={track.trackId} type="button" className={selected ? "is-active" : undefined} onClick={() => selectTrackById(track.trackId)} role="listitem">
-                  <span className="audio-dialog__track-thumb">{track.coverImage ? <img src={track.coverImage} alt="" /> : <Music2 className="h-4 w-4" />}</span>
+                  <span className="audio-dialog__track-thumb">{track.thumbnailImage || track.coverImage ? <img src={track.thumbnailImage || track.coverImage} alt="" /> : <Music2 className="h-4 w-4" />}</span>
                   <span className="audio-dialog__track-row-meta">
                     <strong>{track.title}</strong>
                     <small>{track.artist}</small>
