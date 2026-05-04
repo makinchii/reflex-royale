@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FastForward, Pause, Play, Rewind, SkipBack, SkipForward } from "lucide-react";
+import { FastForward, Pause, Play, Repeat, Rewind, SkipBack, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VideoPlayerProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -13,10 +13,12 @@ interface VideoPlayerProps extends React.HTMLAttributes<HTMLDivElement> {
   onFastForward?: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
+  loopEnabled?: boolean;
+  onToggleLoop?: () => void;
   progressSlot?: React.ReactNode;
 }
 
-export function VideoPlayer({ currentTime = "00:00", status = "paused", onPlay, onPause, onRewind, onFastForward, onPrevious, onNext, progressSlot, children, className, ...props }: VideoPlayerProps) {
+export function VideoPlayer({ currentTime = "00:00", status = "paused", onPlay, onPause, onRewind, onFastForward, onPrevious, onNext, loopEnabled = false, onToggleLoop, progressSlot, children, className, ...props }: VideoPlayerProps) {
   return (
     <div data-slot="video-player" className={cn("relative", className)} {...props}>
       <div className="relative overflow-hidden border border-primary/30 bg-black shadow-[0_0_32px_color-mix(in_oklch,var(--primary)_16%,transparent)]">
@@ -52,6 +54,9 @@ export function VideoPlayer({ currentTime = "00:00", status = "paused", onPlay, 
               <FastForward className="h-4 w-4" />
               <span>10</span>
               <span className="text-[10px]">-</span>
+            </button>
+            <button type="button" onClick={onToggleLoop} className={cn("cursor-pointer p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50", loopEnabled ? "text-primary" : "text-foreground/80 hover:text-primary")} aria-label={loopEnabled ? "Disable track loop" : "Enable track loop"} aria-pressed={loopEnabled}>
+              <Repeat className="h-4 w-4" />
             </button>
             <span className="font-mono text-lg text-primary/50">]</span>
           </div>

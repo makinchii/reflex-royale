@@ -15,10 +15,12 @@ import {
   AUDIO_MASTER_VOLUME_KEY,
   AUDIO_MUSIC_VOLUME_KEY,
   AUDIO_MIX_MODE_KEY,
+  AUDIO_MATCH_STATE_EVENT,
   AUDIO_PLAYLIST,
   AUDIO_PREFERENCES_CHANGED_EVENT,
   AUDIO_ROUND_ALERTS_KEY,
   AUDIO_SFX_VOLUME_KEY,
+  AUDIO_TRACK_LOOP_KEY,
   AUDIO_VICTORY_PULSE_KEY,
   AUDIO_VOLUME_KEY,
   AUDIO_CUSTOM_TRACK_KEY,
@@ -74,9 +76,9 @@ function attemptMusicPlayback(music: HTMLAudioElement) {
   });
 }
 
-function resolveMixCategory(mode: string, pathname: string): AudioCategory {
+function resolveMixCategory(mode: string, matchInProgress: boolean): AudioCategory {
   if (mode === "lobby" || mode === "battle") return mode;
-  return pathname.startsWith("/local") || pathname.startsWith("/online") ? "battle" : "lobby";
+  return matchInProgress ? "battle" : "lobby";
 }
 
 function getUiInteractionTarget(target: EventTarget | null) {
@@ -91,6 +93,11 @@ function pickRandomTrackIndex(playlist: Array<{ category: string }>, category: A
   const indexes = playlist.map((track, index) => track.category === category ? index : -1).filter((index) => index >= 0);
   if (indexes.length === 0) return 0;
   return indexes[Math.floor(Math.random() * indexes.length)] ?? indexes[0];
+}
+
+function pickRandomTrackIndexExcept(playlist: Array<{ category: string }>, category: AudioCategory, currentIndex: number) {
+  const indexes = playlist.map((track, index) => track.category === category && index !== currentIndex ? index : -1).filter((index) => index >= 0);
+  return indexes.length > 0 ? indexes[Math.floor(Math.random() * indexes.length)] ?? indexes[0] : pickRandomTrackIndex(playlist, category);
 }
 
 function VolumeSlider({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
@@ -116,7 +123,7 @@ export function AudioController() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const waveformRafRef = useRef<number | null>(null);
-  const currentMixCategoryRef = useRef<AudioCategory | null>(null);
+  const currentMixSignatureRef = useRef("");
   const appliedCustomTrackIdRef = useRef("");
   const unlockedRef = useRef(false);
   const lastHoverAtRef = useRef(0);
@@ -128,7 +135,10 @@ export function AudioController() {
   const [sfxVolume, setSfxVolume] = useState(0.55);
   const [roundAlertsEnabled, setRoundAlertsEnabled] = useState(true);
   const [victoryPulseEnabled, setVictoryPulseEnabled] = useState(true);
+  const [trackLoopEnabled, setTrackLoopEnabled] = useState(false);
+  const [matchInProgress, setMatchInProgress] = useState(false);
   const [mixMode, setMixMode] = useState("default");
+  const [mixShuffleNonce, setMixShuffleNonce] = useState(0);
   const [customTrackId, setCustomTrackId] = useState("");
   const [audioSearch, setAudioSearch] = useState("");
   const [audioCategoryFilter, setAudioCategoryFilter] = useState<AudioCategoryFilter>("all");
@@ -155,13 +165,14 @@ export function AudioController() {
     setSfxVolume(readAudioVolumePreference(AUDIO_SFX_VOLUME_KEY, 0.55));
     setRoundAlertsEnabled(readAudioTogglePreference(AUDIO_ROUND_ALERTS_KEY, true));
     setVictoryPulseEnabled(readAudioTogglePreference(AUDIO_VICTORY_PULSE_KEY, true));
+    setTrackLoopEnabled(readAudioTogglePreference(AUDIO_TRACK_LOOP_KEY, false));
     setMixMode(readAudioMixModePreference());
     setCustomTrackId(readAudioCustomTrackPreference());
   }, []);
 
   useEffect(() => {
     const music = new Audio();
-    music.loop = true;
+    music.loop = false;
     music.preload = "auto";
     music.volume = readInitialMasterVolume() * readAudioVolumePreference(AUDIO_MUSIC_VOLUME_KEY, 0.35);
     musicRef.current = music;
@@ -254,6 +265,23 @@ export function AudioController() {
   }, []);
 
   useEffect(() => {
+    const onMatchState = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail as { inProgress?: unknown } : null;
+      setMatchInProgress(detail?.inProgress === true);
+    };
+
+    window.addEventListener(AUDIO_MATCH_STATE_EVENT, onMatchState);
+
+    return () => window.removeEventListener(AUDIO_MATCH_STATE_EVENT, onMatchState);
+  }, []);
+
+  useEffect(() => {
+    if (!pathname?.startsWith("/local") && !pathname?.startsWith("/online")) {
+      setMatchInProgress(false);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
     audioEnabledRef.current = audioEnabled;
   }, [audioEnabled]);
 
@@ -264,6 +292,7 @@ export function AudioController() {
       setSfxVolume(readAudioVolumePreference(AUDIO_SFX_VOLUME_KEY, 0.55));
       setRoundAlertsEnabled(readAudioTogglePreference(AUDIO_ROUND_ALERTS_KEY, true));
       setVictoryPulseEnabled(readAudioTogglePreference(AUDIO_VICTORY_PULSE_KEY, true));
+      setTrackLoopEnabled(readAudioTogglePreference(AUDIO_TRACK_LOOP_KEY, false));
       setMixMode(readAudioMixModePreference());
       setCustomTrackId(readAudioCustomTrackPreference());
     };
@@ -276,6 +305,7 @@ export function AudioController() {
         event.key === AUDIO_SFX_VOLUME_KEY ||
         event.key === AUDIO_ROUND_ALERTS_KEY ||
         event.key === AUDIO_VICTORY_PULSE_KEY ||
+        event.key === AUDIO_TRACK_LOOP_KEY ||
         event.key === AUDIO_MIX_MODE_KEY ||
         event.key === AUDIO_CUSTOM_TRACK_KEY
       ) {
@@ -313,7 +343,7 @@ export function AudioController() {
     if (mixMode === "custom" && customTrackId) {
       const customIndex = playlist.findIndex((track) => track.trackId === customTrackId);
       if (customIndex >= 0) {
-        currentMixCategoryRef.current = null;
+        currentMixSignatureRef.current = "";
         if (appliedCustomTrackIdRef.current !== customTrackId) {
           appliedCustomTrackIdRef.current = customTrackId;
           setTrackIndex((currentIndex) => playlist[currentIndex]?.trackId === customTrackId ? currentIndex : customIndex);
@@ -323,19 +353,20 @@ export function AudioController() {
     }
 
     appliedCustomTrackIdRef.current = "";
-    const nextCategory = resolveMixCategory(mixMode, pathname ?? "/");
+    const nextCategory = resolveMixCategory(mixMode, matchInProgress);
+    const mixContext = pathname?.startsWith("/local") || pathname?.startsWith("/online") ? "game" : "app";
+    const nextSignature = `${mixMode}:${nextCategory}:${mixContext}:${mixShuffleNonce}`;
     setTrackIndex((currentIndex) => {
       const boundedIndex = Math.min(currentIndex, playlist.length - 1);
-      const currentTrack = playlist[boundedIndex];
 
-      if (currentMixCategoryRef.current === nextCategory && currentTrack) {
+      if (currentMixSignatureRef.current === nextSignature) {
         return boundedIndex;
       }
 
-      currentMixCategoryRef.current = nextCategory;
-      return currentTrack?.category === nextCategory ? boundedIndex : pickRandomTrackIndex(playlist, nextCategory);
+      currentMixSignatureRef.current = nextSignature;
+      return pickRandomTrackIndexExcept(playlist, nextCategory, boundedIndex);
     });
-  }, [customTrackId, mixMode, pathname, playlist]);
+  }, [customTrackId, matchInProgress, mixMode, mixShuffleNonce, pathname, playlist]);
 
   useEffect(() => {
     const music = musicRef.current;
@@ -346,10 +377,28 @@ export function AudioController() {
       const fallbackDuration = playlist[trackIndex]?.durationSeconds ?? 0;
       setDurationSeconds(Number.isFinite(music.duration) && music.duration > 0 ? music.duration : fallbackDuration);
     };
+    const onEnded = () => {
+      if (trackLoopEnabled) {
+        music.currentTime = 0;
+        attemptMusicPlayback(music);
+        return;
+      }
+
+      if (playlist.length === 0) return;
+
+      if (mixMode === "custom") {
+        setTrackIndex((value) => (value + 1 + playlist.length) % playlist.length);
+      } else {
+        const category = resolveMixCategory(mixMode, matchInProgress);
+        setTrackIndex((value) => pickRandomTrackIndexExcept(playlist, category, value));
+      }
+      setCurrentTime(0);
+    };
 
     music.addEventListener("timeupdate", syncTime);
     music.addEventListener("loadedmetadata", syncDuration);
     music.addEventListener("durationchange", syncDuration);
+    music.addEventListener("ended", onEnded);
 
     syncTime();
     syncDuration();
@@ -358,8 +407,9 @@ export function AudioController() {
       music.removeEventListener("timeupdate", syncTime);
       music.removeEventListener("loadedmetadata", syncDuration);
       music.removeEventListener("durationchange", syncDuration);
+      music.removeEventListener("ended", onEnded);
     };
-  }, [playlist, trackIndex]);
+  }, [matchInProgress, mixMode, playlist, trackIndex, trackLoopEnabled]);
 
   useEffect(() => {
     if (!audioEnabled || !musicRef.current || !activeTrack?.sources.length) {
@@ -424,10 +474,15 @@ export function AudioController() {
     pendingTrackRef.current = track;
     setDurationSeconds(playlist[trackIndex]?.durationSeconds ?? 0);
 
-    if (!audioEnabled || !track) {
+    if (!track) {
       music.pause();
       music.removeAttribute("src");
       music.load();
+      return;
+    }
+
+    if (!audioEnabled) {
+      music.pause();
       return;
     }
 
@@ -466,6 +521,10 @@ export function AudioController() {
     writeAudioTogglePreference(AUDIO_ROUND_ALERTS_KEY, roundAlertsEnabled);
     writeAudioTogglePreference(AUDIO_VICTORY_PULSE_KEY, victoryPulseEnabled);
   }, [roundAlertsEnabled, victoryPulseEnabled]);
+
+  useEffect(() => {
+    writeAudioTogglePreference(AUDIO_TRACK_LOOP_KEY, trackLoopEnabled);
+  }, [trackLoopEnabled]);
 
   useEffect(() => {
     if (pathname?.startsWith("/dashboard")) {
@@ -534,6 +593,8 @@ export function AudioController() {
         onFastForward={() => seekTo(currentTime + 10)}
         onPrevious={() => shiftTrack(-1)}
         onNext={() => shiftTrack(1)}
+        loopEnabled={trackLoopEnabled}
+        onToggleLoop={() => setTrackLoopEnabled((enabled) => !enabled)}
         progressSlot={(
           <div className="audio-dialog__inline-progress">
             <Slider className="audio-dialog__hud-slider" value={[Math.min(currentTime, safeDuration)]} min={0} max={Math.max(1, safeDuration)} step={1} onValueChange={([value]) => seekTo(value ?? 0)} aria-label="Track progress" />
@@ -575,6 +636,7 @@ export function AudioController() {
               {(["default", "custom", "lobby", "battle"] as AudioMixMode[]).map((mode) => (
                 <button key={mode} type="button" className={mixMode === mode ? "is-active" : undefined} onClick={() => {
                   setMixMode(mode);
+                  if (mode !== "custom") setMixShuffleNonce((nonce) => nonce + 1);
                   window.localStorage.setItem(AUDIO_MIX_MODE_KEY, mode);
                   window.dispatchEvent(new CustomEvent(AUDIO_PREFERENCES_CHANGED_EVENT));
                 }}>

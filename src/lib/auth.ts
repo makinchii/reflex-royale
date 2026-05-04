@@ -103,6 +103,16 @@ async function getSessionUserId(cookies: Record<string, string>) {
 }
 
 export const getCurrentUser = cache(async function getCurrentUser(): Promise<AppAuthUser | null> {
+  if (process.env.VISUAL_TEST_AUTH === "true") {
+    return {
+      username: "VisualBot",
+      bestScore: 142,
+      preferredThemeCommand: "tron",
+      preferredThemeColor: "#00d4ff",
+      preferredThemeShades: { tron: "#00d4ff" },
+    };
+  }
+
   const cookies = await getRequestCookies();
   const signedAuthUser = cookies[AUTH_COOKIE_NAME]
     ? getSignedAuthUser(cookies[AUTH_COOKIE_NAME])

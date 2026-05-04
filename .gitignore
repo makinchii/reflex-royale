@@ -3,6 +3,8 @@ node_modules/
 .DS_store
 .next/
 .audio-work/
+playwright-report/
+test-results/
 public/audio/*
 !public/audio/
 !public/audio/ui-click.mp3

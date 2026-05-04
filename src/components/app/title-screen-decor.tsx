@@ -54,7 +54,7 @@ function Radar({ className }: { className?: string }) {
   }
 
   return (
-    <div className={cn("relative h-72 w-72 overflow-hidden rounded-full border border-primary/40 bg-background/80 shadow-[0_0_36px_color-mix(in_oklch,var(--primary)_22%,transparent)] backdrop-blur-md", className)}>
+    <div className={cn("h-72 w-72 overflow-hidden rounded-full border border-primary/40 bg-background/80 shadow-[0_0_36px_color-mix(in_oklch,var(--primary)_22%,transparent)] backdrop-blur-md", className)}>
       <svg viewBox="0 0 100 100" className="h-full w-full">
         <defs>
           <linearGradient id="titleRadarSweep" x1="100%" y1="0%" x2="0%" y2="0%">
@@ -270,11 +270,11 @@ function LocationDisplay({ className }: { className?: string }) {
 
 export function TitleScreenDecor() {
   return (
-    <div className="pointer-events-none absolute inset-0 z-[1] hidden lg:block" aria-hidden="true">
-      <ClockTimer className="absolute left-12 top-12" />
-      <Radar className="absolute right-12 top-20" />
-      <Terminal className="absolute bottom-14 left-12" />
-      <LocationDisplay className="absolute bottom-14 right-12" />
+    <div className="landing-decor pointer-events-none absolute inset-0 z-[1] hidden lg:block" aria-hidden="true">
+      <ClockTimer className="landing-clock absolute" />
+      <Radar className="landing-radar absolute" />
+      <Terminal className="landing-terminal absolute" />
+      <LocationDisplay className="landing-location absolute" />
     </div>
   );
 }

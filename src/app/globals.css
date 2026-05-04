@@ -841,8 +841,254 @@
   animation: landing-vertical-scan 8s linear infinite;
 }
 
-.landing-shell {
+.landing-root {
   --landing-frame-inset: 1rem;
+  --landing-shell-padding-top: 1.5rem;
+  --landing-shell-padding-bottom: 1.5rem;
+  --landing-content-top: clamp(2.75rem, 4.5svh, 4rem);
+  --landing-content-max-width: 64rem;
+  --landing-hero-min-height: clamp(20rem, 38svh, 34rem);
+  --landing-hero-content-padding-block: clamp(2.5rem, 4svh, 3.5rem);
+  --landing-hero-content-padding-inline: clamp(1.5rem, 4vw, 3rem);
+  --landing-title-size: clamp(4.5rem, 8.2vw, 9rem);
+  --landing-title-line-height: 0.88;
+  --landing-title-tracking: 0.15em;
+  --landing-copy-top: clamp(1rem, 2.1svh, 1.75rem);
+  --landing-copy-line-height: clamp(1.5rem, 2.4svh, 1.75rem);
+  --landing-action-top: clamp(1rem, 2.1svh, 1.5rem);
+  --landing-action-height: clamp(4.5rem, 6.6svh, 6rem);
+  --landing-action-min-width: clamp(17rem, 31vw, 24rem);
+  --landing-secondary-min-width: clamp(15rem, 26vw, 20rem);
+  --landing-action-padding-inline: clamp(2.5rem, 4.4vw, 3.5rem);
+  --landing-action-font-size: clamp(1.15rem, 1.65vw, 1.5rem);
+  --landing-action-tracking: 0.28em;
+  --landing-leaderboard-top: clamp(1rem, 2.1svh, 1.5rem);
+  --landing-leaderboard-max-width: 48rem;
+  --landing-leaderboard-body-max-height: clamp(17rem, 30svh, 24rem);
+  --landing-row-padding-y: 0.5rem;
+  --landing-row-name-size: 1rem;
+  --landing-row-score-size: 0.875rem;
+  --landing-panel-edge: 3rem;
+  --landing-panel-bottom: 3.5rem;
+  --landing-radar-size: clamp(14rem, 15vw, 18rem);
+  --landing-panel-width: clamp(21rem, 22vw, 26rem);
+  --landing-location-width: clamp(20rem, 21vw, 25rem);
+}
+
+.landing-shell {
+  padding-top: var(--landing-shell-padding-top);
+  padding-bottom: var(--landing-shell-padding-bottom);
+}
+
+.landing-content-stack {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: var(--landing-content-max-width);
+  margin-inline: auto;
+  margin-top: var(--landing-content-top);
+  text-align: center;
+}
+
+.landing-hero-card {
+  min-height: var(--landing-hero-min-height);
+}
+
+.landing-reticle {
+  width: min(31rem, 92vw);
+  height: min(31rem, 92vw);
+}
+
+.landing-hero-content {
+  padding: var(--landing-hero-content-padding-block) var(--landing-hero-content-padding-inline);
+}
+
+.landing-title-lockup {
+  font-size: var(--landing-title-size);
+  line-height: var(--landing-title-line-height);
+  letter-spacing: var(--landing-title-tracking);
+}
+
+.landing-hero-copy {
+  margin-top: var(--landing-copy-top);
+  line-height: var(--landing-copy-line-height);
+}
+
+.landing-action-row {
+  margin-top: var(--landing-action-top);
+}
+
+.landing-action-button {
+  min-width: var(--landing-action-min-width);
+  max-width: 100%;
+  height: var(--landing-action-height);
+  padding-inline: var(--landing-action-padding-inline);
+  font-size: var(--landing-action-font-size);
+  letter-spacing: var(--landing-action-tracking);
+}
+
+.landing-action-button--secondary {
+  min-width: var(--landing-secondary-min-width);
+}
+
+.landing-leaderboard-terminal {
+  max-width: var(--landing-leaderboard-max-width);
+  margin-top: var(--landing-leaderboard-top);
+}
+
+.landing-leaderboard-body {
+  max-height: var(--landing-leaderboard-body-max-height);
+  overflow-y: auto;
+  scrollbar-color: color-mix(in oklch, var(--primary) 45%, transparent) transparent;
+  scrollbar-gutter: stable;
+}
+
+.landing-leaderboard-row {
+  min-height: var(--landing-row-min-height, 2.25rem);
+  padding-top: var(--landing-row-padding-y);
+  padding-bottom: var(--landing-row-padding-y);
+}
+
+.landing-leaderboard-row .font-display {
+  font-size: var(--landing-row-name-size);
+}
+
+.landing-leaderboard-row .font-mono:last-child {
+  font-size: var(--landing-row-score-size);
+}
+
+.landing-clock {
+  position: absolute;
+  left: var(--landing-panel-edge);
+  top: var(--landing-panel-edge);
+}
+
+.landing-radar {
+  position: absolute;
+  top: clamp(4.5rem, 7svh, 5rem);
+  right: var(--landing-panel-edge);
+  width: var(--landing-radar-size);
+  height: var(--landing-radar-size);
+}
+
+.landing-terminal {
+  position: absolute;
+  left: var(--landing-panel-edge);
+  bottom: var(--landing-panel-bottom);
+  width: var(--landing-panel-width);
+}
+
+.landing-location {
+  position: absolute;
+  right: var(--landing-panel-edge);
+  bottom: var(--landing-panel-bottom);
+  width: var(--landing-location-width);
+}
+
+@media (max-height: 1120px) and (min-width: 1024px) {
+  .landing-root {
+    --landing-shell-padding-top: 1rem;
+    --landing-shell-padding-bottom: 1rem;
+    --landing-content-top: clamp(1.75rem, 3.1svh, 2.4rem);
+    --landing-hero-min-height: clamp(15.5rem, 31svh, 21rem);
+    --landing-hero-content-padding-block: clamp(1.75rem, 3svh, 2.5rem);
+    --landing-title-size: clamp(4.6rem, 6.25vw, 7.35rem);
+    --landing-title-line-height: 0.86;
+    --landing-title-tracking: 0.12em;
+    --landing-copy-top: clamp(0.75rem, 1.55svh, 1.1rem);
+    --landing-copy-line-height: 1.55rem;
+    --landing-action-top: clamp(0.8rem, 1.7svh, 1.1rem);
+    --landing-action-height: clamp(3.9rem, 7.2svh, 5.1rem);
+    --landing-action-min-width: clamp(18rem, 25vw, 21rem);
+    --landing-secondary-min-width: clamp(15rem, 22vw, 18rem);
+    --landing-action-padding-inline: clamp(2rem, 3.4vw, 3rem);
+    --landing-action-font-size: clamp(1rem, 1.35vw, 1.25rem);
+    --landing-action-tracking: 0.24em;
+    --landing-leaderboard-top: clamp(0.8rem, 1.7svh, 1.1rem);
+    --landing-leaderboard-body-max-height: clamp(11.25rem, 27svh, 19rem);
+    --landing-row-padding-y: 0.375rem;
+    --landing-row-name-size: 0.9rem;
+    --landing-row-score-size: 0.8rem;
+    --landing-panel-edge: 2rem;
+    --landing-panel-bottom: 3rem;
+    --landing-radar-size: clamp(12rem, 13vw, 15.5rem);
+    --landing-panel-width: clamp(20rem, 19vw, 23rem);
+    --landing-location-width: clamp(19rem, 18vw, 22rem);
+  }
+}
+
+@media (max-height: 1000px) and (min-width: 1024px) {
+  .landing-root {
+    --landing-shell-padding-top: 0.75rem;
+    --landing-shell-padding-bottom: 0.75rem;
+    --landing-content-top: clamp(1rem, 1.9svh, 1.25rem);
+    --landing-hero-min-height: clamp(15rem, 27svh, 17rem);
+    --landing-hero-content-padding-block: clamp(1.2rem, 2.2svh, 1.75rem);
+    --landing-title-size: clamp(4.2rem, 5.25vw, 6.25rem);
+    --landing-title-line-height: 0.82;
+    --landing-title-tracking: 0.1em;
+    --landing-copy-top: 0.65rem;
+    --landing-copy-line-height: 1.4rem;
+    --landing-action-top: 0.75rem;
+    --landing-action-height: clamp(3.25rem, 5.8svh, 3.9rem);
+    --landing-action-font-size: clamp(0.95rem, 1.12vw, 1.08rem);
+    --landing-action-tracking: 0.22em;
+    --landing-leaderboard-top: 0.75rem;
+    --landing-leaderboard-body-max-height: clamp(14rem, 29svh, 18rem);
+    --landing-row-padding-y: 0.32rem;
+    --landing-row-name-size: 0.875rem;
+    --landing-row-score-size: 0.75rem;
+    --landing-panel-bottom: 3.25rem;
+    --landing-radar-size: clamp(11.5rem, 12vw, 14.5rem);
+  }
+}
+
+@media (max-height: 820px) and (min-width: 1024px) {
+  .landing-root {
+    --landing-shell-padding-top: 0.5rem;
+    --landing-shell-padding-bottom: 0.5rem;
+    --landing-content-top: clamp(1.25rem, 2.5svh, 1.75rem);
+    --landing-hero-min-height: clamp(14.5rem, 30svh, 16rem);
+    --landing-title-size: clamp(4.2rem, 5.8vw, 5.25rem);
+    --landing-action-height: clamp(3.5rem, 7svh, 4.25rem);
+    --landing-action-font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+    --landing-leaderboard-body-max-height: clamp(10rem, 24svh, 12.5rem);
+  }
+
+  .landing-decor {
+    opacity: 0.72;
+  }
+}
+
+@media (max-width: 767px) {
+  .landing-root {
+    --landing-frame-inset: 0.5rem;
+    --landing-content-top: clamp(0.75rem, 2svh, 1.25rem);
+    --landing-content-max-width: 36rem;
+    --landing-hero-min-height: clamp(14rem, 31svh, 18rem);
+    --landing-hero-content-padding-block: clamp(1.75rem, 4svh, 2.5rem);
+    --landing-hero-content-padding-inline: clamp(1rem, 5vw, 1.5rem);
+    --landing-title-size: clamp(3.15rem, 14vw, 5rem);
+    --landing-title-tracking: 0.1em;
+    --landing-copy-top: 0.9rem;
+    --landing-copy-line-height: 1.5rem;
+    --landing-action-top: 1rem;
+    --landing-action-height: 4.25rem;
+    --landing-action-min-width: min(100%, 22rem);
+    --landing-secondary-min-width: min(100%, 22rem);
+    --landing-action-padding-inline: 1.5rem;
+    --landing-action-font-size: 1rem;
+    --landing-action-tracking: 0.2em;
+    --landing-leaderboard-top: 1rem;
+    --landing-leaderboard-body-max-height: clamp(10rem, 24svh, 13rem);
+    --landing-row-padding-y: 0.375rem;
+    --landing-row-name-size: 0.875rem;
+    --landing-row-score-size: 0.75rem;
+  }
+
+  .landing-leaderboard-header p:last-child {
+    display: none;
+  }
 }
 
 .landing-page-frame {

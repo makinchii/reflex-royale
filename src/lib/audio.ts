@@ -187,6 +187,8 @@ export const AUDIO_ROUND_ALERTS_KEY = "reflexRoyaleRoundAlertsEnabled";
 export const AUDIO_VICTORY_PULSE_KEY = "reflexRoyaleVictoryPulseEnabled";
 export const AUDIO_MIX_MODE_KEY = "reflexRoyaleAudioMixMode";
 export const AUDIO_CUSTOM_TRACK_KEY = "reflexRoyaleAudioCustomTrack";
+export const AUDIO_TRACK_LOOP_KEY = "reflexRoyaleAudioTrackLoop";
+export const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
 
 export const UI_SFX_ASSETS = {
   click: { src: "/audio/ui-click.mp3", type: "audio/mpeg" },

@@ -9,6 +9,12 @@ import { GameState } from "./GameEngine.js";
 import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyboardInputHighlights } from "./keyMap.js";
 import { getCurrentLocalThemeCommand, getLocalPlayerThemePalette } from "./localThemePalette.js";
 
+const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
+
+function announceMatchState(inProgress) {
+  window.dispatchEvent(new CustomEvent(AUDIO_MATCH_STATE_EVENT, { detail: { inProgress } }));
+}
+
 export class UIRenderer {
   /**
    * @param {import('./GameEngine.js').GameEngine} engine
@@ -52,6 +58,7 @@ export class UIRenderer {
   /* ───────── Lobby screen ───────── */
 
   renderLobby() {
+    announceMatchState(false);
     this.root.innerHTML = `
       <div class="lobby">
         <div class="lobby-layout-top">
@@ -360,6 +367,7 @@ export class UIRenderer {
   /* ───────── In-game screens ───────── */
 
   _onGameStarted() {
+    announceMatchState(true);
     this.matchStartedAt = Date.now();
     this.matchRecorded = false;
 
@@ -488,6 +496,7 @@ export class UIRenderer {
   }
 
   _onGameOver({ standings, roundHistory }) {
+    announceMatchState(false);
     this.root.innerHTML = `
       <div class="game-over">
         <h1 class="winner-banner">

@@ -410,8 +410,8 @@ body {
 
 .arena {
   display: grid;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
   gap: 4px;
   background: #000;
   position: relative;
@@ -485,8 +485,10 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: 100%;
+  width: 100%;
   gap: 30px;
+  position: relative;
 }
 
 .player-panel-solo {
@@ -520,7 +522,7 @@ body {
 /* ── Center overlay (countdown / GO / results) ── */
 
 .center-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
@@ -625,7 +627,7 @@ body {
   padding: 24px;
   text-align: center;
   overflow-y: auto;
-  max-height: 100vh;
+  max-height: 100%;
 }
 
 .winner-banner {
@@ -778,7 +780,9 @@ body {
   width: 100%;
   height: 100%;
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
+  container-type: size;
+  overflow: hidden;
   color: var(--foreground, var(--text));
   font-family: var(--font-rajdhani), system-ui, sans-serif;
 }
@@ -786,13 +790,14 @@ body {
 #game-root .lobby,
 #game-root .game-over {
   display: grid;
-  gap: 18px;
-  align-content: center;
+  gap: clamp(8px, 1.6cqh, 16px);
+  align-content: start;
   width: min(100%, 1120px);
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   max-width: none;
   margin: 0 auto;
-  padding: clamp(22px, 4vw, 42px);
+  padding: clamp(12px, 2.2cqw, 28px);
   text-align: center;
   overflow: auto;
 }
@@ -801,7 +806,7 @@ body {
   margin: 0;
   color: var(--primary, #68e8ff);
   font-family: var(--font-orbitron), system-ui, sans-serif;
-  font-size: clamp(3rem, 7vw, 7.25rem);
+  font-size: clamp(2rem, 5.8cqw, 6rem);
   font-weight: 900;
   letter-spacing: 0.16em;
   line-height: 0.95;
@@ -823,7 +828,7 @@ body {
 
 #game-root .subtitle {
   margin: 0;
-  font-size: clamp(1.15rem, 1.8vw, 1.85rem);
+  font-size: clamp(0.9rem, 1.5cqw, 1.45rem);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -898,7 +903,7 @@ body {
 #game-root .chat-panel,
 #game-root .lobby-settings {
   margin: 0;
-  padding: 18px;
+  padding: clamp(10px, 1.5cqw, 16px);
 }
 
 #game-root .lobby-settings,
@@ -998,18 +1003,17 @@ body {
 }
 
 #game-root .lobby:has(.holo-keyboard-panel) {
-  align-content: center;
-  padding: clamp(22px, 4vw, 42px);
-  transform: translateY(clamp(-42px, -3vh, -18px));
+  align-content: start;
+  padding: clamp(12px, 2.2cqw, 28px);
 }
 
 #game-root .lobby:has(.chat-panel--terminal) {
-  transform: none;
+  align-content: start;
 }
 
 #game-root .lobby-layout-top {
   display: grid;
-  gap: 12px;
+  gap: clamp(6px, 1.3cqh, 12px);
   justify-items: center;
   width: 100%;
 }
@@ -1029,7 +1033,7 @@ body {
   width: min(100%, 980px);
   justify-self: center;
   align-self: center;
-  padding: clamp(14px, 2vw, 24px);
+  padding: clamp(8px, 1.4cqw, 18px);
   border: 1px solid rgba(145, 151, 168, 0.18);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
@@ -1058,7 +1062,7 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 14px;
+  margin-bottom: clamp(6px, 1.1cqh, 12px);
   color: rgba(185, 191, 207, 0.72);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.68rem;
@@ -1070,13 +1074,13 @@ body {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: clamp(8px, 1.1vw, 12px);
+  gap: clamp(5px, 0.9cqh, 10px);
 }
 
 #game-root .holo-keyboard-row {
   display: flex;
   justify-content: center;
-  gap: clamp(6px, 0.85vw, 10px);
+  gap: clamp(4px, 0.7cqw, 8px);
 }
 
 #game-root .holo-key {
@@ -1084,8 +1088,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: clamp(28px, 3.8vw, 52px);
-  height: clamp(28px, 3vw, 44px);
+  width: clamp(24px, 3.5cqw, 48px);
+  height: clamp(24px, 2.45cqw, 38px);
   border: 1px solid rgba(145, 151, 168, 0.32);
   border-radius: 0;
   background: rgba(10, 12, 18, 0.34);
@@ -1203,12 +1207,12 @@ body {
 }
 
 #game-root .online-host-controls {
-  position: fixed;
-  left: calc(clamp(1rem, 2.5vw, 3rem) + clamp(1rem, 2.5vw, 3rem) + clamp(1.25rem, 2.5vw, 2.5rem) + clamp(0.75rem, 1vw, 1.5rem));
-  top: clamp(6.75rem, 11svh, 9rem);
+  position: absolute;
+  left: clamp(1rem, 2cqw, 1.5rem);
+  top: clamp(1rem, 2cqh, 1.5rem);
   z-index: 38;
   display: grid;
-  width: clamp(19rem, 24vw, 28rem);
+  width: clamp(19rem, 24cqw, 28rem);
   gap: 0.75rem;
   border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 24%, transparent);
   background:
@@ -1697,6 +1701,9 @@ body {
 
 #game-root .player-panel,
 #game-root .player-panel-solo {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   border: 1px solid color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 42%, transparent);
   background:
     radial-gradient(circle at 50% 34%, color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 14%, transparent), transparent 44%),
@@ -1711,8 +1718,8 @@ body {
 }
 
 #game-root .light-circle {
-  width: clamp(90px, 12vw, 150px);
-  height: clamp(90px, 12vw, 150px);
+  width: clamp(84px, 12cqw, 150px);
+  height: clamp(84px, 12cqw, 150px);
 }
 
 #game-root .center-overlay {
@@ -1740,15 +1747,15 @@ body {
 }
 
 #game-root .chat-panel.chat-panel--terminal {
-  position: fixed;
-  left: calc(clamp(1rem, 2.5vw, 3rem) + clamp(1rem, 2.5vw, 3rem) + clamp(1.25rem, 2.5vw, 2.5rem) + clamp(0.75rem, 1vw, 1.5rem));
-  bottom: calc(clamp(1rem, 2vw, 2rem) + clamp(1rem, 2.5vw, 2rem) + clamp(1.25rem, 2.4vw, 2rem));
+  position: absolute;
+  left: clamp(1rem, 2cqw, 1.5rem);
+  bottom: clamp(1rem, 2cqh, 1.5rem);
   z-index: 12;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
-  width: clamp(19rem, 24vw, 28rem);
-  max-height: min(36vh, 21rem);
+  width: clamp(19rem, 24cqw, 28rem);
+  max-height: min(36cqh, 21rem);
   margin: 0;
   padding: 0;
   border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 34%, transparent);
@@ -1889,7 +1896,7 @@ body {
     right: 1.25rem;
     bottom: 1.25rem;
     width: auto;
-    max-height: 32vh;
+    max-height: 32cqh;
   }
 
   #game-root .input-row {
@@ -1917,9 +1924,10 @@ body {
   }
 
   #game-root .online-host-controls {
-    position: static;
-    width: min(100%, 32rem);
-    margin: 0 auto 1rem;
+    position: absolute;
+    left: 1.25rem;
+    top: 1.25rem;
+    width: min(calc(100% - 2.5rem), 32rem);
   }
 
   #game-root .chroma-sigil-panel {
@@ -1939,11 +1947,122 @@ body {
     max-width: none;
   }
 
-  #game-root .grid-2,
-  #game-root .grid-3,
-  #game-root .grid-4 {
+}
+
+@container (max-height: 640px) {
+  #game-root .lobby:has(.holo-keyboard-panel) {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-layout-top {
+    grid-column: 1;
+    grid-row: 1;
+    align-content: center;
+    align-self: center;
+    min-height: 0;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) #holoKeyboardMount {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    min-width: 0;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-keyboard-panel {
+    width: 100%;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-layout-bottom {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    position: relative;
+    z-index: 2;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .game-title {
+    font-size: clamp(1.35rem, 4.2cqw, 3rem);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .subtitle,
+  #game-root .lobby:has(.holo-keyboard-panel) .hint {
+    display: none;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-form,
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-settings {
+    width: 100%;
+    padding: clamp(8px, 1.2cqw, 12px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .input-row,
+  #game-root .lobby:has(.holo-keyboard-panel) .input-row.input-row--local-player,
+  #game-root .lobby:has(.holo-keyboard-panel) .input-row.input-row--online-entry,
+  #game-root .lobby:has(.holo-keyboard-panel) .input-row.input-row--online-key-card {
     grid-template-columns: 1fr;
-    grid-template-rows: none;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) input,
+  #game-root .lobby:has(.holo-keyboard-panel) .btn,
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-button {
+    min-height: 2.15rem;
+    padding-block: 0.35rem;
+    padding-inline: 0.75rem;
+    font-size: 0.68rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-field {
+    margin-top: 0;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-button {
+    gap: 0.5rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-summary__label,
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-summary__name {
+    font-size: 0.62rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .round-slider {
+    gap: 0.25rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slots {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot {
+    flex: none;
+    max-width: none;
+    min-height: 2rem;
+    gap: 0.35rem;
+    padding: 0.35rem 0.45rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-name {
+    font-size: 0.62rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot__protocol,
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot__remove {
+    display: none;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-keyboard-panel__header {
+    font-size: 0.52rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-key {
+    width: clamp(18px, 3.25cqw, 34px);
+    height: clamp(18px, 2.25cqw, 28px);
+    font-size: clamp(0.48rem, 1.1cqw, 0.72rem);
   }
 }
 

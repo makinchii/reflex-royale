@@ -1,6 +1,6 @@
 .play-cockpit-shell {
-  --play-shell-inset-x: clamp(1rem, 2.5vw, 3rem);
-  --play-shell-inset-y: clamp(1rem, 2vw, 2rem);
+  --play-shell-inset-x: clamp(0.75rem, 1.6vw, 2rem);
+  --play-shell-inset-y: clamp(0.75rem, 1.4vw, 1.5rem);
   padding: var(--play-shell-inset-y) var(--play-shell-inset-x);
 }
 
@@ -125,10 +125,10 @@
   position: relative;
   display: flex;
   flex: 1;
-  min-height: 520px;
+  min-height: 0;
   min-width: 0;
-  margin-inline: clamp(1rem, 2.5vw, 3rem);
-  margin-bottom: clamp(1rem, 2.5vw, 2rem);
+  margin-inline: clamp(0.5rem, 1.4vw, 1.5rem);
+  margin-bottom: clamp(0.5rem, 1.4vw, 1.25rem);
   overflow: hidden;
   background:
     radial-gradient(circle at 50% 18%, color-mix(in oklch, var(--primary) 7%, transparent), transparent 34%),
@@ -160,9 +160,28 @@
   z-index: 1;
   display: flex;
   flex: 1;
+  align-items: center;
+  justify-content: center;
   min-height: 0;
   min-width: 0;
-  padding: clamp(2rem, 4vw, 4.5rem);
+  padding: clamp(0.75rem, 1.8vw, 2rem);
+  container-type: size;
+  overflow: hidden;
+}
+
+.game-hud-frame__content > [data-wait-for-legacy-ready="true"] {
+  aspect-ratio: 16 / 9;
+  flex: 0 0 auto;
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  height: min(100cqh, calc(100cqw * 9 / 16));
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.game-hud-frame__content > [data-wait-for-legacy-ready="true"] #game-root {
+  width: 100%;
+  height: 100%;
 }
 
 .game-hud-frame__rail {
@@ -246,7 +265,6 @@
   }
 
   .game-hud-frame {
-    min-height: 620px;
     margin-bottom: 0;
   }
 

@@ -10,6 +10,7 @@ const HOST_RECLAIM_KEY = "reflexRoyaleHostReclaimToken";
 const ROOM_CODE_KEY = "reflexRoyaleRoomCode";
 const PLAYER_NAME_KEY = "reflexRoyalePlayerName";
 const PREFERRED_KEY_KEY = "reflexRoyalePreferredKey";
+const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
 const CHAT_LIMIT = 250;
 
 if (window.__reflexRoyaleRemoteCleanup) {
@@ -35,6 +36,10 @@ let pendingJoinSource = null;
 let roomEntryMode = "join";
 let selectedThemeCommand = getCurrentLocalThemeCommand();
 const themePalette = getLocalPlayerThemePalette();
+
+function announceMatchState(inProgress) {
+  window.dispatchEvent(new CustomEvent(AUDIO_MATCH_STATE_EVENT, { detail: { inProgress } }));
+}
 
 function getPreferredKey() {
   return normalizeGameKey(localStorage.getItem(PREFERRED_KEY_KEY) || "");
@@ -75,6 +80,7 @@ function attemptAutoReconnect() {
 }
 
 function renderJoinScreen(message = "") {
+  announceMatchState(false);
   const isCreateMode = roomEntryMode === "create";
   root.innerHTML = `
     <div class="lobby">
@@ -264,6 +270,7 @@ function renderPreferenceConflictDialog(unavailable = []) {
 }
 
 function renderLobby(state) {
+  announceMatchState(false);
   roomState = state;
   const currentPlayer = state.players.find((player) => player.id === myPlayerId);
   selectedKey = normalizeGameKey(currentPlayer?.keyBinding || selectedKey || "") || null;
@@ -685,6 +692,7 @@ socket.on("removedFromLobby", () => {
 });
 
 socket.on("countdown", ({ remaining }) => {
+  announceMatchState(true);
   if (!matchStartedAt) {
     matchStartedAt = Date.now();
     matchRecorded = false;
@@ -739,6 +747,7 @@ socket.on("roundEnd", ({ roundNum, results }) => {
 });
 
 socket.on("gameOver", ({ standings }) => {
+  announceMatchState(false);
   recordOnlineRecentMatch(standings || []);
 
   root.innerHTML = `
@@ -800,6 +809,7 @@ function recordOnlineRecentMatch(standings) {
 }
 
 socket.on("roomClosed", ({ reason }) => {
+  announceMatchState(false);
   myPlayerId = null;
   isHost = false;
   roomState = null;
