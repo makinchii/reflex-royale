@@ -58,6 +58,21 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    preferredThemeCommand: {
+      type: String,
+      enum: ["ares", "vulcan", "apollo", "aphrodite", "bacchus", "tron", "gaia", "olympus"],
+      default: "tron"
+    },
+    preferredThemeColor: {
+      type: String,
+      default: "#00d4ff",
+      match: /^#[0-9a-fA-F]{6}$/
+    },
+    preferredThemeShades: {
+      type: Map,
+      of: String,
+      default: {}
+    },
     recentMatches: {
       type: [
         {

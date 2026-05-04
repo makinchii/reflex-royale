@@ -81,6 +81,7 @@ export async function GamePageShell({ mode, user, children }: { mode: GameMode; 
             </div>
 
             <div className="play-command-banner__actions">
+              <div className="play-command-banner__audio-slot" />
               <Link href="/dashboard" className="play-command-button min-w-36">
                 Dashboard
               </Link>

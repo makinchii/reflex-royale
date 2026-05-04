@@ -662,7 +662,8 @@ export function Grid3D({
   moonSpin = true,
 }: Grid3DProps) {
   const { theme } = useTheme()
-  const color = themeColors[theme] || themeColors.tron
+  const cssPrimary = typeof window !== "undefined" ? getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() : ""
+  const color = themeColors[theme] || cssPrimary || themeColors.tron
 
   return (
     <div className={className}>

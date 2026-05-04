@@ -5,8 +5,36 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/thegridcn/button";
 import type { AppAuthUser } from "@/lib/auth";
 
+const THEME_KEY = "ui-lab-theme";
+const CUSTOM_THEME_COLOR_KEY = "reflexRoyaleCustomThemeColor";
+const THEME_COMMAND_KEY = "reflexRoyaleThemeCommand";
+
+function clearCookie(name: string) {
+  document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
+}
+
+export function resetThemeToTron() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(THEME_KEY, "tron");
+  window.localStorage.setItem(THEME_COMMAND_KEY, "tron");
+  window.localStorage.removeItem(CUSTOM_THEME_COLOR_KEY);
+  document.cookie = `${THEME_KEY}=tron; path=/; max-age=31536000; samesite=lax`;
+  document.cookie = `${THEME_COMMAND_KEY}=tron; path=/; max-age=31536000; samesite=lax`;
+  clearCookie(CUSTOM_THEME_COLOR_KEY);
+  document.documentElement.dataset.theme = "tron";
+  document.body.dataset.theme = "tron";
+  [document.documentElement, document.body].forEach((node) => {
+    ["--primary", "--accent", "--ring", "--border", "--input", "--glow", "--glow-muted", "--sidebar-primary", "--sidebar-border", "--sidebar-ring"].forEach((property) => {
+      node.style.removeProperty(property);
+    });
+  });
+  window.__reflexRoyaleSetFavicon?.();
+}
+
 export async function performLogout() {
   await fetch("/api/auth/logout", { method: "POST" });
+  resetThemeToTron();
 }
 
 export function AuthMenu({ user }: { user: AppAuthUser | null }) {

@@ -30,8 +30,6 @@ export default async function DashboardPage() {
           <DashboardTabs
             user={user}
             userRank={userRank}
-            playNowHref="/local"
-            onlineHref={user ? "/online" : "/login?next=/online"}
             performanceStats={performanceStats}
             recentMatches={recentMatches}
             topPlayers={topPlayers}

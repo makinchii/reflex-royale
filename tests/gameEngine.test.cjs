@@ -131,6 +131,17 @@ test("toggles ready state and rejects duplicate keys", () => {
   assert.equal(engine.getPlayer("p1").ready, false);
 });
 
+test("rejects duplicate local player theme protocols", () => {
+  const { GameEngine } = loadGameEngine();
+  const engine = new GameEngine();
+
+  assert.equal(engine.addPlayer("p1", "Ada", "a", "#ff003c", "ares"), true);
+  assert.equal(engine.addPlayer("p2", "Bea", "b", "#FF5050", "ares"), false);
+  assert.equal(engine.addPlayer("p2", "Bea", "b", "#ff7a00", "vulcan"), true);
+  assert.equal(engine.getPlayer("p1").themeCommand, "ares");
+  assert.equal(engine.getPlayer("p2").themeCommand, "vulcan");
+});
+
 test("normalizes shifted keys before storing and matching players", () => {
   const { GameEngine } = loadGameEngine();
   const engine = new GameEngine();

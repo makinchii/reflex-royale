@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-export type Theme = "tron" | "ares" | "clu" | "athena" | "aphrodite" | "poseidon";
+export type Theme = "tron" | "ares" | "clu" | "athena" | "aphrodite" | "poseidon" | "custom";
 
 const ThemeContext = React.createContext<{ theme: Theme }>({ theme: "tron" });
 

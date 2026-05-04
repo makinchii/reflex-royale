@@ -1192,6 +1192,247 @@ body {
   grid-template-columns: minmax(0, 1fr) minmax(5rem, 0.25fr) auto;
 }
 
+#game-root .input-row.input-row--local-player {
+  grid-template-columns: minmax(0, 1fr) minmax(5rem, 0.25fr) auto;
+  align-items: stretch;
+}
+
+#game-root .input-row.input-row--online-key-card {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: stretch;
+}
+
+#game-root .online-host-controls {
+  position: fixed;
+  left: calc(clamp(1rem, 2.5vw, 3rem) + clamp(1rem, 2.5vw, 3rem) + clamp(1.25rem, 2.5vw, 2.5rem) + clamp(0.75rem, 1vw, 1.5rem));
+  top: clamp(6.75rem, 11svh, 9rem);
+  z-index: 38;
+  display: grid;
+  width: clamp(19rem, 24vw, 28rem);
+  gap: 0.75rem;
+  border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 24%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--background, #000) 86%, transparent), color-mix(in oklch, var(--background, #000) 70%, black)),
+    var(--background, #000);
+  box-shadow:
+    0 0 26px color-mix(in oklch, var(--primary, #68e8ff) 14%, transparent),
+    inset 0 0 18px rgba(255, 255, 255, 0.035);
+  padding: 1rem;
+  text-align: left;
+  backdrop-filter: blur(16px);
+  opacity: 1;
+}
+
+#game-root .online-host-controls::before {
+  content: "HOST CONTROLS";
+  color: var(--primary, #68e8ff);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+#game-root .online-host-controls .btn {
+  width: 100%;
+}
+
+#game-root .player-slot__protocol {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--player-color, currentColor) 44%, transparent);
+  padding: 0.18rem 0.38rem;
+  color: color-mix(in srgb, var(--player-color, currentColor) 84%, white 16%);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+#game-root .player-slot--ready .player-slot__protocol,
+#game-root .player-slot:hover .player-slot__protocol,
+#game-root .player-slot:focus-within .player-slot__protocol {
+  border-color: rgba(5, 7, 11, 0.28);
+  color: #05070b;
+}
+
+#game-root .chroma-sigil-field {
+  position: relative;
+  min-width: 0;
+  margin-top: 0.7rem;
+  width: 100%;
+}
+
+#game-root .chroma-sigil-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  height: 100%;
+  min-height: 54px;
+  justify-content: stretch;
+  border-color: color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 70%, transparent);
+  color: var(--sigil-color, var(--primary, #68e8ff));
+  box-shadow: inset 0 0 18px color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 10%, transparent);
+}
+
+#game-root .chroma-sigil-button:hover:not(:disabled),
+#game-root .chroma-sigil-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 18%, transparent);
+  color: var(--sigil-color, var(--primary, #68e8ff));
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 38%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 16%, transparent);
+}
+
+#game-root .chroma-sigil-summary__label,
+#game-root .chroma-sigil-summary__name {
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+#game-root .chroma-sigil-summary__label {
+  color: color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 72%, white 12%);
+}
+
+#game-root .chroma-sigil-summary__name {
+  justify-self: end;
+  color: var(--sigil-color, var(--primary, #68e8ff));
+  text-align: right;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 44%, transparent);
+}
+
+#game-root .chroma-sigil-panel {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.5rem);
+  z-index: 30;
+  width: min(92vw, 54rem);
+  transform: translateX(-50%);
+  border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 28%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--background, #000) 94%, transparent), color-mix(in oklch, var(--background, #000) 82%, black)),
+    var(--background, #000);
+  box-shadow:
+    0 0 30px color-mix(in oklch, var(--primary, #68e8ff) 20%, transparent),
+    inset 0 0 20px rgba(255, 255, 255, 0.04);
+  padding: 0.65rem;
+  backdrop-filter: blur(18px);
+  overflow-x: auto;
+  scrollbar-color: color-mix(in srgb, var(--primary, #68e8ff) 50%, transparent) transparent;
+}
+
+#game-root .chroma-sigil-tabs {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(5.7rem, 1fr));
+  gap: 0.45rem;
+  min-width: max-content;
+}
+
+#game-root .chroma-sigil-tab {
+  display: grid;
+  min-height: 4.5rem;
+  gap: 0.25rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--sigil-color) 34%, transparent);
+  background: color-mix(in srgb, var(--background, #000) 84%, transparent);
+  color: color-mix(in srgb, var(--sigil-color) 58%, var(--foreground, #e8e8f0) 42%);
+  cursor: pointer;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: opacity 180ms ease, transform 120ms ease, box-shadow 220ms ease, background-color 220ms ease;
+}
+
+#game-root .chroma-sigil-tab:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--sigil-color) 62%, transparent);
+  color: var(--sigil-color);
+}
+
+#game-root .chroma-sigil-tab.is-active {
+  background: color-mix(in srgb, var(--sigil-color) 18%, transparent);
+  border-color: color-mix(in srgb, var(--sigil-color) 78%, white 8%);
+  color: var(--sigil-color);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--sigil-color) 36%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--sigil-color) 12%, transparent);
+}
+
+#game-root .chroma-sigil-tab:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+#game-root .chroma-sigil-tab.is-claimed {
+  cursor: not-allowed;
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--sigil-color) 76%, white 8%);
+  background: color-mix(in srgb, var(--sigil-color) 22%, transparent);
+  color: var(--sigil-color);
+  filter: none;
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--sigil-color) 42%, transparent),
+    0 0 42px color-mix(in srgb, var(--sigil-color) 18%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--sigil-color) 12%, transparent);
+}
+
+#game-root .chroma-sigil-tab__swatch {
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--sigil-color) 48%, transparent);
+  background: color-mix(in srgb, var(--sigil-color) 48%, transparent);
+}
+
+#game-root .chroma-sigil-tab.is-active .chroma-sigil-tab__swatch,
+#game-root .chroma-sigil-tab.is-claimed .chroma-sigil-tab__swatch {
+  border-color: color-mix(in srgb, var(--sigil-color) 70%, white 16%);
+  background: var(--sigil-color);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--sigil-color) 58%, transparent);
+}
+
+.preference-conflict-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(12px);
+}
+
+.preference-conflict-dialog__panel {
+  width: min(100%, 32rem);
+  border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 42%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--background, #000) 94%, transparent), color-mix(in oklch, var(--background, #000) 82%, black)),
+    var(--background, #000);
+  box-shadow:
+    0 0 36px color-mix(in oklch, var(--primary, #68e8ff) 24%, transparent),
+    inset 0 0 24px rgba(255, 255, 255, 0.04);
+  color: var(--foreground, #e8e8f0);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.preference-conflict-dialog__panel h2 {
+  margin: 0 0 0.75rem;
+  color: var(--primary, #68e8ff);
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.preference-conflict-dialog__panel p {
+  margin: 0 0 1.25rem;
+  color: color-mix(in oklch, var(--foreground, #e8e8f0) 72%, transparent);
+  line-height: 1.7;
+}
+
 #game-root .round-control {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.7rem;
@@ -1356,6 +1597,17 @@ body {
   text-shadow: 0 0 10px color-mix(in srgb, var(--player-color, currentColor) 60%, transparent);
 }
 
+#game-root .player-slot__protocol {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--player-color, currentColor) 44%, transparent);
+  padding: 0.18rem 0.38rem;
+  color: color-mix(in srgb, var(--player-color, currentColor) 84%, white 16%);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 #game-root .player-slot--ready {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
@@ -1369,6 +1621,13 @@ body {
 #game-root .player-slot--ready .player-slot-name {
   color: #05070b !important;
   text-shadow: none;
+}
+
+#game-root .player-slot--ready .player-slot__protocol,
+#game-root .player-slot:hover .player-slot__protocol,
+#game-root .player-slot:focus-within .player-slot__protocol {
+  border-color: rgba(5, 7, 11, 0.28);
+  color: #05070b;
 }
 
 #game-root .player-slot__remove {
@@ -1651,8 +1910,28 @@ body {
   }
 
   #game-root .input-row:has(#playerKey),
-  #game-root .input-row:has(#keyInput) {
+  #game-root .input-row:has(#keyInput),
+  #game-root .input-row.input-row--local-player,
+  #game-root .input-row.input-row--online-key-card {
     grid-template-columns: 1fr;
+  }
+
+  #game-root .online-host-controls {
+    position: static;
+    width: min(100%, 32rem);
+    margin: 0 auto 1rem;
+  }
+
+  #game-root .chroma-sigil-panel {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    margin-top: 0.5rem;
+    transform: none;
+  }
+
+  #game-root .chroma-sigil-tabs {
+    grid-template-columns: repeat(8, minmax(5.7rem, 1fr));
   }
 
   #game-root #playerKey,

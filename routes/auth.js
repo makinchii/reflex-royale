@@ -3,11 +3,14 @@ const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const { createSession, destroySession, getCurrentUser } = require("../lib/sessionAuth");
+const { THEME_COMMAND_COLORS, isAllowedThemeColor, normalizeThemeShades } = require("../lib/themePreferences");
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,20}$/;
 const MIN_PASSWORD_LENGTH = 8;
+const THEME_COMMANDS = new Set(Object.keys(THEME_COMMAND_COLORS));
+const THEME_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function isDatabaseConnected() {
   return mongoose.connection.readyState === 1;
@@ -31,6 +34,17 @@ function validateCredentials(username, password) {
   }
 
   return null;
+}
+
+function serializeUser(user) {
+  const preferredThemeShades = normalizeThemeShades(user.preferredThemeShades);
+  return {
+    username: user.username,
+    bestScore: user.bestScore || 0,
+    preferredThemeCommand: user.preferredThemeCommand || "tron",
+    preferredThemeColor: user.preferredThemeColor || "#00d4ff",
+    preferredThemeShades,
+  };
 }
 
 router.post("/signup", async (req, res) => {
@@ -85,6 +99,7 @@ router.post("/signup", async (req, res) => {
       return res.status(201).json({
         success: true,
         message: "Signup successful.",
+        user: serializeUser(newUser),
         redirectTo: "/dashboard"
       });
     });
@@ -149,6 +164,7 @@ router.post("/login", async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "Login successful.",
+        user: serializeUser(user),
         redirectTo: "/dashboard"
       });
     });
@@ -181,10 +197,40 @@ router.get("/me", async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    user: {
-      username: user.username,
-      bestScore: user.bestScore || 0,
-    },
+    user: serializeUser(user),
+  });
+});
+
+router.post("/theme", async (req, res) => {
+  const user = await getCurrentUser(req);
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Not logged in.",
+    });
+  }
+
+  const preferredThemeCommand = typeof req.body.preferredThemeCommand === "string" ? req.body.preferredThemeCommand : "";
+  const preferredThemeColor = typeof req.body.preferredThemeColor === "string" ? req.body.preferredThemeColor : "";
+  const preferredThemeShades = normalizeThemeShades(req.body.preferredThemeShades);
+
+  if (!THEME_COMMANDS.has(preferredThemeCommand) || !THEME_COLOR_PATTERN.test(preferredThemeColor) || !isAllowedThemeColor(preferredThemeCommand, preferredThemeColor)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid theme preference.",
+    });
+  }
+
+  user.preferredThemeCommand = preferredThemeCommand;
+  user.preferredThemeColor = preferredThemeColor;
+  user.preferredThemeShades = preferredThemeShades;
+  await user.save();
+  createSession(req, res, user);
+
+  return res.status(200).json({
+    success: true,
+    user: serializeUser(user),
   });
 });
 

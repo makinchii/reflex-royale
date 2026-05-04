@@ -7,8 +7,7 @@
 
 import { GameState } from "./GameEngine.js";
 import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyboardInputHighlights } from "./keyMap.js";
-
-const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
+import { getCurrentLocalThemeCommand, getLocalPlayerThemePalette } from "./localThemePalette.js";
 
 export class UIRenderer {
   /**
@@ -20,6 +19,8 @@ export class UIRenderer {
     this.root   = root;
     this.matchStartedAt = 0;
     this.matchRecorded = false;
+    this.themePalette = getLocalPlayerThemePalette();
+    this.selectedThemeCommand = getCurrentLocalThemeCommand();
 
     this._bindEngineEvents();
     this.renderLobby();
@@ -58,12 +59,21 @@ export class UIRenderer {
           <p class="subtitle">Local Multiplayer — 2-4 Players</p>
 
           <div class="lobby-form">
-            <div class="input-row">
+            <div class="input-row input-row--local-player">
               <input id="playerName" type="text" placeholder="Player name" maxlength="12" autocomplete="off" />
               <input id="playerKey"  type="text" placeholder="Key" maxlength="1" autocomplete="off" />
               <button id="addPlayerBtn" class="btn btn-primary">Add Player</button>
             </div>
-            <p class="hint">Click a holographic key or press a character key, then add the player. Press assigned keys to toggle ready.</p>
+            <div class="chroma-sigil-field">
+              <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
+                <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
+                <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
+              </button>
+              <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
+                <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
+              </div>
+            </div>
+            <p class="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then add the player. Press assigned keys to toggle ready.</p>
             <p id="lobbyStatus" class="hint"></p>
           </div>
 
@@ -102,7 +112,8 @@ export class UIRenderer {
     const keyInp   = this.root.querySelector("#playerKey");
     const roundInp = this.root.querySelector("#roundCount");
     const roundValue = this.root.querySelector("#roundCountValue");
-    const statusEl = this.root.querySelector("#lobbyStatus");
+    const themeBtn = this.root.querySelector("#themePickerButton");
+    const themePanel = this.root.querySelector("#themePickerPanel");
 
     const updateRoundSlider = () => {
       const min = Number(roundInp.min || 1);
@@ -118,6 +129,12 @@ export class UIRenderer {
     };
 
     addBtn.addEventListener("click", () => this._addPlayerFromForm());
+
+    themeBtn.addEventListener("click", () => {
+      const isOpen = !themePanel.hidden;
+      themePanel.hidden = isOpen;
+      themeBtn.setAttribute("aria-expanded", String(!isOpen));
+    });
 
     nameInp.addEventListener("keydown", (e) => {
       if (e.key === "Enter") this._addPlayerFromForm();
@@ -141,7 +158,71 @@ export class UIRenderer {
 
     roundInp.addEventListener("input", updateRoundSlider);
     updateRoundSlider();
+    this._refreshThemePicker();
     this._wireKeyboardKeys();
+  }
+
+  _getClaimedThemeCommands() {
+    return new Set(this.engine.getPlayers().map((player) => player.themeCommand).filter(Boolean));
+  }
+
+  _getAvailableThemeCommand() {
+    const claimed = this._getClaimedThemeCommands();
+    return this.themePalette.find((protocol) => !claimed.has(protocol.id))?.id || null;
+  }
+
+  _getSelectedThemeProtocol() {
+    return this.themePalette.find((protocol) => protocol.id === this.selectedThemeCommand) || this.themePalette[0] || null;
+  }
+
+  _syncSelectedThemeAfterRosterChange() {
+    const claimed = this._getClaimedThemeCommands();
+    if (claimed.has(this.selectedThemeCommand)) {
+      this.selectedThemeCommand = this._getAvailableThemeCommand() || this.selectedThemeCommand;
+    }
+  }
+
+  _refreshThemePicker() {
+    const tabs = this.root.querySelector("#themePickerTabs");
+    const label = this.root.querySelector("#themePickerButtonLabel");
+    const button = this.root.querySelector("#themePickerButton");
+    if (!tabs || !label || !button) return;
+
+    this._syncSelectedThemeAfterRosterChange();
+    const claimed = this._getClaimedThemeCommands();
+    const selected = this._getSelectedThemeProtocol();
+    const selectedLabel = selected?.label || "All Claimed";
+    label.textContent = selectedLabel;
+    button.style.setProperty("--sigil-color", selected?.color || "var(--primary, #68e8ff)");
+    button.disabled = !selected;
+
+    tabs.innerHTML = this.themePalette.map((protocol) => {
+      const claimedByPlayer = claimed.has(protocol.id);
+      const active = protocol.id === this.selectedThemeCommand && !claimedByPlayer;
+      return `
+        <button
+          class="chroma-sigil-tab ${active ? "is-active" : ""} ${claimedByPlayer ? "is-claimed" : ""}"
+          type="button"
+          role="tab"
+          aria-selected="${active}"
+          data-theme-command="${protocol.id}"
+          style="--sigil-color:${protocol.color}"
+          ${claimedByPlayer ? "disabled" : ""}
+        >
+          <span class="chroma-sigil-tab__swatch" aria-hidden="true"></span>
+          <span>${protocol.label}</span>
+        </button>
+      `;
+    }).join("");
+
+    tabs.querySelectorAll(".chroma-sigil-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const command = tab.dataset.themeCommand;
+        if (!command || claimed.has(command)) return;
+        this.selectedThemeCommand = command;
+        this._refreshThemePicker();
+      });
+    });
   }
 
   _wireInputKeyboardHighlights(inputs) {
@@ -164,13 +245,19 @@ export class UIRenderer {
     }
 
     const id    = `local_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const color = PLAYER_COLORS[this.engine.players.size] || "#888";
+    const themeProtocol = this._getSelectedThemeProtocol();
+    if (!themeProtocol) {
+      if (statusEl) statusEl.textContent = "All Chroma Sigils are already claimed.";
+      return;
+    }
 
-    const success = this.engine.addPlayer(id, name, key, color);
+    const success = this.engine.addPlayer(id, name, key, themeProtocol.color, themeProtocol.id);
     if (success) {
       nameInp.value = "";
       keyInp.value  = "";
       nameInp.focus();
+      this.selectedThemeCommand = this._getAvailableThemeCommand() || this.selectedThemeCommand;
+      this._refreshThemePicker();
       if (statusEl) statusEl.textContent = "";
     } else if (statusEl) {
       statusEl.textContent = "That key is invalid, already in use, or the lobby is full.";
@@ -182,6 +269,7 @@ export class UIRenderer {
     if (!container) return;
 
     const players = this.engine.getPlayers();
+    this._syncSelectedThemeAfterRosterChange();
     const keyboard = this.root.querySelector("#holoKeyboardMount");
     if (keyboard) {
       keyboard.innerHTML = renderHolographicKeyboard(players, { title: "LOCAL KEYBOARD MATRIX", draggable: true });
@@ -193,6 +281,7 @@ export class UIRenderer {
     container.innerHTML = players.map((p, i) => `
       <div class="player-slot ${p.ready ? "player-slot--ready" : ""}" style="--player-color:${p.color}; border-color:${p.color}">
         <span class="player-slot-name" style="color:${p.color}">${this._esc(p.name)}</span>
+        <span class="player-slot__protocol">${this._esc(this.themePalette.find((protocol) => protocol.id === p.themeCommand)?.label || "Custom")}</span>
         <button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${this._esc(p.name)}" data-id="${p.id}">&times;</button>
       </div>
     `).join("");
@@ -207,6 +296,7 @@ export class UIRenderer {
     // Enable/disable start button
     const startBtn = this.root.querySelector("#startGameBtn");
     if (startBtn) startBtn.disabled = players.length < 2 || !players.every(p => p.ready);
+    this._refreshThemePicker();
   }
 
   _wireKeyboardKeys() {

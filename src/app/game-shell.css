@@ -63,6 +63,14 @@
   min-width: 0;
 }
 
+.play-command-banner__audio-slot:empty {
+  display: none;
+}
+
+.play-command-button--audio {
+  gap: 0.55rem;
+}
+
 .play-command-button {
   display: inline-flex;
   min-height: 36px;

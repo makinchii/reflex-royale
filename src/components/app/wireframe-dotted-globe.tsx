@@ -42,6 +42,8 @@ type WireframeDottedGlobeProps = {
 };
 
 const degreesToRadians = Math.PI / 180;
+const VISUAL_ANIMATIONS_KEY = "reflexRoyaleVisualAnimationsEnabled";
+const VISUAL_PREFERENCES_CHANGED_EVENT = "reflexRoyaleVisualPreferencesChanged";
 
 function createDot(lng: number, lat: number): DotData {
   const lngRadians = lng * degreesToRadians;
@@ -117,6 +119,26 @@ const moonDots: DotData[] = Array.from({ length: 240 }, (_, index) => {
 export function WireframeDottedGlobe({ animated = true, className, height = 420, kind = "earth", surface = "detailed", width = 420 }: WireframeDottedGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState(false);
+  const [visualAnimationsEnabled, setVisualAnimationsEnabled] = useState(true);
+
+  useEffect(() => {
+    const syncAnimationPreference = () => {
+      setVisualAnimationsEnabled(window.localStorage.getItem(VISUAL_ANIMATIONS_KEY) !== "false");
+    };
+
+    const syncFromStorage = (event: StorageEvent) => {
+      if (event.key === VISUAL_ANIMATIONS_KEY) syncAnimationPreference();
+    };
+
+    syncAnimationPreference();
+    window.addEventListener(VISUAL_PREFERENCES_CHANGED_EVENT, syncAnimationPreference);
+    window.addEventListener("storage", syncFromStorage);
+
+    return () => {
+      window.removeEventListener(VISUAL_PREFERENCES_CHANGED_EVENT, syncAnimationPreference);
+      window.removeEventListener("storage", syncFromStorage);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -460,7 +482,7 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
     function startRendering() {
       if (cancelled || document.hidden || isHiddenDecorativePlanet() || animationStarted) return;
       animationStarted = true;
-      if (prefersReducedMotion || !animated) draw();
+      if (prefersReducedMotion || !animated || !visualAnimationsEnabled) draw();
       else unsubscribeFrame = subscribeGlobeFrame(animate);
     }
 
@@ -526,7 +548,7 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       decorativePlanetQuery.removeEventListener("change", handleVisibilityChange);
     };
-  }, [animated, className, height, kind, surface, width]);
+  }, [animated, className, height, kind, surface, visualAnimationsEnabled, width]);
 
   return (
     <div className={cn("navigate-globe-canvas", className)}>

@@ -2,12 +2,14 @@
  * remote.js - Client for server-authoritative online lobby play.
  */
 import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyboardInputHighlights } from "./keyMap.js";
+import { getCurrentLocalThemeCommand, getLocalPlayerThemePalette } from "./localThemePalette.js";
 import { recordRecentMatch } from "./recentMatches.js";
 
 const VERIFIER_KEY = "reflexRoyaleVerifier";
 const HOST_RECLAIM_KEY = "reflexRoyaleHostReclaimToken";
 const ROOM_CODE_KEY = "reflexRoyaleRoomCode";
 const PLAYER_NAME_KEY = "reflexRoyalePlayerName";
+const PREFERRED_KEY_KEY = "reflexRoyalePreferredKey";
 const CHAT_LIMIT = 250;
 
 if (window.__reflexRoyaleRemoteCleanup) {
@@ -31,6 +33,25 @@ let matchRecorded = false;
 let matchStartedAt = 0;
 let pendingJoinSource = null;
 let roomEntryMode = "join";
+let selectedThemeCommand = getCurrentLocalThemeCommand();
+const themePalette = getLocalPlayerThemePalette();
+
+function getPreferredKey() {
+  return normalizeGameKey(localStorage.getItem(PREFERRED_KEY_KEY) || "");
+}
+
+function getSelectedThemeProtocol() {
+  return themePalette.find((protocol) => protocol.id === selectedThemeCommand) || themePalette[0] || null;
+}
+
+function getPreferredPlayerOptions() {
+  const protocol = getSelectedThemeProtocol();
+  return {
+    preferredKey: getPreferredKey(),
+    preferredThemeCommand: protocol?.id || "tron",
+    preferredThemeColor: protocol?.color || "#00d4ff",
+  };
+}
 
 attemptAutoReconnect();
 window.__reflexRoyaleLegacyReady = true;
@@ -44,7 +65,8 @@ function attemptAutoReconnect() {
       name: savedPlayerName,
       room: savedRoomCode,
       verifier,
-      hostReclaimToken
+      hostReclaimToken,
+      ...getPreferredPlayerOptions()
     });
     return;
   }
@@ -96,7 +118,7 @@ function renderJoinScreen(message = "") {
     const name = document.getElementById("playerName").value.trim();
     if (!name) return showPageNotification("Enter your name first.", "error");
     localStorage.setItem(PLAYER_NAME_KEY, name);
-    socket.emit("createRoom", { name, verifier });
+    socket.emit("createRoom", { name, verifier, ...getPreferredPlayerOptions() });
   };
   if (createRoomBtn) createRoomBtn.addEventListener("click", createRoom);
 
@@ -108,7 +130,7 @@ function renderJoinScreen(message = "") {
     localStorage.setItem(PLAYER_NAME_KEY, name);
     localStorage.setItem(ROOM_CODE_KEY, room);
     pendingJoinSource = "manual";
-    socket.emit("joinRoom", { name, room, verifier, hostReclaimToken });
+    socket.emit("joinRoom", { name, room, verifier, hostReclaimToken, ...getPreferredPlayerOptions() });
   };
   if (joinBtn) joinBtn.addEventListener("click", joinRoom);
 
@@ -151,6 +173,96 @@ function renderChatPanel() {
   `;
 }
 
+function getClaimedThemeCommands() {
+  return new Set((roomState?.players || []).map((player) => player.themeCommand).filter(Boolean));
+}
+
+function getAvailableThemeCommand() {
+  const claimed = getClaimedThemeCommands();
+  return themePalette.find((protocol) => !claimed.has(protocol.id))?.id || null;
+}
+
+function syncSelectedThemeAfterRosterChange() {
+  const currentPlayer = roomState?.players?.find((player) => player.id === myPlayerId);
+  if (currentPlayer?.themeCommand) {
+    selectedThemeCommand = currentPlayer.themeCommand;
+    return;
+  }
+
+  const claimed = getClaimedThemeCommands();
+  if (claimed.has(selectedThemeCommand)) selectedThemeCommand = getAvailableThemeCommand() || selectedThemeCommand;
+}
+
+function renderThemePicker() {
+  const tabs = document.getElementById("themePickerTabs");
+  const label = document.getElementById("themePickerButtonLabel");
+  const button = document.getElementById("themePickerButton");
+  if (!tabs || !label || !button) return;
+
+  syncSelectedThemeAfterRosterChange();
+  const claimed = getClaimedThemeCommands();
+  const currentPlayer = roomState?.players?.find((player) => player.id === myPlayerId);
+  const selected = getSelectedThemeProtocol();
+  label.textContent = selected?.label || "All Claimed";
+  button.style.setProperty("--sigil-color", selected?.color || "var(--primary, #68e8ff)");
+  button.disabled = !selected;
+
+  tabs.innerHTML = themePalette.map((protocol) => {
+    const claimedByOther = claimed.has(protocol.id) && currentPlayer?.themeCommand !== protocol.id;
+    const active = protocol.id === selectedThemeCommand && !claimedByOther;
+    const claimedByPlayer = currentPlayer?.themeCommand === protocol.id;
+    return `
+      <button
+        class="chroma-sigil-tab ${active || claimedByPlayer ? "is-active" : ""} ${claimedByOther || claimedByPlayer ? "is-claimed" : ""}"
+        type="button"
+        role="tab"
+        aria-selected="${active || claimedByPlayer}"
+        data-theme-command="${protocol.id}"
+        style="--sigil-color:${protocol.color}"
+        ${claimedByOther ? "disabled" : ""}
+      >
+        <span class="chroma-sigil-tab__swatch" aria-hidden="true"></span>
+        <span>${protocol.label}</span>
+      </button>
+    `;
+  }).join("");
+
+  tabs.querySelectorAll(".chroma-sigil-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const command = tab.dataset.themeCommand;
+      const protocol = themePalette.find((item) => item.id === command);
+      if (!protocol || tab.disabled) return;
+      selectedThemeCommand = protocol.id;
+      socket.emit("bindTheme", { themeCommand: protocol.id, color: protocol.color });
+      renderThemePicker();
+    });
+  });
+}
+
+function renderPreferenceConflictDialog(unavailable = []) {
+  const existing = document.getElementById("preferenceConflictDialog");
+  if (existing) existing.remove();
+  const names = unavailable.map((item) => item === "theme" ? "Chroma Sigil" : "preferred key");
+  const message = names.length === 2
+    ? "Your saved Chroma Sigil and preferred key are already claimed in this room. Pick open replacements before readying up."
+    : `Your saved ${names[0] || "preference"} is already claimed in this room. Pick an open replacement before readying up.`;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div id="preferenceConflictDialog" class="preference-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="preferenceConflictTitle">
+      <div class="preference-conflict-dialog__panel">
+        <h2 id="preferenceConflictTitle">Preference Collision</h2>
+        <p>${esc(message)}</p>
+        <button id="preferenceConflictClose" type="button" class="btn btn-primary">Choose Manually</button>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("preferenceConflictClose")?.addEventListener("click", () => {
+    document.getElementById("preferenceConflictDialog")?.remove();
+    document.getElementById(unavailable.includes("theme") ? "themePickerButton" : "keyInput")?.focus();
+  });
+}
+
 function renderLobby(state) {
   roomState = state;
   const currentPlayer = state.players.find((player) => player.id === myPlayerId);
@@ -159,9 +271,28 @@ function renderLobby(state) {
   const roundText = `Rounds: ${state.totalRounds}`;
   const waitingText = state.waitingFor?.length ? `Waiting for: ${state.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
   const canToggleReady = Boolean(currentPlayer?.hasKeyBinding);
-  const lobbyButtonText = currentPlayer?.isInLobbyView ? "Play Again" : "Return to Lobby";
-
+  const hostControls = isHost ? `
+    <aside class="online-host-controls" aria-label="Host controls">
+      <div class="host-control host-control--rounds">
+        <div data-slot="tron-slider" class="round-slider round-slider--host" aria-label="Round count slider">
+          <div class="round-slider__header">
+            <span class="round-control">Round count</span>
+            <span id="roundCountInputValue" class="round-slider__value">${state.totalRounds}</span>
+          </div>
+          <div class="round-slider__track-wrap">
+            <div data-slot="slider-track" class="round-slider__track"></div>
+            <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
+            <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
+            <input id="roundCountInput" class="round-slider__input" type="range" min="1" max="20" step="1" value="${state.totalRounds}" />
+          </div>
+        </div>
+      </div>
+      <button id="applyRoundCountBtn" class="btn btn-secondary">Update Rounds</button>
+      <button id="closeRoomBtn" class="btn btn-secondary">Close Room</button>
+    </aside>
+  ` : "";
   root.innerHTML = `
+    ${hostControls}
     <div class="lobby">
       <div class="lobby-layout-top">
         <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
@@ -172,41 +303,27 @@ function renderLobby(state) {
         ${isHost ? `<div id="hostRosterControls" class="game-over-actions"></div>` : ""}
       </div>
 
-      <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
-
-      ${renderChatPanel()}
-
       <div class="lobby-form">
-        <div class="input-row">
+        <div class="input-row input-row--online-key-card">
           <input id="keyInput" type="text" placeholder="Pick your key" maxlength="1" autocomplete="off" value="${selectedKey ? esc(selectedKey.toUpperCase()) : ""}" />
           <button id="bindKeyBtn" class="btn btn-secondary">Set Key</button>
           <button id="readyBtn" class="btn btn-primary" ${canToggleReady ? "" : "disabled"}>${currentPlayer?.isReady ? "Unready" : canToggleReady ? "Ready Up" : "Set Key First"}</button>
-          <button id="returnLobbyBtn" class="btn btn-secondary">${lobbyButtonText}</button>
+        </div>
+        <div class="chroma-sigil-field">
+          <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
+            <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
+            <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
+          </button>
+          <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
+            <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
+          </div>
         </div>
         <p class="hint">Click a holographic key or press a character key, then set it. Press your assigned key to toggle ready.</p>
       </div>
 
-      <div class="game-over-actions">
-        ${isHost ? `
-          <div class="host-control host-control--rounds">
-            <div data-slot="tron-slider" class="round-slider round-slider--host" aria-label="Round count slider">
-              <div class="round-slider__header">
-                <span class="round-control">Round count</span>
-                <span id="roundCountInputValue" class="round-slider__value">${state.totalRounds}</span>
-              </div>
-              <div class="round-slider__track-wrap">
-                <div data-slot="slider-track" class="round-slider__track"></div>
-                <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
-                <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
-                <input id="roundCountInput" class="round-slider__input" type="range" min="1" max="20" step="1" value="${state.totalRounds}" />
-              </div>
-            </div>
-          </div>
-          <button id="applyRoundCountBtn" class="btn btn-secondary">Update Rounds</button>
-          <button id="closeRoomBtn" class="btn btn-secondary">Close Room</button>
-        ` : ""}
-        <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
-      </div>
+      <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
+
+      ${renderChatPanel()}
 
       ${isHost ? `<div class="lobby-layout-bottom"><button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button></div>` : ""}
     </div>
@@ -238,18 +355,20 @@ function renderLobby(state) {
     wireInputKeyboardHighlights([keyInput]);
   }
 
+  const themeBtn = document.getElementById("themePickerButton");
+  const themePanel = document.getElementById("themePickerPanel");
+  if (themeBtn && themePanel) {
+    themeBtn.addEventListener("click", () => {
+      const isOpen = !themePanel.hidden;
+      themePanel.hidden = isOpen;
+      themeBtn.setAttribute("aria-expanded", String(!isOpen));
+    });
+  }
+  renderThemePicker();
+
   wireKeyboardKeys();
 
-  const returnLobbyBtn = document.getElementById("returnLobbyBtn");
-  if (returnLobbyBtn) returnLobbyBtn.addEventListener("click", () => socket.emit("requestLobbyView"));
-
   wireChatControls();
-
-  const leaveRoomBtn = document.getElementById("leaveRoomBtn");
-  if (leaveRoomBtn) leaveRoomBtn.addEventListener("click", () => {
-    autoReconnectEnabled = false;
-    socket.emit("leaveRoom");
-  });
 
   const startBtn = document.getElementById("startGameBtn");
   if (startBtn) startBtn.addEventListener("click", () => socket.emit("startGame"));
@@ -297,6 +416,7 @@ function renderRoster(players) {
   container.innerHTML = players.map((player) => `
     <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
       <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
+      <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
     </div>
   `).join("");
 }
@@ -495,10 +615,23 @@ socket.on("keyBound", ({ key }) => {
   }
 });
 
+socket.on("themeBound", ({ themeCommand }) => {
+  if (themeCommand) selectedThemeCommand = themeCommand;
+  if (roomState && (roomState.status === "waiting_for_players" || roomState.status === "ready_check")) {
+    renderLobby(roomState);
+  }
+});
+
+socket.on("preferenceConflict", ({ unavailable }) => {
+  renderPreferenceConflictDialog(unavailable || []);
+});
+
 socket.on("playerList", ({ players }) => {
   roomState = roomState || { players: [] };
   roomState.players = players;
+  syncSelectedThemeAfterRosterChange();
   renderRoster(players);
+  renderThemePicker();
 
   const hint = document.getElementById("roomHint");
   if (hint && roomState?.readyCount !== undefined) {

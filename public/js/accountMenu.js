@@ -6,7 +6,16 @@ async function mountAccountMenu(options = {}) {
     window.__reflexRoyaleAccountMenuCleanup();
   }
 
-  let detachDocumentClick = null;
+let detachDocumentClick = null;
+
+function resetThemeToTron() {
+  localStorage.setItem("ui-lab-theme", "tron");
+  localStorage.setItem("reflexRoyaleThemeCommand", "tron");
+  localStorage.removeItem("reflexRoyaleCustomThemeColor");
+  document.cookie = "ui-lab-theme=tron; path=/; max-age=31536000; samesite=lax";
+  document.cookie = "reflexRoyaleThemeCommand=tron; path=/; max-age=31536000; samesite=lax";
+  document.cookie = "reflexRoyaleCustomThemeColor=; path=/; max-age=0; samesite=lax";
+}
   const cleanupAccountMenu = () => {
     if (detachDocumentClick) {
       detachDocumentClick();
@@ -99,6 +108,7 @@ async function mountAccountMenu(options = {}) {
 
     logoutBtn.addEventListener("click", async () => {
       await fetch("/api/auth/logout", { method: "POST" });
+      resetThemeToTron();
       window.location.href = "/";
     });
   } catch {

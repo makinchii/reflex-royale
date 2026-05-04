@@ -6,6 +6,7 @@ import Script from "next/script";
 declare global {
   interface Window {
     mountAccountMenu?: (options?: { rootId?: string }) => void;
+    __reflexRoyaleLocalThemeShades?: Record<string, string>;
     __reflexRoyaleLocalCleanup?: () => void;
     __reflexRoyaleRemoteCleanup?: () => void;
     __reflexRoyaleAccountMenuCleanup?: () => void;
@@ -16,9 +17,10 @@ declare global {
 type LegacyGameShellProps = {
   mode: "local" | "remote";
   showAccountMenu?: boolean;
+  localPlayerThemeShades?: Record<string, string> | null;
 };
 
-export function LegacyGameShell({ mode, showAccountMenu = true }: LegacyGameShellProps) {
+export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerThemeShades = null }: LegacyGameShellProps) {
   const [notificationsReady, setNotificationsReady] = useState(mode === "local");
   const [accountMenuReady, setAccountMenuReady] = useState(!showAccountMenu);
   const [socketReady, setSocketReady] = useState(mode === "local");
@@ -26,6 +28,11 @@ export function LegacyGameShell({ mode, showAccountMenu = true }: LegacyGameShel
 
   useEffect(() => {
     window.__reflexRoyaleLegacyReady = false;
+    if (localPlayerThemeShades) {
+      window.__reflexRoyaleLocalThemeShades = localPlayerThemeShades;
+    } else {
+      window.__reflexRoyaleLocalThemeShades = undefined;
+    }
     delete document.documentElement.dataset.pageReady;
 
     const handleLegacyReady = () => {
@@ -47,8 +54,9 @@ export function LegacyGameShell({ mode, showAccountMenu = true }: LegacyGameShel
       }
       window.__reflexRoyaleAccountMenuCleanup?.();
       window.__reflexRoyaleLegacyReady = false;
+      window.__reflexRoyaleLocalThemeShades = undefined;
     };
-  }, [mode]);
+  }, [localPlayerThemeShades, mode]);
 
   return (
     <>

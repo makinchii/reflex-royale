@@ -76,9 +76,10 @@ export class GameEngine {
    * @param {string} name   – display name
    * @param {string} [key]  – keyboard key for local mode (e.g. "q")
    * @param {string} [color]– hex colour
+   * @param {string} [themeCommand] – local player color protocol
    * @returns {boolean} success
    */
-  addPlayer(id, name, key = null, color = "#1f6feb") {
+  addPlayer(id, name, key = null, color = "#1f6feb", themeCommand = null) {
     if (this.state !== GameState.LOBBY) return false;
     if (this.players.size >= 4) return false;
     if (this.players.has(id)) return false;
@@ -93,11 +94,18 @@ export class GameEngine {
       }
     }
 
+    if (themeCommand) {
+      for (const p of this.players.values()) {
+        if (p.themeCommand === themeCommand) return false;
+      }
+    }
+
     this.players.set(id, {
       id,
       name,
       key: normalizedKey,
       color,
+      themeCommand,
       totalScore: 0,
       roundTimes: [],       // ms per round (Infinity = missed / false-start)
       wins: 0,
@@ -110,7 +118,7 @@ export class GameEngine {
       _falseStart: false,
     });
 
-    this._emit("playerAdded", { id, name, color });
+    this._emit("playerAdded", { id, name, color, themeCommand });
     return true;
   }
 
@@ -397,6 +405,7 @@ export class GameEngine {
         id: p.id,
         name: p.name,
         color: p.color,
+        themeCommand: p.themeCommand,
         totalScore: p.totalScore,
         wins: p.wins,
         bestTime: p.bestTime === Infinity ? null : p.bestTime,

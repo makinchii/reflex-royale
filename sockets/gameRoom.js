@@ -8,6 +8,7 @@
 const crypto = require("crypto");
 const { performance } = require("perf_hooks");
 const { normalizeGameKey } = require("../lib/gameKeys.cjs");
+const { THEME_COMMAND_COLORS, isAllowedThemeColor, normalizeThemeCommand } = require("../lib/themePreferences.js");
 
 const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
 const STALE_SLOT_MS = 60_000;
@@ -73,6 +74,7 @@ class RoomGame {
       name,
       verifier,
       color,
+      themeCommand: null,
       connected: true,
       keyBinding: null,
       isReady: false,
@@ -219,6 +221,66 @@ class RoomGame {
     player.lastSeenAt = Date.now();
     this._refreshLobbyStatus();
     return { ok: true, key: normalized };
+  }
+
+  assignPreferredKey(socketId, key) {
+    const player = this.players.get(socketId);
+    if (!player || !player.connected || player.keyBinding) return { ok: false };
+
+    const normalized = normalizeGameKey(String(key || "").trim());
+    if (!normalized) return { ok: false };
+
+    for (const other of this.players.values()) {
+      if (other.id !== socketId && other.keyBinding === normalized) return { ok: false };
+    }
+
+    player.keyBinding = normalized;
+    player.isReady = false;
+    player.lastSeenAt = Date.now();
+    this._refreshLobbyStatus();
+    return { ok: true, key: normalized };
+  }
+
+  assignPreferredTheme(socketId, command, color) {
+    const player = this.players.get(socketId);
+    if (!player || !player.connected || player.themeCommand) return { ok: false };
+
+    const themeCommand = normalizeThemeCommand(command);
+    for (const other of this.players.values()) {
+      if (other.id !== socketId && other.themeCommand === themeCommand) return { ok: false };
+    }
+
+    player.themeCommand = themeCommand;
+    player.color = isAllowedThemeColor(themeCommand, color) ? color : THEME_COMMAND_COLORS[themeCommand];
+    player.isReady = false;
+    player.lastSeenAt = Date.now();
+    this._refreshLobbyStatus();
+    return { ok: true, themeCommand, color: player.color };
+  }
+
+  bindTheme(socketId, command, color) {
+    if (!this._isLobbyState()) {
+      return { ok: false, message: "Sigils can only be changed in the lobby." };
+    }
+
+    const player = this.players.get(socketId);
+    if (!player || !player.connected) {
+      return { ok: false, message: "Player not found." };
+    }
+
+    const themeCommand = normalizeThemeCommand(command);
+    for (const other of this.players.values()) {
+      if (other.id !== socketId && other.themeCommand === themeCommand) {
+        return { ok: false, message: "That Chroma Sigil is already claimed." };
+      }
+    }
+
+    player.themeCommand = themeCommand;
+    player.color = isAllowedThemeColor(themeCommand, color) ? color : THEME_COMMAND_COLORS[themeCommand];
+    player.isReady = false;
+    player.lastSeenAt = Date.now();
+    this._refreshLobbyStatus();
+    return { ok: true, themeCommand, color: player.color };
   }
 
   setRoundCount(socketId, value) {
@@ -446,6 +508,7 @@ class RoomGame {
         id: player.id,
         name: player.name,
         color: player.color,
+        themeCommand: player.themeCommand,
         connected: player.connected,
         isReady: player.isReady,
         isHost: player.isHost,
@@ -464,6 +527,7 @@ class RoomGame {
         id: player.id,
         name: player.name,
         color: player.color,
+        themeCommand: player.themeCommand,
         totalScore: player.totalScore,
         wins: player.wins,
         bestTime: player.bestTime === Infinity ? null : player.bestTime,
@@ -635,6 +699,13 @@ function closeRoom(io, room, reason = "closed") {
   rooms.delete(room.roomCode);
 }
 
+function applyPreferredPlayerOptions(room, socketId, { preferredKey, preferredThemeCommand, preferredThemeColor } = {}) {
+  const unavailable = [];
+  if (preferredKey && !room.assignPreferredKey(socketId, preferredKey).ok) unavailable.push("key");
+  if (preferredThemeCommand && !room.assignPreferredTheme(socketId, preferredThemeCommand, preferredThemeColor).ok) unavailable.push("theme");
+  return unavailable;
+}
+
 function startNextRound(io, room) {
   room.currentRound += 1;
 
@@ -773,7 +844,7 @@ function initGameSockets(io) {
   io.on("connection", (socket) => {
     let currentRoom = null;
 
-    socket.on("createRoom", ({ name }) => {
+    socket.on("createRoom", ({ name, preferredKey, preferredThemeCommand, preferredThemeColor }) => {
       if (!name?.trim()) {
         return socket.emit("error", { message: "Enter your name first." });
       }
@@ -783,13 +854,15 @@ function initGameSockets(io) {
       rooms.set(code, room);
       const verifier = crypto.randomUUID();
       room.addPlayer(socket.id, name.trim(), verifier, true);
+      const unavailable = applyPreferredPlayerOptions(room, socket.id, { preferredKey, preferredThemeCommand, preferredThemeColor });
       currentRoom = code;
       socket.join(code);
       socket.emit("roomCreated", { room: room.getRoomState(), playerId: socket.id, verifier, hostReclaimToken: room.getHostReclaimToken() });
+      if (unavailable.length) socket.emit("preferenceConflict", { unavailable });
       emitRoomState(io, room);
     });
 
-    socket.on("joinRoom", ({ name, room: code, verifier, hostReclaimToken }) => {
+    socket.on("joinRoom", ({ name, room: code, verifier, hostReclaimToken, preferredKey, preferredThemeCommand, preferredThemeColor }) => {
       if (!name?.trim() || !code?.trim()) {
         return socket.emit("error", { message: "Enter both name and room code." });
       }
@@ -827,7 +900,10 @@ function initGameSockets(io) {
             result = { ok: false, message: "That name is already in use by another player in this room. Pick a different name." };
           } else {
             const added = room.addPlayer(socket.id, normalizedName, normalizedVerifier);
-            result = added ? { ok: true, player: added, created: true } : { ok: false, message: "Unable to join this room right now." };
+            const unavailable = added ? applyPreferredPlayerOptions(room, socket.id, { preferredKey, preferredThemeCommand, preferredThemeColor }) : [];
+            if (added && unavailable.length) result = { ok: true, player: added, created: true, unavailable };
+            else if (added) result = { ok: true, player: added, created: true };
+            else result = { ok: false, message: "Unable to join this room right now." };
           }
         }
       }
@@ -838,6 +914,20 @@ function initGameSockets(io) {
       currentRoom = room.roomCode;
       socket.join(room.roomCode);
       socket.emit("roomJoined", { room: room.getRoomState(), playerId: socket.id, verifier: normalizedVerifier, hostReclaimToken: room.getHostReclaimToken() });
+      if (result.unavailable?.length) socket.emit("preferenceConflict", { unavailable: result.unavailable });
+      emitRoomState(io, room);
+    });
+
+    socket.on("bindTheme", ({ themeCommand, color }) => {
+      const room = currentRoom ? rooms.get(currentRoom) : null;
+      if (!room) return;
+
+      const result = room.bindTheme(socket.id, themeCommand, color);
+      if (!result.ok) {
+        return socket.emit("error", { message: result.message });
+      }
+
+      socket.emit("themeBound", { themeCommand: result.themeCommand, color: result.color });
       emitRoomState(io, room);
     });
 

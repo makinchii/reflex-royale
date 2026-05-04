@@ -10,9 +10,10 @@ const Grid3D = dynamic(() => import("@/components/grid").then((mod) => mod.Grid3
 const THEME_KEY = "ui-lab-theme";
 const INTENSITY_KEY = "ui-lab-intensity";
 const ATMOSPHERE_KEY = "ui-lab-atmosphere";
+const VISUAL_PREFERENCES_CHANGED_EVENT = "reflexRoyaleVisualPreferencesChanged";
 
 function isTheme(value: string | null): value is Theme {
-  return value === "tron" || value === "ares" || value === "clu" || value === "athena" || value === "aphrodite" || value === "poseidon";
+  return value === "tron" || value === "ares" || value === "clu" || value === "athena" || value === "aphrodite" || value === "poseidon" || value === "custom";
 }
 
 function isIntensity(value: string | null): value is "none" | "light" | "medium" | "heavy" {
@@ -32,11 +33,13 @@ export function GridBackground({
   intensity,
   atmosphere,
   className,
+  useStoredTheme = true,
 }: {
   theme: Theme;
   intensity: "none" | "light" | "medium" | "heavy";
   atmosphere: AtmosphereState;
   className?: string;
+  useStoredTheme?: boolean;
 }) {
   const [currentTheme, setCurrentTheme] = useState(theme);
   const [currentIntensity, setCurrentIntensity] = useState(intensity);
@@ -45,20 +48,35 @@ export function GridBackground({
   const effectsEnabled = currentIntensity !== "none";
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(THEME_KEY) ?? getCookie(THEME_KEY);
-    const storedIntensity = window.localStorage.getItem(INTENSITY_KEY) ?? getCookie(INTENSITY_KEY);
-    const storedAtmosphere = window.localStorage.getItem(ATMOSPHERE_KEY) ?? getCookie(ATMOSPHERE_KEY);
+    const syncStoredPreferences = () => {
+      const storedTheme = window.localStorage.getItem(THEME_KEY) ?? getCookie(THEME_KEY);
+      const storedIntensity = window.localStorage.getItem(INTENSITY_KEY) ?? getCookie(INTENSITY_KEY);
+      const storedAtmosphere = window.localStorage.getItem(ATMOSPHERE_KEY) ?? getCookie(ATMOSPHERE_KEY);
 
-    if (isTheme(storedTheme)) setCurrentTheme(storedTheme);
-    if (isIntensity(storedIntensity)) setCurrentIntensity(storedIntensity);
-    if (storedAtmosphere) {
-      try {
-        setCurrentAtmosphere(normalizeAtmosphere(JSON.parse(decodeURIComponent(storedAtmosphere))));
-      } catch {
-        setCurrentAtmosphere(atmosphere);
+      if (useStoredTheme && isTheme(storedTheme)) setCurrentTheme(storedTheme);
+      if (isIntensity(storedIntensity)) setCurrentIntensity(storedIntensity);
+      if (storedAtmosphere) {
+        try {
+          setCurrentAtmosphere(normalizeAtmosphere(JSON.parse(decodeURIComponent(storedAtmosphere))));
+        } catch {
+          setCurrentAtmosphere(atmosphere);
+        }
       }
-    }
-  }, []);
+    };
+
+    const syncFromStorage = (event: StorageEvent) => {
+      if (event.key === INTENSITY_KEY || event.key === ATMOSPHERE_KEY || event.key === THEME_KEY) syncStoredPreferences();
+    };
+
+    syncStoredPreferences();
+    window.addEventListener(VISUAL_PREFERENCES_CHANGED_EVENT, syncStoredPreferences);
+    window.addEventListener("storage", syncFromStorage);
+
+    return () => {
+      window.removeEventListener(VISUAL_PREFERENCES_CHANGED_EVENT, syncStoredPreferences);
+      window.removeEventListener("storage", syncFromStorage);
+    };
+  }, [atmosphere, useStoredTheme]);
   const stageStyle = {
     ["--ui-lab-grid-opacity-multiplier" as const]: String(normalized.visibility),
     ["--ui-lab-grid-sway-x" as const]: `${0.6 + normalized.sway * 3.4}px`,

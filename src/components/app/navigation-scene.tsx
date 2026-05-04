@@ -48,7 +48,7 @@ export function NavigationScene({ canPlayOnline }: { canPlayOnline: boolean }) {
 
       <div className="navigate-scene__header">
         <p className="font-mono text-[10px] uppercase tracking-[0.36em] text-primary/75">Orbital route select</p>
-        <h1 className="font-display text-[clamp(4.5rem,10vw,10.5rem)] font-black leading-none uppercase tracking-[0.12em] text-primary [text-shadow:0_0_90px_oklch(from_var(--primary)_l_c_h/0.5)]">Choose Vector</h1>
+        <h1 className="fluorescent-title font-display text-[clamp(4.5rem,10vw,10.5rem)] font-black leading-none uppercase tracking-[0.12em] text-primary">Choose Vector</h1>
       </div>
 
       <div className="navigate-orbit-stage">

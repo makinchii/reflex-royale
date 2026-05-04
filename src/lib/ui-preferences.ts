@@ -3,7 +3,7 @@ import type { Theme } from "@/components/theme";
 export type Intensity = "none" | "light" | "medium" | "heavy";
 
 export function parseTheme(value: string | undefined): Theme {
-  return value === "ares" || value === "clu" || value === "athena" || value === "aphrodite" || value === "poseidon" ? value : "tron";
+  return value === "ares" || value === "clu" || value === "athena" || value === "aphrodite" || value === "poseidon" || value === "custom" ? value : "tron";
 }
 
 export function parseIntensity(value: string | undefined): Intensity {

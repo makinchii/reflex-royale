@@ -27,6 +27,15 @@ function clearAuthState() {
   sessionStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
+function resetThemeToTron() {
+  localStorage.setItem("ui-lab-theme", "tron");
+  localStorage.setItem("reflexRoyaleThemeCommand", "tron");
+  localStorage.removeItem("reflexRoyaleCustomThemeColor");
+  document.cookie = "ui-lab-theme=tron; path=/; max-age=31536000; samesite=lax";
+  document.cookie = "reflexRoyaleThemeCommand=tron; path=/; max-age=31536000; samesite=lax";
+  document.cookie = "reflexRoyaleCustomThemeColor=; path=/; max-age=0; samesite=lax";
+}
+
 async function fetchCurrentUser() {
   const response = await fetch("/api/auth/me");
   const result = await response.json();
@@ -193,6 +202,7 @@ async function initDashboardPage() {
           // Client-side auth state is still cleared below.
         }
         clearAuthState();
+        resetThemeToTron();
         window.location.href = "/";
       });
     }
@@ -217,6 +227,7 @@ async function initDashboardPage() {
           // Client-side auth state is still cleared below.
         }
         clearAuthState();
+        resetThemeToTron();
         window.location.href = "/";
       });
     }

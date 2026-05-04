@@ -9,9 +9,24 @@ import { Input } from "@/components/thegridcn/input";
 
 type AuthMode = "login" | "signup";
 type MessageState = { type: "error" | "success"; text: string } | null;
+type ThemeCommandId = "ares" | "vulcan" | "apollo" | "aphrodite" | "bacchus" | "tron" | "gaia" | "olympus";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,20}$/;
 const MIN_PASSWORD_LENGTH = 8;
+const THEME_KEY = "ui-lab-theme";
+const CUSTOM_THEME_COLOR_KEY = "reflexRoyaleCustomThemeColor";
+const THEME_COMMAND_KEY = "reflexRoyaleThemeCommand";
+const COOKIE_MAX_AGE = 31_536_000;
+const THEME_COMMANDS: Record<ThemeCommandId, { theme: "tron" | "ares" | "custom"; color: string }> = {
+  ares: { theme: "ares", color: "#ff003c" },
+  vulcan: { theme: "custom", color: "#ff7a00" },
+  apollo: { theme: "custom", color: "#ffd400" },
+  aphrodite: { theme: "custom", color: "#ff2ebd" },
+  bacchus: { theme: "custom", color: "#8a2bff" },
+  tron: { theme: "tron", color: "#00d4ff" },
+  gaia: { theme: "custom", color: "#24f07a" },
+  olympus: { theme: "custom", color: "#FFFFFF" },
+};
 
 const modeContent = {
   login: {
@@ -68,6 +83,29 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     return next?.startsWith("/") ? next : null;
   }
 
+  function applyAccountTheme(user: { preferredThemeCommand?: string; preferredThemeColor?: string } | undefined) {
+    const commandId = user?.preferredThemeCommand && user.preferredThemeCommand in THEME_COMMANDS
+      ? user.preferredThemeCommand as ThemeCommandId
+      : "tron";
+    const command = THEME_COMMANDS[commandId];
+    const color = user?.preferredThemeColor && /^#[0-9a-fA-F]{6}$/.test(user.preferredThemeColor)
+      ? user.preferredThemeColor
+      : command.color;
+
+    window.localStorage.setItem(THEME_KEY, command.theme);
+    window.localStorage.setItem(THEME_COMMAND_KEY, commandId);
+    document.cookie = `${THEME_KEY}=${command.theme}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
+    document.cookie = `${THEME_COMMAND_KEY}=${commandId}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
+
+    if (command.theme === "custom") {
+      window.localStorage.setItem(CUSTOM_THEME_COLOR_KEY, color);
+      document.cookie = `${CUSTOM_THEME_COLOR_KEY}=${color}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
+    } else {
+      window.localStorage.removeItem(CUSTOM_THEME_COLOR_KEY);
+      document.cookie = `${CUSTOM_THEME_COLOR_KEY}=; path=/; max-age=0; samesite=lax`;
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -98,6 +136,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         return;
       }
 
+      applyAccountTheme(result.user);
       setMessage({ type: "success", text: result.message || "Authenticated." });
       window.location.href = getNextPath() || result.redirectTo || "/dashboard";
     } catch {
@@ -121,7 +160,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               <Zap className="h-10 w-10 text-primary" />
             </div>
 
-            <h1 className="font-display text-3xl font-black uppercase tracking-[0.22em] text-primary [text-shadow:0_0_70px_color-mix(in_oklch,var(--primary)_40%,transparent)]">
+            <h1 className="fluorescent-title font-display text-3xl font-black uppercase tracking-[0.22em] text-primary">
               Reflex Royale
             </h1>
             <div className="mx-auto mt-4 flex items-center gap-2">
@@ -175,7 +214,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-primary/40 bg-primary/10 shadow-[0_0_24px_color-mix(in_oklch,var(--primary)_20%,transparent)]">
                 <Zap className="h-7 w-7 text-primary" />
               </div>
-              <span className="font-display text-lg font-bold uppercase tracking-[0.15em] text-primary">Reflex Royale</span>
+              <span className="fluorescent-title font-display text-lg font-bold uppercase tracking-[0.15em] text-primary">Reflex Royale</span>
             </div>
 
             <div className="relative overflow-hidden rounded border border-primary/25 bg-card/80 p-6 shadow-[0_0_38px_color-mix(in_oklch,var(--primary)_12%,transparent)] backdrop-blur-xl sm:p-8">

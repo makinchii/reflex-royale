@@ -22,13 +22,13 @@ export default async function HomePage() {
   const playNowHref = "/navigate";
   const topPlayers = await getTopPlayers(5);
   const leaderboardRows = Array.from({ length: 10 }, (_, i) => topPlayers[i] ?? null);
-  const theme = parseTheme(cookieStore.get("ui-lab-theme")?.value);
+  const theme = user ? parseTheme(cookieStore.get("ui-lab-theme")?.value) : "tron";
   const intensity = parseIntensity(cookieStore.get("ui-lab-intensity")?.value);
   const atmosphere = parseAtmosphere(safeDecode(cookieStore.get("ui-lab-atmosphere")?.value));
 
   return (
     <main className="relative h-svh overflow-hidden bg-background text-foreground">
-      <GridBackground theme={theme} intensity={intensity} atmosphere={atmosphere} />
+      <GridBackground theme={theme} intensity={intensity} atmosphere={atmosphere} useStoredTheme={Boolean(user)} />
       <div className="landing-global-grid" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-px bg-primary/40" />
       <TitleScreenDecor />
@@ -44,7 +44,7 @@ export default async function HomePage() {
               <div className="pointer-events-none absolute bottom-0 right-0 h-7 w-7 border-b border-r border-primary/70" />
 
               <CardContent className="relative px-6 py-10 sm:px-12 sm:py-14">
-                <h1 className="font-display text-6xl font-black tracking-[0.15em] text-primary md:text-8xl lg:text-[9rem] [text-shadow:0_0_80px_oklch(from_var(--primary)_l_c_h/0.5),0_0_160px_oklch(from_var(--primary)_l_c_h/0.3)]">
+                <h1 className="fluorescent-title font-display text-6xl font-black tracking-[0.15em] text-primary md:text-8xl lg:text-[9rem]">
                   <span className="block">Reflex</span>
                   <span className="block">Royale</span>
                 </h1>

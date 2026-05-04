@@ -7,6 +7,9 @@ import mongoose from "mongoose";
 export type AppAuthUser = {
   username: string;
   bestScore: number;
+  preferredThemeCommand?: string;
+  preferredThemeColor?: string;
+  preferredThemeShades?: Record<string, string>;
 };
 
 type SessionStoreDocument = {
@@ -78,6 +81,9 @@ function getSignedAuthUser(value: string): AppAuthUser | null {
     return {
       username: String(parsed.username),
       bestScore: Number(parsed.bestScore || 0),
+      preferredThemeCommand: typeof parsed.preferredThemeCommand === "string" ? parsed.preferredThemeCommand : "tron",
+      preferredThemeColor: typeof parsed.preferredThemeColor === "string" ? parsed.preferredThemeColor : "#00d4ff",
+      preferredThemeShades: typeof parsed.preferredThemeShades === "object" && parsed.preferredThemeShades ? parsed.preferredThemeShades : undefined,
     };
   } catch {
     return null;
@@ -140,6 +146,9 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<App
   return {
     username: user.username,
     bestScore: Number(user.bestScore || 0),
+    preferredThemeCommand: typeof user.preferredThemeCommand === "string" ? user.preferredThemeCommand : "tron",
+    preferredThemeColor: typeof user.preferredThemeColor === "string" ? user.preferredThemeColor : "#00d4ff",
+    preferredThemeShades: typeof user.preferredThemeShades === "object" && user.preferredThemeShades ? user.preferredThemeShades : undefined,
   };
 });
 

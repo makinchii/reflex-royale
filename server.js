@@ -19,6 +19,7 @@ try {
 }
 const { initGameSockets } = require("./sockets/gameRoom");
 const leaderboardRoutes = require("./routes/leaderboard");
+const audioRoutes = require("./routes/audio");
 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -78,6 +79,7 @@ function createApp(options = {}) {
 
   // Auth API routes are kept in their own file for easier future expansion.
   app.use("/api/auth", authRoutes);
+  app.use("/api/audio", audioRoutes);
   app.use("/leaderboard", leaderboardRoutes);
 
   // Serve the new Next frontend when enabled, otherwise keep the legacy landing page.
