@@ -3,8 +3,8 @@ services:
     name: reflex-royale
     env: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: npm run render-build
+    startCommand: npm run render-start
     autoDeploy: true
     envVars:
       - key: NODE_ENV

@@ -8,6 +8,8 @@
     "dev": "nodemon server.js",
     "test": "node --test tests/*.cjs",
     "build": "next build",
+    "render-build": "npm install && npm run build",
+    "render-start": "npm run build && node server.js",
     "audio:seed": "node scripts/seed-audio-library.js"
   },
   "keywords": [

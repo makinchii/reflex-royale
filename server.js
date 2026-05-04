@@ -237,6 +237,11 @@ async function startServer() {
   registerShutdownHandlers({ server, io, nextApp });
 
   if (useNextFrontend) {
+    const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
+    if (process.env.NODE_ENV === "production" && !require("fs").existsSync(buildIdPath)) {
+      console.error("Missing Next production build. Run `npm run build` before `npm start`, or set Render Start Command to `npm run render-start`.");
+    }
+
     nextApp = next({
       dev: process.env.NODE_ENV !== "production",
       dir: __dirname,
