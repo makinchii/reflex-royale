@@ -14,7 +14,7 @@ const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell: false,
     ...options
   });
 
@@ -30,7 +30,7 @@ function run(command, args, options = {}) {
 function ensureCommand(command, versionArg) {
   const result = spawnSync(command, [versionArg], {
     stdio: "ignore",
-    shell: process.platform === "win32"
+    shell: false
   });
 
   if (result.error || result.status !== 0) {
