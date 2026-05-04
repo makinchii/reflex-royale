@@ -2,6 +2,31 @@ async function mountAccountMenu(options = {}) {
   const root = document.getElementById(options.rootId || "account-menu-root");
   if (!root) return;
 
+  if (window.__reflexRoyaleAccountMenuCleanup) {
+    window.__reflexRoyaleAccountMenuCleanup();
+  }
+
+let detachDocumentClick = null;
+
+function resetThemeToTron() {
+  localStorage.setItem("ui-lab-theme", "tron");
+  localStorage.setItem("reflexRoyaleThemeCommand", "tron");
+  localStorage.removeItem("reflexRoyaleCustomThemeColor");
+  document.cookie = "ui-lab-theme=tron; path=/; max-age=31536000; samesite=lax";
+  document.cookie = "reflexRoyaleThemeCommand=tron; path=/; max-age=31536000; samesite=lax";
+  document.cookie = "reflexRoyaleCustomThemeColor=; path=/; max-age=0; samesite=lax";
+}
+  const cleanupAccountMenu = () => {
+    if (detachDocumentClick) {
+      detachDocumentClick();
+      detachDocumentClick = null;
+    }
+    if (window.__reflexRoyaleAccountMenuCleanup === cleanupAccountMenu) {
+      window.__reflexRoyaleAccountMenuCleanup = undefined;
+    }
+  };
+  window.__reflexRoyaleAccountMenuCleanup = cleanupAccountMenu;
+
   try {
     const response = await fetch("/api/auth/session");
     const state = await response.json();
@@ -35,9 +60,12 @@ async function mountAccountMenu(options = {}) {
         button.setAttribute("aria-expanded", String(willOpen));
       });
 
-      document.addEventListener("click", (event) => {
+      const handleDocumentClick = (event) => {
         if (!root.contains(event.target)) closeMenu();
-      });
+      };
+
+      document.addEventListener("click", handleDocumentClick);
+      detachDocumentClick = () => document.removeEventListener("click", handleDocumentClick);
 
       loginLink.addEventListener("click", closeMenu);
       return;
@@ -71,12 +99,16 @@ async function mountAccountMenu(options = {}) {
       button.setAttribute("aria-expanded", String(willOpen));
     });
 
-    document.addEventListener("click", (event) => {
+    const handleDocumentClick = (event) => {
       if (!root.contains(event.target)) closeMenu();
-    });
+    };
+
+    document.addEventListener("click", handleDocumentClick);
+    detachDocumentClick = () => document.removeEventListener("click", handleDocumentClick);
 
     logoutBtn.addEventListener("click", async () => {
       await fetch("/api/auth/logout", { method: "POST" });
+      resetThemeToTron();
       window.location.href = "/";
     });
   } catch {

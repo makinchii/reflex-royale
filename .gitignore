@@ -1,3 +1,8 @@
 node_modules/
 .env
 .DS_store
+.next/
+public/audio/*
+!public/audio/
+!public/audio/ui-click.mp3
+!public/audio/ui-hover.mp3

@@ -6,8 +6,8 @@
  */
 
 import { GameState } from "./GameEngine.js";
-
-const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
+import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyboardInputHighlights } from "./keyMap.js";
+import { getCurrentLocalThemeCommand, getLocalPlayerThemePalette } from "./localThemePalette.js";
 
 export class UIRenderer {
   /**
@@ -17,6 +17,10 @@ export class UIRenderer {
   constructor(engine, root) {
     this.engine = engine;
     this.root   = root;
+    this.matchStartedAt = 0;
+    this.matchRecorded = false;
+    this.themePalette = getLocalPlayerThemePalette();
+    this.selectedThemeCommand = getCurrentLocalThemeCommand();
 
     this._bindEngineEvents();
     this.renderLobby();
@@ -31,6 +35,7 @@ export class UIRenderer {
     e.on("playerRemoved", () => this._refreshLobbyPlayers());
     e.on("playerReady",   () => this._refreshLobbyPlayers());
     e.on("playerUnready", () => this._refreshLobbyPlayers());
+    e.on("playerKeyMoved", () => this._refreshLobbyPlayers());
     e.on("allPlayersReady", () => this._refreshLobbyPlayers());
     e.on("gameStarted",   () => this._onGameStarted());
     e.on("countdown",     d  => this._onCountdown(d));
@@ -49,26 +54,52 @@ export class UIRenderer {
   renderLobby() {
     this.root.innerHTML = `
       <div class="lobby">
-        <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
-        <p class="subtitle">Local Multiplayer — 2-4 Players</p>
+        <div class="lobby-layout-top">
+          <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
+          <p class="subtitle">Local Multiplayer — 2-4 Players</p>
 
-        <div class="lobby-form">
-          <div class="input-row">
-            <input id="playerName" type="text" placeholder="Player name" maxlength="12" autocomplete="off" />
-            <input id="playerKey"  type="text" placeholder="Key" maxlength="1" autocomplete="off" />
-            <button id="addPlayerBtn" class="btn btn-primary">Add Player</button>
+          <div class="lobby-form">
+            <div class="input-row input-row--local-player">
+              <input id="playerName" type="text" placeholder="Player name" maxlength="12" autocomplete="off" />
+              <input id="playerKey"  type="text" placeholder="Key" maxlength="1" autocomplete="off" />
+              <button id="addPlayerBtn" class="btn btn-primary">Add Player</button>
+            </div>
+            <div class="chroma-sigil-field">
+              <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
+                <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
+                <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
+              </button>
+              <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
+                <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
+              </div>
+            </div>
+            <p class="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then add the player. Press assigned keys to toggle ready.</p>
+            <p id="lobbyStatus" class="hint"></p>
           </div>
-          <p class="hint">Add players, then press each key once to bind and again to confirm ready.</p>
-          <p id="lobbyStatus" class="hint"></p>
+
+          <div id="playerSlots" class="player-slots"></div>
+
+          <div class="lobby-settings">
+            <div data-slot="tron-slider" class="round-slider" aria-label="Rounds slider">
+              <div class="round-slider__header">
+                <span class="round-control">Rounds</span>
+                <span id="roundCountValue" class="round-slider__value">5</span>
+              </div>
+              <div class="round-slider__track-wrap">
+                <div data-slot="slider-track" class="round-slider__track"></div>
+                <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
+                <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
+                <input id="roundCount" class="round-slider__input" type="range" min="1" max="20" step="1" value="5" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div id="playerSlots" class="player-slots"></div>
+        <div id="holoKeyboardMount">${renderHolographicKeyboard([], { title: "LOCAL KEYBOARD MATRIX" })}</div>
 
-        <div class="lobby-settings">
-          <label>Rounds: <input id="roundCount" type="number" min="1" max="20" value="5" /></label>
+        <div class="lobby-layout-bottom">
+          <button id="startGameBtn" class="btn btn-big btn-go" disabled>Start Game</button>
         </div>
-
-        <button id="startGameBtn" class="btn btn-big btn-go" disabled>Start Game</button>
       </div>
     `;
 
@@ -80,26 +111,124 @@ export class UIRenderer {
     const nameInp  = this.root.querySelector("#playerName");
     const keyInp   = this.root.querySelector("#playerKey");
     const roundInp = this.root.querySelector("#roundCount");
-    const statusEl = this.root.querySelector("#lobbyStatus");
+    const roundValue = this.root.querySelector("#roundCountValue");
+    const themeBtn = this.root.querySelector("#themePickerButton");
+    const themePanel = this.root.querySelector("#themePickerPanel");
+
+    const updateRoundSlider = () => {
+      const min = Number(roundInp.min || 1);
+      const max = Number(roundInp.max || 20);
+      const current = Number(roundInp.value || 5);
+      const percent = ((current - min) / (max - min)) * 100;
+
+      if (roundValue) roundValue.textContent = String(current);
+      const range = this.root.querySelector('[data-slot="slider-range"]');
+      const thumb = this.root.querySelector('[data-slot="slider-thumb"]');
+      if (range) range.style.width = `${percent}%`;
+      if (thumb) thumb.style.left = `${percent}%`;
+    };
 
     addBtn.addEventListener("click", () => this._addPlayerFromForm());
+
+    themeBtn.addEventListener("click", () => {
+      const isOpen = !themePanel.hidden;
+      themePanel.hidden = isOpen;
+      themeBtn.setAttribute("aria-expanded", String(!isOpen));
+    });
 
     nameInp.addEventListener("keydown", (e) => {
       if (e.key === "Enter") this._addPlayerFromForm();
     });
     keyInp.addEventListener("keydown", (e) => {
       e.preventDefault();
-      keyInp.value = e.key.length === 1 ? e.key.toUpperCase() : "";
+      keyInp.value = normalizeGameKey(e.key).toUpperCase();
     });
 
     keyInp.addEventListener("input", () => {
-      keyInp.value = keyInp.value.slice(0, 1).toUpperCase();
+      keyInp.value = normalizeGameKey(keyInp.value).toUpperCase();
     });
+
+    this._wireInputKeyboardHighlights([nameInp, keyInp]);
 
     startBtn.addEventListener("click", () => {
       const rounds = parseInt(roundInp.value, 10) || 5;
       this.engine.totalRounds = rounds;
       this.engine.startGame();
+    });
+
+    roundInp.addEventListener("input", updateRoundSlider);
+    updateRoundSlider();
+    this._refreshThemePicker();
+    this._wireKeyboardKeys();
+  }
+
+  _getClaimedThemeCommands() {
+    return new Set(this.engine.getPlayers().map((player) => player.themeCommand).filter(Boolean));
+  }
+
+  _getAvailableThemeCommand() {
+    const claimed = this._getClaimedThemeCommands();
+    return this.themePalette.find((protocol) => !claimed.has(protocol.id))?.id || null;
+  }
+
+  _getSelectedThemeProtocol() {
+    return this.themePalette.find((protocol) => protocol.id === this.selectedThemeCommand) || this.themePalette[0] || null;
+  }
+
+  _syncSelectedThemeAfterRosterChange() {
+    const claimed = this._getClaimedThemeCommands();
+    if (claimed.has(this.selectedThemeCommand)) {
+      this.selectedThemeCommand = this._getAvailableThemeCommand() || this.selectedThemeCommand;
+    }
+  }
+
+  _refreshThemePicker() {
+    const tabs = this.root.querySelector("#themePickerTabs");
+    const label = this.root.querySelector("#themePickerButtonLabel");
+    const button = this.root.querySelector("#themePickerButton");
+    if (!tabs || !label || !button) return;
+
+    this._syncSelectedThemeAfterRosterChange();
+    const claimed = this._getClaimedThemeCommands();
+    const selected = this._getSelectedThemeProtocol();
+    const selectedLabel = selected?.label || "All Claimed";
+    label.textContent = selectedLabel;
+    button.style.setProperty("--sigil-color", selected?.color || "var(--primary, #68e8ff)");
+    button.disabled = !selected;
+
+    tabs.innerHTML = this.themePalette.map((protocol) => {
+      const claimedByPlayer = claimed.has(protocol.id);
+      const active = protocol.id === this.selectedThemeCommand && !claimedByPlayer;
+      return `
+        <button
+          class="chroma-sigil-tab ${active ? "is-active" : ""} ${claimedByPlayer ? "is-claimed" : ""}"
+          type="button"
+          role="tab"
+          aria-selected="${active}"
+          data-theme-command="${protocol.id}"
+          style="--sigil-color:${protocol.color}"
+          ${claimedByPlayer ? "disabled" : ""}
+        >
+          <span class="chroma-sigil-tab__swatch" aria-hidden="true"></span>
+          <span>${protocol.label}</span>
+        </button>
+      `;
+    }).join("");
+
+    tabs.querySelectorAll(".chroma-sigil-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const command = tab.dataset.themeCommand;
+        if (!command || claimed.has(command)) return;
+        this.selectedThemeCommand = command;
+        this._refreshThemePicker();
+      });
+    });
+  }
+
+  _wireInputKeyboardHighlights(inputs) {
+    inputs.filter(Boolean).forEach((input) => {
+      input.addEventListener("keydown", (event) => pulseKeyboardKey(this.root, event.key));
+      input.addEventListener("input", () => syncKeyboardInputHighlights(this.root, input.value));
     });
   }
 
@@ -108,7 +237,7 @@ export class UIRenderer {
     const keyInp  = this.root.querySelector("#playerKey");
     const statusEl = this.root.querySelector("#lobbyStatus");
     const name = nameInp.value.trim();
-    const key  = keyInp.value.trim().toLowerCase();
+    const key  = normalizeGameKey(keyInp.value.trim());
 
     if (!name || !key) {
       if (statusEl) statusEl.textContent = "Enter both a player name and a unique key.";
@@ -116,16 +245,22 @@ export class UIRenderer {
     }
 
     const id    = `local_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const color = PLAYER_COLORS[this.engine.players.size] || "#888";
+    const themeProtocol = this._getSelectedThemeProtocol();
+    if (!themeProtocol) {
+      if (statusEl) statusEl.textContent = "All Chroma Sigils are already claimed.";
+      return;
+    }
 
-    const success = this.engine.addPlayer(id, name, key, color);
+    const success = this.engine.addPlayer(id, name, key, themeProtocol.color, themeProtocol.id);
     if (success) {
       nameInp.value = "";
       keyInp.value  = "";
       nameInp.focus();
+      this.selectedThemeCommand = this._getAvailableThemeCommand() || this.selectedThemeCommand;
+      this._refreshThemePicker();
       if (statusEl) statusEl.textContent = "";
     } else if (statusEl) {
-      statusEl.textContent = "That key is already in use, or the lobby is full.";
+      statusEl.textContent = "That key is invalid, already in use, or the lobby is full.";
     }
   }
 
@@ -134,12 +269,20 @@ export class UIRenderer {
     if (!container) return;
 
     const players = this.engine.getPlayers();
+    this._syncSelectedThemeAfterRosterChange();
+    const keyboard = this.root.querySelector("#holoKeyboardMount");
+    if (keyboard) {
+      keyboard.innerHTML = renderHolographicKeyboard(players, { title: "LOCAL KEYBOARD MATRIX", draggable: true });
+      this._wireKeyboardKeys();
+      const activeInput = this.root.querySelector("#playerName:focus, #playerKey:focus");
+      if (activeInput) syncKeyboardInputHighlights(this.root, activeInput.value.slice(-1));
+    }
+
     container.innerHTML = players.map((p, i) => `
-      <div class="player-slot" style="border-color:${p.color}">
+      <div class="player-slot ${p.ready ? "player-slot--ready" : ""}" style="--player-color:${p.color}; border-color:${p.color}">
         <span class="player-slot-name" style="color:${p.color}">${this._esc(p.name)}</span>
-        <kbd>${p.key.toUpperCase()}</kbd>
-        <span class="ready-state">${p.ready ? "Ready" : "Confirm key"}</span>
-        <button class="btn-remove" data-id="${p.id}">&times;</button>
+        <span class="player-slot__protocol">${this._esc(this.themePalette.find((protocol) => protocol.id === p.themeCommand)?.label || "Custom")}</span>
+        <button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${this._esc(p.name)}" data-id="${p.id}">&times;</button>
       </div>
     `).join("");
 
@@ -153,11 +296,73 @@ export class UIRenderer {
     // Enable/disable start button
     const startBtn = this.root.querySelector("#startGameBtn");
     if (startBtn) startBtn.disabled = players.length < 2 || !players.every(p => p.ready);
+    this._refreshThemePicker();
+  }
+
+  _wireKeyboardKeys() {
+    const keyInp = this.root.querySelector("#playerKey");
+    if (!keyInp) return;
+
+    this.root.querySelectorAll(".holo-key").forEach((button) => {
+      button.addEventListener("click", () => {
+        keyInp.value = normalizeGameKey(button.dataset.key || "").toUpperCase();
+        keyInp.focus();
+        syncKeyboardInputHighlights(this.root, keyInp.value);
+      });
+
+      button.addEventListener("dragstart", (event) => {
+        if (button.dataset.draggable !== "true") {
+          event.preventDefault();
+          return;
+        }
+
+        button.classList.add("holo-key--dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", button.dataset.playerId || "");
+        event.dataTransfer.setData("application/x-player-color", button.style.getPropertyValue("--key-color"));
+      });
+
+      button.addEventListener("dragend", () => {
+        button.classList.remove("holo-key--dragging");
+        this.root.querySelectorAll(".holo-key--drop-target").forEach((key) => {
+          key.classList.remove("holo-key--drop-target");
+          key.style.removeProperty("--drop-color");
+        });
+      });
+
+      button.addEventListener("dragover", (event) => {
+        if (button.dataset.occupied === "true") return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        button.style.setProperty("--drop-color", event.dataTransfer.getData("application/x-player-color"));
+        button.classList.add("holo-key--drop-target");
+      });
+
+      button.addEventListener("dragleave", () => {
+        button.classList.remove("holo-key--drop-target");
+        button.style.removeProperty("--drop-color");
+      });
+
+      button.addEventListener("drop", (event) => {
+        event.preventDefault();
+        button.classList.remove("holo-key--drop-target");
+        button.style.removeProperty("--drop-color");
+
+        const playerId = event.dataTransfer.getData("text/plain");
+        const targetKey = normalizeGameKey(button.dataset.key || "");
+        if (playerId && targetKey && this.engine.movePlayerKey(playerId, targetKey)) {
+          keyInp.value = targetKey.toUpperCase();
+        }
+      });
+    });
   }
 
   /* ───────── In-game screens ───────── */
 
   _onGameStarted() {
+    this.matchStartedAt = Date.now();
+    this.matchRecorded = false;
+
     // Build the split-screen arena
     const players = this.engine.getPlayers();
     const gridClass = `grid-${players.length}`;

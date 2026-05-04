@@ -1,0 +1,992 @@
+@import "tailwindcss" source("../");
+@import "tw-animate-css";
+@import "./navigate/navigate.css";
+@import "./game-shell.css";
+@import "./dashboard/dashboard.css";
+
+:root {
+  --background: oklch(0.06 0.02 250);
+  --foreground: oklch(0.95 0.02 220);
+  --card: oklch(0.1 0.02 250);
+  --card-foreground: oklch(0.92 0.02 220);
+  --popover: oklch(0.1 0.02 250);
+  --popover-foreground: oklch(0.92 0.02 220);
+  --primary: oklch(0.75 0.18 195);
+  --primary-foreground: oklch(0.1 0 0);
+  --secondary: oklch(0.18 0.05 200);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.15 0.03 200);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.7 0.15 195);
+  --accent-foreground: oklch(0.1 0 0);
+  --destructive: oklch(0.55 0.25 30);
+  --border: oklch(0.3 0.1 195);
+  --input: oklch(0.2 0.06 195);
+  --ring: oklch(0.75 0.18 195);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-rajdhani), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-orbitron), system-ui, sans-serif;
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-rajdhani), system-ui, sans-serif;
+  }
+
+  html:not([data-page-ready="true"]) body {
+    visibility: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: var(--font-orbitron), system-ui, sans-serif;
+  }
+}
+
+@keyframes app-grid-sway {
+  0% {
+    transform: scale(1.04) translate3d(calc(var(--ui-lab-grid-sway-x, 0.25px) * -1), calc(var(--ui-lab-grid-sway-y, 0.12px) * -1), 0) rotate(calc(var(--ui-lab-grid-sway-rotate, 0.08deg) * -1));
+  }
+
+  100% {
+    transform: scale(1.05) translate3d(var(--ui-lab-grid-sway-x, 0.25px), var(--ui-lab-grid-sway-y, 0.12px), 0) rotate(var(--ui-lab-grid-sway-rotate, 0.08deg));
+  }
+}
+
+@keyframes fluorescent-title-pulse {
+  0%,
+  100% {
+    opacity: 0.96;
+    filter: brightness(1);
+    text-shadow:
+      0 0 22px oklch(from var(--primary) l c h / 0.62),
+      0 0 70px oklch(from var(--primary) l c h / 0.42),
+      0 0 150px oklch(from var(--primary) l c h / 0.22);
+  }
+
+  9% {
+    opacity: 0.88;
+    filter: brightness(0.82);
+    text-shadow:
+      0 0 12px oklch(from var(--primary) l c h / 0.42),
+      0 0 44px oklch(from var(--primary) l c h / 0.26),
+      0 0 100px oklch(from var(--primary) l c h / 0.14);
+  }
+
+  14%,
+  42% {
+    opacity: 1;
+    filter: brightness(1.12);
+    text-shadow:
+      0 0 28px oklch(from var(--primary) l c h / 0.82),
+      0 0 90px oklch(from var(--primary) l c h / 0.56),
+      0 0 180px oklch(from var(--primary) l c h / 0.32);
+  }
+
+  48% {
+    opacity: 0.91;
+    filter: brightness(0.9);
+  }
+
+  52%,
+  76% {
+    opacity: 1;
+    filter: brightness(1.08);
+  }
+
+  79% {
+    opacity: 0.94;
+    filter: brightness(0.96);
+  }
+}
+
+.font-display {
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+}
+
+.fluorescent-title {
+  text-shadow:
+    0 0 28px oklch(from var(--primary) l c h / 0.72),
+    0 0 90px oklch(from var(--primary) l c h / 0.46),
+    0 0 180px oklch(from var(--primary) l c h / 0.26);
+  animation: fluorescent-title-pulse 4.6s ease-in-out infinite;
+  will-change: filter, opacity, text-shadow;
+}
+
+.landing-title {
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+  font-weight: 900;
+  line-height: 0.86;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--primary);
+  text-shadow:
+    0 0 80px oklch(from var(--primary) l c h / 0.5),
+    0 0 160px oklch(from var(--primary) l c h / 0.3);
+}
+
+.landing-title.fluorescent-title {
+  text-shadow:
+    0 0 34px oklch(from var(--primary) l c h / 0.78),
+    0 0 110px oklch(from var(--primary) l c h / 0.52),
+    0 0 220px oklch(from var(--primary) l c h / 0.3);
+}
+
+@media (max-width: 640px) {
+  .landing-title {
+    letter-spacing: 0.08em;
+  }
+}
+
+.app-grid-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 28%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 96%, black) 0%, var(--background) 100%);
+}
+
+.app-grid-background .ui-lab-grid-stage {
+  inset: -14%;
+  opacity: calc((var(--ui-lab-grid-opacity) + 0.12) * var(--ui-lab-grid-opacity-multiplier, 1));
+  animation: app-grid-sway var(--ui-lab-grid-sway-duration, 18s) ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.app-grid-background .ui-lab-grid-fade {
+  background:
+    radial-gradient(circle at 50% 38%, transparent 0%, color-mix(in oklch, var(--background) 10%, transparent) 52%, color-mix(in oklch, var(--background) 44%, transparent) 100%),
+    linear-gradient(90deg, color-mix(in oklch, var(--background) 22%, transparent) 0%, transparent 30%, transparent 70%, color-mix(in oklch, var(--background) 22%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 10%, transparent) 0%, color-mix(in oklch, var(--background) 50%, transparent) 100%);
+}
+
+.app-grid-3d {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.audio-controller {
+  --audio-controller-size: 3.25rem;
+}
+
+.audio-controller--framed {
+  top: max(2.75rem, env(safe-area-inset-top));
+  right: max(2.75rem, env(safe-area-inset-right));
+}
+
+.audio-controller__slot {
+  position: relative;
+  display: grid;
+  width: var(--audio-controller-size);
+  height: var(--audio-controller-size);
+  place-items: center;
+  background:
+    linear-gradient(var(--background), var(--background)) center / calc(100% - 0.85rem) calc(100% - 0.85rem) no-repeat,
+    linear-gradient(135deg, transparent 0 18%, color-mix(in oklch, var(--primary) 24%, transparent) 18% 20%, transparent 20% 100%);
+}
+
+.audio-controller__slot::before,
+.audio-controller__slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.audio-controller__slot::before {
+  border: 1px solid color-mix(in oklch, var(--primary) 46%, transparent);
+  box-shadow:
+    0 0 18px color-mix(in oklch, var(--primary) 18%, transparent),
+    inset 0 0 18px color-mix(in oklch, var(--primary) 9%, transparent);
+}
+
+.audio-controller__slot::after {
+  background:
+    linear-gradient(var(--primary), var(--primary)) left top / 1.1rem 1px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left top / 1px 1.1rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 1.1rem 1px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 1px 1.1rem no-repeat;
+  opacity: 0.78;
+}
+
+.audio-controller__button {
+  position: relative;
+  z-index: 1;
+  height: 2.35rem;
+  width: 2.35rem;
+  cursor: pointer;
+  border-color: color-mix(in oklch, var(--primary) 48%, transparent);
+  background: color-mix(in oklch, var(--background) 82%, transparent);
+  color: var(--primary);
+  box-shadow: none;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    color 220ms ease;
+}
+
+.audio-controller__button:hover,
+.audio-controller__button:focus-visible {
+  border-color: color-mix(in oklch, var(--primary) 78%, white 12%);
+  background: color-mix(in oklch, var(--primary) 12%, var(--background));
+  box-shadow: 0 0 20px color-mix(in oklch, var(--primary) 24%, transparent);
+  color: color-mix(in oklch, var(--primary) 86%, white 14%);
+}
+
+.audio-dialog {
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.audio-dialog::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--primary), var(--primary)) left top / 2.25rem 1px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left top / 1px 2.25rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 2.25rem 1px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 1px 2.25rem no-repeat;
+  opacity: 0.75;
+}
+
+.audio-dialog__shell {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  background:
+    radial-gradient(circle at 25% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 36%),
+    repeating-linear-gradient(0deg, transparent, transparent 7px, color-mix(in oklch, var(--primary) 4%, transparent) 8px),
+    color-mix(in oklch, var(--background) 96%, black);
+}
+
+.audio-dialog__header {
+  border-bottom: 1px solid color-mix(in oklch, var(--primary) 22%, transparent);
+  gap: 0.65rem;
+  padding-bottom: 1rem;
+}
+
+.audio-dialog__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+  font-size: clamp(1.85rem, 4vw, 3rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--primary);
+  text-shadow:
+    0 0 18px color-mix(in oklch, var(--primary) 52%, transparent),
+    0 0 42px color-mix(in oklch, var(--primary) 28%, transparent);
+}
+
+.audio-dialog__subtitle {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--foreground) 72%, transparent);
+}
+
+.audio-dialog__track-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: clamp(0.78rem, 1.5vw, 1rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--foreground);
+}
+
+.audio-dialog__track-meta span:first-child {
+  color: var(--primary);
+  text-shadow: 0 0 14px color-mix(in oklch, var(--primary) 32%, transparent);
+}
+
+.audio-dialog__track-meta span:last-child {
+  color: color-mix(in oklch, var(--foreground) 72%, transparent);
+}
+
+.audio-dialog__change-track {
+  justify-self: end;
+  min-height: 2.35rem;
+  cursor: pointer;
+  border-color: color-mix(in oklch, var(--primary) 34%, transparent);
+  background: color-mix(in oklch, var(--background) 78%, black);
+  color: var(--primary);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.audio-dialog__change-track--bottom {
+  justify-self: stretch;
+  margin-top: 0.15rem;
+}
+
+.audio-dialog__album-art {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #020407;
+}
+
+.audio-dialog__album-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 32%, transparent), transparent 1px calc(100% - 1px), color-mix(in oklch, var(--primary) 32%, transparent)) 0 0 / 100% 100% no-repeat,
+    radial-gradient(circle at 50% 52%, transparent 0 36%, color-mix(in oklch, var(--background) 46%, transparent) 100%);
+}
+
+.audio-dialog__cover-crt,
+.audio-dialog__cover-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.audio-dialog__cover-image {
+  object-fit: cover;
+  opacity: 0.84;
+  filter: contrast(1.08) saturate(0.9) brightness(0.86);
+}
+
+.audio-dialog__waveform {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 2;
+  height: 34%;
+  background: linear-gradient(180deg, transparent, color-mix(in oklch, var(--background) 36%, transparent) 42%, color-mix(in oklch, var(--background) 55%, transparent));
+  opacity: 0.92;
+}
+
+.audio-dialog__inline-progress {
+  display: grid;
+  gap: 0.6rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.audio-dialog__hud-slider {
+  --round-slider-accent: var(--primary);
+  --round-slider-track: color-mix(in oklch, var(--primary) 26%, transparent);
+  height: 1.1rem;
+  cursor: pointer;
+}
+
+.audio-dialog__hud-slider [data-slot="slider-track"] {
+  height: 2px;
+  border: 1px solid var(--round-slider-track);
+  border-radius: 0;
+  background-color: color-mix(in oklch, var(--background) 88%, var(--primary));
+}
+
+.audio-dialog__hud-slider [data-slot="slider-range"] {
+  height: 2px;
+  border-radius: 0;
+  background-color: var(--round-slider-accent);
+  box-shadow: 0 0 6px color-mix(in oklch, var(--primary) 28%, transparent);
+}
+
+.audio-dialog__hud-slider [data-slot="slider-thumb"] {
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid var(--round-slider-accent);
+  border-radius: 0;
+  background-color: color-mix(in oklch, var(--background) 92%, var(--primary));
+  box-shadow: none;
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.audio-dialog__hud-slider [data-slot="slider-thumb"]:hover {
+  box-shadow: 0 0 14px color-mix(in oklch, var(--primary) 30%, transparent);
+}
+
+.audio-dialog__hud-slider [data-slot="slider-thumb"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 24%, transparent);
+}
+
+.audio-dialog__time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  color: color-mix(in oklch, var(--foreground) 78%, transparent);
+}
+
+.audio-dialog__time-row span:first-child {
+  color: var(--primary);
+}
+
+.audio-dialog__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.audio-dialog__control-group,
+.audio-dialog__track-list {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
+  background: color-mix(in oklch, var(--card) 42%, transparent);
+  padding: 0.85rem;
+}
+
+.audio-dialog__volume-row {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.audio-dialog__toggle-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.audio-dialog__toggle-list button {
+  display: flex;
+  min-height: 2.25rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 22%, transparent);
+  background: color-mix(in oklch, var(--background) 80%, black);
+  padding: 0.5rem 0.65rem;
+  color: color-mix(in oklch, var(--foreground) 68%, transparent);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.audio-dialog__toggle-list button strong {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.audio-dialog__toggle-list button.is-active {
+  border-color: color-mix(in oklch, var(--primary) 46%, transparent);
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+}
+
+.audio-dialog__mix-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.audio-dialog__mix-field > span {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--foreground) 68%, transparent);
+}
+
+.audio-dialog__mix-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.audio-dialog__mix-options button,
+.audio-dialog__track-filters button {
+  min-height: 2rem;
+  cursor: pointer;
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
+  background: color-mix(in oklch, var(--background) 82%, black);
+  color: color-mix(in oklch, var(--foreground) 68%, transparent);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.audio-dialog__mix-options button:hover,
+.audio-dialog__mix-options button:focus-visible,
+.audio-dialog__mix-options button.is-active,
+.audio-dialog__track-filters button:hover,
+.audio-dialog__track-filters button:focus-visible,
+.audio-dialog__track-filters button.is-active {
+  border-color: color-mix(in oklch, var(--primary) 48%, transparent);
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 14px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
+.crt-effect__flicker {
+  background: linear-gradient(transparent 50%, rgba(0, 0, 0, 0.1) 50%);
+  background-size: 100% 4px;
+  animation: crt-flicker 0.1s infinite;
+}
+
+.crt-effect__sweep {
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 52%, transparent), transparent);
+  box-shadow:
+    0 0 10px color-mix(in oklch, var(--primary) 35%, transparent),
+    0 0 20px color-mix(in oklch, var(--primary) 22%, transparent);
+  animation: crt-scan-sweep 4s ease-in-out infinite;
+}
+
+@keyframes crt-scan-sweep {
+  0% {
+    top: -2px;
+    opacity: 0;
+  }
+
+  5%,
+  95% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 0.02;
+  }
+
+  50% {
+    opacity: 0.04;
+  }
+}
+
+.audio-dialog__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--foreground) 76%, transparent);
+}
+
+.audio-dialog__track-list {
+  min-height: 0;
+}
+
+.audio-dialog__track-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.audio-dialog__track-list-header > span,
+.audio-dialog__track-list-header > strong {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.audio-dialog__track-list-header > span {
+  color: color-mix(in oklch, var(--primary) 70%, transparent);
+}
+
+.audio-dialog__track-list-header > strong {
+  color: color-mix(in oklch, var(--foreground) 62%, transparent);
+  font-weight: 500;
+}
+
+.audio-dialog__track-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
+  background: color-mix(in oklch, var(--background) 78%, black);
+  color: color-mix(in oklch, var(--primary) 72%, transparent);
+  padding: 0 0.6rem;
+}
+
+.audio-dialog__track-search input {
+  min-height: 2.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  outline: none;
+}
+
+.audio-dialog__track-search input::placeholder {
+  color: color-mix(in oklch, var(--foreground) 46%, transparent);
+}
+
+.audio-dialog__track-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.audio-dialog__track-scroller {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  max-height: 12.5rem;
+  overflow: auto;
+  padding-right: 0.2rem;
+  scrollbar-color: color-mix(in oklch, var(--primary) 46%, transparent) transparent;
+}
+
+.audio-dialog__track-scroller > button {
+  display: grid;
+  grid-template-columns: 2.7rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.4rem;
+  cursor: pointer;
+  border: 1px solid color-mix(in oklch, var(--primary) 16%, transparent);
+  background: transparent;
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.audio-dialog__track-scroller > button:hover,
+.audio-dialog__track-scroller > button:focus-visible,
+.audio-dialog__track-scroller > button.is-active {
+  border-color: color-mix(in oklch, var(--primary) 48%, transparent);
+  background: color-mix(in oklch, var(--primary) 9%, transparent);
+  outline: none;
+}
+
+.audio-dialog__track-thumb {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--primary) 22%, transparent);
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+  color: var(--primary);
+}
+
+.audio-dialog__track-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.audio-dialog__track-row-meta {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.audio-dialog__track-scroller button strong {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-dialog__track-scroller button small,
+.audio-dialog__track-scroller button em {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--foreground) 58%, transparent);
+}
+
+.audio-dialog__track-scroller button em {
+  font-style: normal;
+  color: color-mix(in oklch, var(--primary) 66%, transparent);
+}
+
+@media (max-width: 767px) {
+  .audio-controller--framed {
+    top: max(1.75rem, env(safe-area-inset-top));
+    right: max(1.75rem, env(safe-area-inset-right));
+  }
+
+  .audio-dialog__controls {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@keyframes landing-frame-scan {
+  0% {
+    transform: translateX(-42%);
+    opacity: 0;
+  }
+
+  18%,
+  68% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(42%);
+    opacity: 0;
+  }
+}
+
+@keyframes landing-vertical-scan {
+  0% {
+    transform: translateY(-2px);
+  }
+
+  100% {
+    transform: translateY(100svh);
+  }
+}
+
+.landing-global-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.landing-global-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(color-mix(in oklch, var(--primary) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in oklch, var(--primary) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 3%, transparent) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, color-mix(in oklch, var(--primary) 4%, transparent) 0 1px, transparent 1px 3px);
+  background-size: 5rem 5rem, 5rem 5rem, 0.75rem 0.75rem, 0.75rem 0.75rem, 100% 3px;
+  opacity: 0.8;
+}
+
+.landing-global-grid::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 42%, transparent), transparent);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--primary) 32%, transparent);
+  animation: landing-vertical-scan 8s linear infinite;
+}
+
+.landing-shell {
+  --landing-frame-inset: 1rem;
+}
+
+.landing-page-frame {
+  position: absolute;
+  inset: var(--landing-frame-inset, 1rem);
+  z-index: 0;
+  border: 1px solid color-mix(in oklch, var(--primary) 22%, transparent);
+  pointer-events: none;
+}
+
+.landing-page-frame::before,
+.landing-page-frame::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background:
+    linear-gradient(var(--primary), var(--primary)) left top / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left top / 2px 9rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right top / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right top / 2px 9rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left bottom / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) left bottom / 2px 9rem no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 9rem 2px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) right bottom / 2px 9rem no-repeat;
+  opacity: 0.52;
+}
+
+.landing-page-frame::after {
+  inset: 1.5rem;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 20%, transparent), transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, color-mix(in oklch, var(--primary) 16%, transparent), transparent) bottom / 100% 1px no-repeat;
+  opacity: 1;
+}
+
+.landing-auth-anchor {
+  position: absolute;
+  right: calc(var(--landing-frame-inset, 1rem) + 0.625rem);
+  top: calc(var(--landing-frame-inset, 1rem) + 0.625rem);
+  z-index: 20;
+}
+
+.landing-play-button {
+  transition:
+    background-color 700ms ease-out,
+    border-color 700ms ease-out,
+    box-shadow 700ms ease-out,
+    color 700ms ease-out,
+    transform 120ms ease-out !important;
+}
+
+.landing-play-button:hover,
+.landing-play-button:focus-visible {
+  box-shadow:
+    0 0 28px color-mix(in oklch, var(--primary) 48%, transparent),
+    0 0 80px color-mix(in oklch, var(--primary) 20%, transparent) !important;
+}
+
+.landing-footer-text {
+  position: absolute;
+  left: 50%;
+  bottom: max(0.125rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: color-mix(in oklch, var(--primary) 88%, white 12%);
+  text-shadow: 0 0 12px color-mix(in oklch, var(--primary) 26%, transparent);
+}
+
+
+.landing-hero-frame {
+  position: absolute;
+  left: 50%;
+  top: clamp(17rem, 32svh, 22rem);
+  transform: translate(-50%, -50%);
+  width: min(calc(100vw - 2rem), 64rem);
+  height: clamp(18rem, 38svh, 30rem);
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, transparent);
+  background: color-mix(in oklch, var(--card) 12%, transparent);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.landing-hero-frame::before,
+.landing-hero-frame::after {
+  content: "";
+  position: absolute;
+  width: 2rem;
+  height: 2rem;
+  border-color: color-mix(in oklch, var(--primary) 68%, transparent);
+}
+
+.landing-hero-frame::before {
+  left: -1px;
+  top: -1px;
+  border-left-width: 2px;
+  border-top-width: 2px;
+}
+
+.landing-hero-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
+}
+
+.landing-hero-frame__grid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(color-mix(in oklch, var(--primary) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--primary) 14%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 62%);
+  background-size: 2.25rem 2.25rem, 2.25rem 2.25rem, 100% 100%;
+  opacity: 0.56;
+}
+
+.landing-hero-frame__sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in oklch, var(--primary) 10%, transparent) 48%, color-mix(in oklch, var(--primary) 20%, transparent) 50%, color-mix(in oklch, var(--primary) 10%, transparent) 52%, transparent 100%);
+  animation: landing-frame-scan 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-grid-background .ui-lab-grid-stage {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+
+  .landing-hero-frame__sweep {
+    animation: none;
+  }
+
+  .fluorescent-title {
+    animation: none;
+    will-change: auto;
+  }
+
+  .landing-global-grid::after {
+    animation: none;
+  }
+}
+

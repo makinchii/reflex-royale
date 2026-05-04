@@ -6,15 +6,18 @@
  */
 
 import { GameEngine, GameState } from "./GameEngine.js";
+import { normalizeGameKey } from "./keyMap.js";
 import { UIRenderer } from "./UIRenderer.js";
 
-if (window.mountAccountMenu) {
-  window.mountAccountMenu({ rootId: "account-menu-root" });
+if (window.__reflexRoyaleLocalCleanup) {
+  window.__reflexRoyaleLocalCleanup();
 }
 
 const engine   = new GameEngine();
 const root     = document.getElementById("game-root");
 const renderer = new UIRenderer(engine, root);
+window.__reflexRoyaleLegacyReady = true;
+window.dispatchEvent(new Event("reflex-royale-legacy-ready"));
 
 function isTypingInLobby() {
   const active = document.activeElement;
@@ -24,8 +27,9 @@ function isTypingInLobby() {
 }
 
 /* ── Keyboard listener ── */
-document.addEventListener("keydown", (e) => {
-  const key = e.key.toLowerCase();
+const handleKeyDown = (e) => {
+  const key = normalizeGameKey(e.key);
+  if (!key) return;
 
   if (engine.state === GameState.LOBBY && !isTypingInLobby()) {
     const confirmed = engine.confirmPlayerByKey(key);
@@ -42,4 +46,15 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     engine.handleInput(playerId);
   }
-});
+};
+
+document.addEventListener("keydown", handleKeyDown);
+
+const cleanupLocalGame = () => {
+  document.removeEventListener("keydown", handleKeyDown);
+  if (window.__reflexRoyaleLocalCleanup === cleanupLocalGame) {
+    window.__reflexRoyaleLocalCleanup = undefined;
+  }
+};
+
+window.__reflexRoyaleLocalCleanup = cleanupLocalGame;

@@ -1,3 +1,5 @@
+import { normalizeGameKey } from "./keyMap.js";
+
 /**
  * GameEngine.js — Core state machine for Reflex Royale.
  *
@@ -74,25 +76,36 @@ export class GameEngine {
    * @param {string} name   – display name
    * @param {string} [key]  – keyboard key for local mode (e.g. "q")
    * @param {string} [color]– hex colour
+   * @param {string} [themeCommand] – local player color protocol
    * @returns {boolean} success
    */
-  addPlayer(id, name, key = null, color = "#1f6feb") {
+  addPlayer(id, name, key = null, color = "#1f6feb", themeCommand = null) {
     if (this.state !== GameState.LOBBY) return false;
     if (this.players.size >= 4) return false;
     if (this.players.has(id)) return false;
 
     // Prevent duplicate key bindings in local mode
-    if (key) {
+    const normalizedKey = key ? normalizeGameKey(key) : null;
+    if (key && !normalizedKey) return false;
+
+    if (normalizedKey) {
       for (const p of this.players.values()) {
-        if (p.key === key.toLowerCase()) return false;
+        if (p.key === normalizedKey) return false;
+      }
+    }
+
+    if (themeCommand) {
+      for (const p of this.players.values()) {
+        if (p.themeCommand === themeCommand) return false;
       }
     }
 
     this.players.set(id, {
       id,
       name,
-      key: key ? key.toLowerCase() : null,
+      key: normalizedKey,
       color,
+      themeCommand,
       totalScore: 0,
       roundTimes: [],       // ms per round (Infinity = missed / false-start)
       wins: 0,
@@ -105,12 +118,13 @@ export class GameEngine {
       _falseStart: false,
     });
 
-    this._emit("playerAdded", { id, name, color });
+    this._emit("playerAdded", { id, name, color, themeCommand });
     return true;
   }
 
   confirmPlayerByKey(key) {
-    const normalized = key.toLowerCase();
+    const normalized = normalizeGameKey(key);
+    if (!normalized) return false;
 
     for (const p of this.players.values()) {
       if (p.key === normalized) {
@@ -135,6 +149,24 @@ export class GameEngine {
     const removed = this.players.delete(id);
     if (removed) this._emit("playerRemoved", { id });
     return removed;
+  }
+
+  movePlayerKey(id, key) {
+    if (this.state !== GameState.LOBBY) return false;
+
+    const player = this.players.get(id);
+    const normalized = normalizeGameKey(key);
+    if (!player || player.ready || !normalized) return false;
+
+    for (const other of this.players.values()) {
+      if (other.id !== id && other.key === normalized) return false;
+    }
+
+    if (player.key === normalized) return true;
+
+    player.key = normalized;
+    this._emit("playerKeyMoved", { id: player.id, key: normalized });
+    return true;
   }
 
   getPlayer(id) { return this.players.get(id); }
@@ -277,8 +309,11 @@ export class GameEngine {
    * @returns {string|null} playerId or null
    */
   findPlayerByKey(key) {
+    const normalized = normalizeGameKey(key);
+    if (!normalized) return null;
+
     for (const [id, p] of this.players) {
-      if (p.key === key.toLowerCase()) return id;
+      if (p.key === normalized) return id;
     }
     return null;
   }
@@ -370,6 +405,7 @@ export class GameEngine {
         id: p.id,
         name: p.name,
         color: p.color,
+        themeCommand: p.themeCommand,
         totalScore: p.totalScore,
         wins: p.wins,
         bestTime: p.bestTime === Infinity ? null : p.bestTime,

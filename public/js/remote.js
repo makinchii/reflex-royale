@@ -1,13 +1,22 @@
 /**
  * remote.js - Client for server-authoritative online lobby play.
  */
+import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyboardInputHighlights } from "./keyMap.js";
+import { getCurrentLocalThemeCommand, getLocalPlayerThemePalette } from "./localThemePalette.js";
+import { recordRecentMatch } from "./recentMatches.js";
 
-const socket = io();
 const VERIFIER_KEY = "reflexRoyaleVerifier";
 const HOST_RECLAIM_KEY = "reflexRoyaleHostReclaimToken";
 const ROOM_CODE_KEY = "reflexRoyaleRoomCode";
 const PLAYER_NAME_KEY = "reflexRoyalePlayerName";
-const CHAT_LIMIT = 280;
+const PREFERRED_KEY_KEY = "reflexRoyalePreferredKey";
+const CHAT_LIMIT = 250;
+
+if (window.__reflexRoyaleRemoteCleanup) {
+  window.__reflexRoyaleRemoteCleanup();
+}
+
+const socket = io();
 
 const root = document.getElementById("game-root");
 let myPlayerId = null;
@@ -20,21 +29,44 @@ let hostReclaimToken = localStorage.getItem(HOST_RECLAIM_KEY) || "";
 let savedRoomCode = localStorage.getItem(ROOM_CODE_KEY) || "";
 let savedPlayerName = localStorage.getItem(PLAYER_NAME_KEY) || "";
 let autoReconnectEnabled = true;
+let matchRecorded = false;
+let matchStartedAt = 0;
+let pendingJoinSource = null;
+let roomEntryMode = "join";
+let selectedThemeCommand = getCurrentLocalThemeCommand();
+const themePalette = getLocalPlayerThemePalette();
+
+function getPreferredKey() {
+  return normalizeGameKey(localStorage.getItem(PREFERRED_KEY_KEY) || "");
+}
+
+function getSelectedThemeProtocol() {
+  return themePalette.find((protocol) => protocol.id === selectedThemeCommand) || themePalette[0] || null;
+}
+
+function getPreferredPlayerOptions() {
+  const protocol = getSelectedThemeProtocol();
+  return {
+    preferredKey: getPreferredKey(),
+    preferredThemeCommand: protocol?.id || "tron",
+    preferredThemeColor: protocol?.color || "#00d4ff",
+  };
+}
 
 attemptAutoReconnect();
-
-if (window.mountAccountMenu) {
-  window.mountAccountMenu({ rootId: "account-menu-root" });
-}
+window.__reflexRoyaleLegacyReady = true;
+window.dispatchEvent(new Event("reflex-royale-legacy-ready"));
 
 function attemptAutoReconnect() {
   if (autoReconnectEnabled && savedRoomCode && savedPlayerName) {
     renderJoinScreen();
+    pendingJoinSource = "auto";
     socket.emit("joinRoom", {
       name: savedPlayerName,
       room: savedRoomCode,
       verifier,
-      hostReclaimToken
+      hostReclaimToken,
+      ...getPreferredPlayerOptions()
     });
     return;
   }
@@ -43,86 +75,257 @@ function attemptAutoReconnect() {
 }
 
 function renderJoinScreen(message = "") {
+  const isCreateMode = roomEntryMode === "create";
   root.innerHTML = `
     <div class="lobby">
       <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
       <p class="subtitle">Online Mode — Join a Room</p>
-      <div class="lobby-form">
-        <div class="input-row">
-          <input id="roomCode" type="text" placeholder="Room code" maxlength="6" autocomplete="off" />
-          <input id="playerName" type="text" placeholder="Your name" maxlength="12" autocomplete="off" />
-          <button id="joinBtn" class="btn btn-primary">Join</button>
-        </div>
-        <p class="hint">Share the room code with friends so they can join on their own devices.</p>
-        <button id="createRoomBtn" class="btn btn-secondary">Create New Room</button>
+      <div class="room-entry-tabs" role="tablist" aria-label="Room entry mode">
+        <button id="createTabBtn" type="button" class="room-entry-tab ${isCreateMode ? "room-entry-tab--active" : ""}" role="tab" aria-selected="${isCreateMode}">Create</button>
+        <button id="joinTabBtn" type="button" class="room-entry-tab ${!isCreateMode ? "room-entry-tab--active" : ""}" role="tab" aria-selected="${!isCreateMode}">Join</button>
       </div>
+      <div class="lobby-form">
+        <div class="online-entry-grid">
+          <div class="input-row input-row--online-entry ${isCreateMode ? "input-row--create-room" : ""}">
+            ${isCreateMode ? "" : `<input id="roomCode" type="text" placeholder="Room code" maxlength="6" autocomplete="off" />`}
+            <input id="playerName" type="text" placeholder="Your name" maxlength="12" autocomplete="off" />
+            ${isCreateMode ? `<button id="createRoomBtn" class="btn btn-primary">Create Room</button>` : `<button id="joinBtn" class="btn btn-primary">Join</button>`}
+          </div>
+        </div>
+        <p class="hint">${isCreateMode ? "Create a room, then share the generated room code with friends." : "Enter a room code from the host, then join on your own device."}</p>
+      </div>
+      <div id="holoKeyboardMount">${renderHolographicKeyboard([], { title: "ROOM ENTRY MATRIX" })}</div>
     </div>
   `;
 
-  document.getElementById("createRoomBtn").addEventListener("click", () => {
+  const roomInput = document.getElementById("roomCode");
+  const nameInput = document.getElementById("playerName");
+  wireInputKeyboardHighlights([roomInput, nameInput]);
+  wireEntryKeyboardKeys([roomInput, nameInput]);
+
+  document.getElementById("createTabBtn").addEventListener("click", () => {
+    roomEntryMode = "create";
+    renderJoinScreen();
+  });
+
+  document.getElementById("joinTabBtn").addEventListener("click", () => {
+    roomEntryMode = "join";
+    renderJoinScreen();
+  });
+
+  const createRoomBtn = document.getElementById("createRoomBtn");
+  const createRoom = () => {
     const name = document.getElementById("playerName").value.trim();
     if (!name) return showPageNotification("Enter your name first.", "error");
     localStorage.setItem(PLAYER_NAME_KEY, name);
-    socket.emit("createRoom", { name, verifier });
-  });
+    socket.emit("createRoom", { name, verifier, ...getPreferredPlayerOptions() });
+  };
+  if (createRoomBtn) createRoomBtn.addEventListener("click", createRoom);
 
-  document.getElementById("joinBtn").addEventListener("click", () => {
+  const joinBtn = document.getElementById("joinBtn");
+  const joinRoom = () => {
     const name = document.getElementById("playerName").value.trim();
     const room = document.getElementById("roomCode").value.trim().toUpperCase();
     if (!name || !room) return showPageNotification("Enter both name and room code.", "error");
     localStorage.setItem(PLAYER_NAME_KEY, name);
     localStorage.setItem(ROOM_CODE_KEY, room);
-    socket.emit("joinRoom", { name, room, verifier, hostReclaimToken });
+    pendingJoinSource = "manual";
+    socket.emit("joinRoom", { name, room, verifier, hostReclaimToken, ...getPreferredPlayerOptions() });
+  };
+  if (joinBtn) joinBtn.addEventListener("click", joinRoom);
+
+  [roomInput, nameInput].filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      if (isCreateMode) {
+        createRoom();
+        return;
+      }
+      joinRoom();
+    });
+  });
+}
+
+function clearSavedRoom() {
+  localStorage.removeItem(ROOM_CODE_KEY);
+  localStorage.removeItem(HOST_RECLAIM_KEY);
+  savedRoomCode = "";
+  hostReclaimToken = "";
+}
+
+function renderChatPanel() {
+  return `
+    <section class="chat-panel chat-panel--terminal" aria-label="Room chat terminal">
+      <div class="chat-terminal-bar" aria-hidden="true">
+        <span class="chat-terminal-led"></span>
+        <span>CHAT://ROOM</span>
+        <span class="chat-terminal-status">LIVE</span>
+      </div>
+      <div id="chatMessages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+      <div class="input-row chat-command-row">
+        <span class="chat-prompt" aria-hidden="true">&gt;</span>
+        <input id="chatInput" type="text" placeholder="Press Enter to chat" maxlength="${CHAT_LIMIT}" autocomplete="off" aria-label="Chat message" />
+        <span id="chatCharCounter" class="chat-char-counter" aria-live="polite">${CHAT_LIMIT}</span>
+        <button id="sendChatBtn" class="btn btn-secondary">Send</button>
+      </div>
+    </section>
+  `;
+}
+
+function getClaimedThemeCommands() {
+  return new Set((roomState?.players || []).map((player) => player.themeCommand).filter(Boolean));
+}
+
+function getAvailableThemeCommand() {
+  const claimed = getClaimedThemeCommands();
+  return themePalette.find((protocol) => !claimed.has(protocol.id))?.id || null;
+}
+
+function syncSelectedThemeAfterRosterChange() {
+  const currentPlayer = roomState?.players?.find((player) => player.id === myPlayerId);
+  if (currentPlayer?.themeCommand) {
+    selectedThemeCommand = currentPlayer.themeCommand;
+    return;
+  }
+
+  const claimed = getClaimedThemeCommands();
+  if (claimed.has(selectedThemeCommand)) selectedThemeCommand = getAvailableThemeCommand() || selectedThemeCommand;
+}
+
+function renderThemePicker() {
+  const tabs = document.getElementById("themePickerTabs");
+  const label = document.getElementById("themePickerButtonLabel");
+  const button = document.getElementById("themePickerButton");
+  if (!tabs || !label || !button) return;
+
+  syncSelectedThemeAfterRosterChange();
+  const claimed = getClaimedThemeCommands();
+  const currentPlayer = roomState?.players?.find((player) => player.id === myPlayerId);
+  const selected = getSelectedThemeProtocol();
+  label.textContent = selected?.label || "All Claimed";
+  button.style.setProperty("--sigil-color", selected?.color || "var(--primary, #68e8ff)");
+  button.disabled = !selected;
+
+  tabs.innerHTML = themePalette.map((protocol) => {
+    const claimedByOther = claimed.has(protocol.id) && currentPlayer?.themeCommand !== protocol.id;
+    const active = protocol.id === selectedThemeCommand && !claimedByOther;
+    const claimedByPlayer = currentPlayer?.themeCommand === protocol.id;
+    return `
+      <button
+        class="chroma-sigil-tab ${active || claimedByPlayer ? "is-active" : ""} ${claimedByOther || claimedByPlayer ? "is-claimed" : ""}"
+        type="button"
+        role="tab"
+        aria-selected="${active || claimedByPlayer}"
+        data-theme-command="${protocol.id}"
+        style="--sigil-color:${protocol.color}"
+        ${claimedByOther ? "disabled" : ""}
+      >
+        <span class="chroma-sigil-tab__swatch" aria-hidden="true"></span>
+        <span>${protocol.label}</span>
+      </button>
+    `;
+  }).join("");
+
+  tabs.querySelectorAll(".chroma-sigil-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const command = tab.dataset.themeCommand;
+      const protocol = themePalette.find((item) => item.id === command);
+      if (!protocol || tab.disabled) return;
+      selectedThemeCommand = protocol.id;
+      socket.emit("bindTheme", { themeCommand: protocol.id, color: protocol.color });
+      renderThemePicker();
+    });
+  });
+}
+
+function renderPreferenceConflictDialog(unavailable = []) {
+  const existing = document.getElementById("preferenceConflictDialog");
+  if (existing) existing.remove();
+  const names = unavailable.map((item) => item === "theme" ? "Chroma Sigil" : "preferred key");
+  const message = names.length === 2
+    ? "Your saved Chroma Sigil and preferred key are already claimed in this room. Pick open replacements before readying up."
+    : `Your saved ${names[0] || "preference"} is already claimed in this room. Pick an open replacement before readying up.`;
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div id="preferenceConflictDialog" class="preference-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="preferenceConflictTitle">
+      <div class="preference-conflict-dialog__panel">
+        <h2 id="preferenceConflictTitle">Preference Collision</h2>
+        <p>${esc(message)}</p>
+        <button id="preferenceConflictClose" type="button" class="btn btn-primary">Choose Manually</button>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("preferenceConflictClose")?.addEventListener("click", () => {
+    document.getElementById("preferenceConflictDialog")?.remove();
+    document.getElementById(unavailable.includes("theme") ? "themePickerButton" : "keyInput")?.focus();
   });
 }
 
 function renderLobby(state) {
   roomState = state;
   const currentPlayer = state.players.find((player) => player.id === myPlayerId);
+  selectedKey = normalizeGameKey(currentPlayer?.keyBinding || selectedKey || "") || null;
   const readyText = `${state.readyCount}/${Math.max(state.playerCount, 2)} ready`;
   const roundText = `Rounds: ${state.totalRounds}`;
   const waitingText = state.waitingFor?.length ? `Waiting for: ${state.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
   const canToggleReady = Boolean(currentPlayer?.hasKeyBinding);
-  const lobbyButtonText = currentPlayer?.isInLobbyView ? "Play Again" : "Return to Lobby";
-
-  root.innerHTML = `
-    <div class="lobby">
-      <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
-      <p class="subtitle">Room ${esc(state.room)}</p>
-      <p id="roomHint" class="hint">${esc(readyText)} · ${esc(roundText)}</p>
-      <p id="waitingHint" class="hint">${esc(waitingText)}</p>
-      <div id="remotePlayerSlots" class="player-slots"></div>
-      ${isHost ? `<div id="hostRosterControls" class="game-over-actions"></div>` : ""}
-
-      <div class="chat-panel">
-        <div id="chatMessages" class="chat-messages"></div>
-        <div class="input-row">
-          <input id="chatInput" type="text" placeholder="Send a message" maxlength="${CHAT_LIMIT}" autocomplete="off" />
-          <button id="sendChatBtn" class="btn btn-secondary">Send</button>
+  const hostControls = isHost ? `
+    <aside class="online-host-controls" aria-label="Host controls">
+      <div class="host-control host-control--rounds">
+        <div data-slot="tron-slider" class="round-slider round-slider--host" aria-label="Round count slider">
+          <div class="round-slider__header">
+            <span class="round-control">Round count</span>
+            <span id="roundCountInputValue" class="round-slider__value">${state.totalRounds}</span>
+          </div>
+          <div class="round-slider__track-wrap">
+            <div data-slot="slider-track" class="round-slider__track"></div>
+            <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
+            <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
+            <input id="roundCountInput" class="round-slider__input" type="range" min="1" max="20" step="1" value="${state.totalRounds}" />
+          </div>
         </div>
+      </div>
+      <button id="applyRoundCountBtn" class="btn btn-secondary">Update Rounds</button>
+      <button id="closeRoomBtn" class="btn btn-secondary">Close Room</button>
+    </aside>
+  ` : "";
+  root.innerHTML = `
+    ${hostControls}
+    <div class="lobby">
+      <div class="lobby-layout-top">
+        <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
+        <p class="subtitle">Room ${esc(state.room)}</p>
+        <p id="roomHint" class="hint">${esc(readyText)} · ${esc(roundText)}</p>
+        <p id="waitingHint" class="hint">${esc(waitingText)}</p>
+        <div id="remotePlayerSlots" class="player-slots"></div>
+        ${isHost ? `<div id="hostRosterControls" class="game-over-actions"></div>` : ""}
       </div>
 
       <div class="lobby-form">
-        <div class="input-row">
+        <div class="input-row input-row--online-key-card">
           <input id="keyInput" type="text" placeholder="Pick your key" maxlength="1" autocomplete="off" value="${selectedKey ? esc(selectedKey.toUpperCase()) : ""}" />
           <button id="bindKeyBtn" class="btn btn-secondary">Set Key</button>
           <button id="readyBtn" class="btn btn-primary" ${canToggleReady ? "" : "disabled"}>${currentPlayer?.isReady ? "Unready" : canToggleReady ? "Ready Up" : "Set Key First"}</button>
-          <button id="returnLobbyBtn" class="btn btn-secondary">${lobbyButtonText}</button>
         </div>
-        <p class="hint">Pick your buzzer key, then click the same key again to confirm ready.</p>
+        <div class="chroma-sigil-field">
+          <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
+            <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
+            <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
+          </button>
+          <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
+            <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
+          </div>
+        </div>
+        <p class="hint">Click a holographic key or press a character key, then set it. Press your assigned key to toggle ready.</p>
       </div>
 
-      <div class="game-over-actions">
-        ${isHost ? `
-          <label class="host-control">Round count
-            <input id="roundCountInput" type="number" min="1" max="20" value="${state.totalRounds}" />
-          </label>
-          <button id="applyRoundCountBtn" class="btn btn-secondary">Update Rounds</button>
-          <button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button>
-          <button id="closeRoomBtn" class="btn btn-secondary">Close Room</button>
-        ` : ""}
-        <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
-      </div>
+      <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
+
+      ${renderChatPanel()}
+
+      ${isHost ? `<div class="lobby-layout-bottom"><button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button></div>` : ""}
     </div>
   `;
 
@@ -133,7 +336,7 @@ function renderLobby(state) {
   if (bindKeyBtn) {
     bindKeyBtn.addEventListener("click", () => {
       const input = document.getElementById("keyInput");
-      const key = input.value.trim().toLowerCase();
+      const key = normalizeGameKey(input.value.trim());
       if (!key) return showPageNotification("Pick a single key first.", "error");
       socket.emit("bindKey", { key });
     });
@@ -143,23 +346,29 @@ function renderLobby(state) {
   if (keyInput) {
     keyInput.addEventListener("keydown", (event) => {
       event.preventDefault();
-      keyInput.value = event.key.length === 1 ? event.key.toUpperCase() : "";
+      keyInput.value = normalizeGameKey(event.key).toUpperCase();
     });
     keyInput.addEventListener("input", () => {
-      keyInput.value = keyInput.value.slice(0, 1).toUpperCase();
+      keyInput.value = normalizeGameKey(keyInput.value).toUpperCase();
+      syncKeyboardInputHighlights(root, keyInput.value);
     });
+    wireInputKeyboardHighlights([keyInput]);
   }
 
-  const returnLobbyBtn = document.getElementById("returnLobbyBtn");
-  if (returnLobbyBtn) returnLobbyBtn.addEventListener("click", () => socket.emit("requestLobbyView"));
+  const themeBtn = document.getElementById("themePickerButton");
+  const themePanel = document.getElementById("themePickerPanel");
+  if (themeBtn && themePanel) {
+    themeBtn.addEventListener("click", () => {
+      const isOpen = !themePanel.hidden;
+      themePanel.hidden = isOpen;
+      themeBtn.setAttribute("aria-expanded", String(!isOpen));
+    });
+  }
+  renderThemePicker();
+
+  wireKeyboardKeys();
 
   wireChatControls();
-
-  const leaveRoomBtn = document.getElementById("leaveRoomBtn");
-  if (leaveRoomBtn) leaveRoomBtn.addEventListener("click", () => {
-    autoReconnectEnabled = false;
-    socket.emit("leaveRoom");
-  });
 
   const startBtn = document.getElementById("startGameBtn");
   if (startBtn) startBtn.addEventListener("click", () => socket.emit("startGame"));
@@ -170,6 +379,26 @@ function renderLobby(state) {
       const input = document.getElementById("roundCountInput");
       socket.emit("setRoundCount", { totalRounds: input.value });
     });
+  }
+
+  const roundCountInput = document.getElementById("roundCountInput");
+  const roundCountInputValue = document.getElementById("roundCountInputValue");
+  if (roundCountInput) {
+    const updateRoundSlider = () => {
+      const min = Number(roundCountInput.min || 1);
+      const max = Number(roundCountInput.max || 20);
+      const current = Number(roundCountInput.value || 1);
+      const percent = ((current - min) / (max - min)) * 100;
+
+      if (roundCountInputValue) roundCountInputValue.textContent = String(current);
+      const range = document.querySelector('[data-slot="slider-range"]');
+      const thumb = document.querySelector('[data-slot="slider-thumb"]');
+      if (range) range.style.width = `${percent}%`;
+      if (thumb) thumb.style.left = `${percent}%`;
+    };
+
+    roundCountInput.addEventListener("input", updateRoundSlider);
+    updateRoundSlider();
   }
 
   const closeBtn = document.getElementById("closeRoomBtn");
@@ -185,11 +414,9 @@ function renderRoster(players) {
   if (!container) return;
 
   container.innerHTML = players.map((player) => `
-    <div class="player-slot" style="border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
+    <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
       <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
-      ${player.isHost ? '<span class="you-tag">HOST</span>' : ''}
-      ${player.id === myPlayerId ? '<span class="you-tag">YOU</span>' : ''}
-      <span class="ready-state">${player.connected ? (player.isReady ? "Ready" : "Not ready") : "Disconnected"}</span>
+      <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
     </div>
   `).join("");
 }
@@ -213,11 +440,12 @@ function renderHostControls(players) {
 function renderChat(messages = []) {
   const container = document.getElementById("chatMessages");
   if (!container) return;
+  const playerColors = new Map((roomState?.players || []).map((player) => [player.id, player.color]));
 
   container.innerHTML = messages.length
     ? messages.map((message) => `
       <div class="chat-message">
-        <span class="chat-sender">${esc(message.senderName || "Player")}</span>
+        <span class="chat-sender" style="--chat-sender-color: ${esc(playerColors.get(message.senderPlayerId) || message.senderColor || "var(--primary, #68e8ff)")}">${esc(message.senderName || "Player")}:</span>
         <span class="chat-content">${esc(message.content)}</span>
       </div>
     `).join("")
@@ -228,13 +456,20 @@ function renderChat(messages = []) {
 function wireChatControls() {
   const chatInput = document.getElementById("chatInput");
   const sendChatBtn = document.getElementById("sendChatBtn");
+  const chatCharCounter = document.getElementById("chatCharCounter");
   if (!chatInput || !sendChatBtn) return;
+
+  const updateCounter = () => {
+    if (!chatCharCounter) return;
+    chatCharCounter.textContent = String(CHAT_LIMIT - chatInput.value.length);
+  };
 
   const sendChat = () => {
     const content = chatInput.value.trim();
     if (!content) return;
     socket.emit("sendChatMessage", { content });
     chatInput.value = "";
+    updateCounter();
   };
 
   chatInput.addEventListener("keydown", (event) => {
@@ -244,7 +479,18 @@ function wireChatControls() {
     }
   });
 
+  chatInput.addEventListener("input", updateCounter);
   sendChatBtn.addEventListener("click", sendChat);
+  updateCounter();
+}
+
+function focusChatInputFromShortcut() {
+  const chatInput = document.getElementById("chatInput");
+  if (!chatInput) return false;
+
+  chatInput.focus();
+  chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+  return true;
 }
 
 function renderMatchScreen(message, lightClass) {
@@ -266,17 +512,11 @@ function renderPostMatchScreen(state) {
   const waitingText = state.waitingFor?.length ? `Waiting for: ${state.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
 
   root.innerHTML = `
-    <div class="game-over">
+      <div class="game-over">
       <h1 class="winner-banner">Room ${esc(state.room)}</h1>
       <p class="hint">${esc(waitingText)}</p>
       <p class="hint">Rounds: ${state.totalRounds}</p>
-      <div class="chat-panel">
-        <div id="chatMessages" class="chat-messages"></div>
-        <div class="input-row">
-          <input id="chatInput" type="text" placeholder="Send a message" maxlength="${CHAT_LIMIT}" autocomplete="off" />
-          <button id="sendChatBtn" class="btn btn-secondary">Send</button>
-        </div>
-      </div>
+      ${renderChatPanel()}
       <div class="game-over-actions">
         <button id="returnLobbyBtn" class="btn btn-primary btn-big">${currentPlayer?.isInLobbyView ? "Back in Lobby" : "Return to Lobby"}</button>
         <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
@@ -313,6 +553,7 @@ function renderPostMatchScreen(state) {
 }
 
 socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier }) => {
+  pendingJoinSource = null;
   myPlayerId = playerId;
   isHost = true;
   verifier = createdVerifier || verifier;
@@ -330,6 +571,7 @@ socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier }) => {
 });
 
 socket.on("roomJoined", ({ room, playerId }) => {
+  pendingJoinSource = null;
   myPlayerId = playerId;
   isHost = room.hostId === playerId;
   savedRoomCode = room.room;
@@ -367,16 +609,29 @@ socket.on("roomState", (state) => {
 });
 
 socket.on("keyBound", ({ key }) => {
-  selectedKey = key;
+  selectedKey = normalizeGameKey(key);
   if (roomState && (roomState.status === "waiting_for_players" || roomState.status === "ready_check")) {
     renderLobby(roomState);
   }
 });
 
+socket.on("themeBound", ({ themeCommand }) => {
+  if (themeCommand) selectedThemeCommand = themeCommand;
+  if (roomState && (roomState.status === "waiting_for_players" || roomState.status === "ready_check")) {
+    renderLobby(roomState);
+  }
+});
+
+socket.on("preferenceConflict", ({ unavailable }) => {
+  renderPreferenceConflictDialog(unavailable || []);
+});
+
 socket.on("playerList", ({ players }) => {
   roomState = roomState || { players: [] };
   roomState.players = players;
+  syncSelectedThemeAfterRosterChange();
   renderRoster(players);
+  renderThemePicker();
 
   const hint = document.getElementById("roomHint");
   if (hint && roomState?.readyCount !== undefined) {
@@ -430,6 +685,10 @@ socket.on("removedFromLobby", () => {
 });
 
 socket.on("countdown", ({ remaining }) => {
+  if (!matchStartedAt) {
+    matchStartedAt = Date.now();
+    matchRecorded = false;
+  }
   renderMatchScreen(String(remaining), "off");
 });
 
@@ -466,13 +725,7 @@ socket.on("roundEnd", ({ roundNum, results }) => {
             </li>
           `).join("")}
         </ol>
-        <div class="chat-panel">
-          <div id="chatMessages" class="chat-messages"></div>
-          <div class="input-row">
-            <input id="chatInput" type="text" placeholder="Send a message" maxlength="${CHAT_LIMIT}" autocomplete="off" />
-            <button id="sendChatBtn" class="btn btn-secondary">Send</button>
-          </div>
-        </div>
+        ${renderChatPanel()}
         ${isHost ? '<button id="nextRoundBtn" class="btn btn-primary btn-big">Next Round</button>' : '<p class="hint">Waiting for host…</p>'}
       </div>
     </div>
@@ -486,6 +739,8 @@ socket.on("roundEnd", ({ roundNum, results }) => {
 });
 
 socket.on("gameOver", ({ standings }) => {
+  recordOnlineRecentMatch(standings || []);
+
   root.innerHTML = `
     <div class="game-over">
       <h1 class="winner-banner">🏆 ${esc(standings[0].name)} Wins! 🏆</h1>
@@ -519,34 +774,72 @@ socket.on("gameOver", ({ standings }) => {
   renderChat(roomState?.chatMessages || []);
 });
 
+function recordOnlineRecentMatch(standings) {
+  if (matchRecorded) return;
+  const playerIndex = standings.findIndex((standing) => standing.id === myPlayerId);
+  if (playerIndex < 0) return;
+
+  const player = standings[playerIndex];
+  if (!player.avgTime) return;
+  const reactionTimes = (player.roundTimes || []).filter((time) => Number.isFinite(time) && time > 0);
+  const totalReactionTime = reactionTimes.reduce((total, time) => total + time, 0);
+  const matchDurationSeconds = matchStartedAt ? Math.max(1, Math.round((Date.now() - matchStartedAt) / 1000)) : 0;
+
+  matchRecorded = true;
+
+  recordRecentMatch({
+    averageReactionTime: player.avgTime,
+    falseStarts: player.falseStarts || 0,
+    matchDurationSeconds,
+    mode: "online",
+    place: playerIndex + 1,
+    reactions: reactionTimes.length,
+    totalReactionTime,
+  });
+  matchStartedAt = 0;
+}
+
 socket.on("roomClosed", ({ reason }) => {
   myPlayerId = null;
   isHost = false;
   roomState = null;
   selectedKey = null;
   if (reason === "left" || reason === "host_closed") {
-    localStorage.removeItem(ROOM_CODE_KEY);
+    clearSavedRoom();
     localStorage.removeItem(PLAYER_NAME_KEY);
-    localStorage.removeItem(HOST_RECLAIM_KEY);
-    savedRoomCode = "";
     savedPlayerName = "";
-    hostReclaimToken = "";
   }
   renderJoinScreen();
 });
 
 socket.on("error", ({ message }) => {
+  if (pendingJoinSource === "auto" && message === "Room not found.") {
+    pendingJoinSource = null;
+    clearSavedRoom();
+    renderJoinScreen();
+    return;
+  }
+
+  pendingJoinSource = null;
   showPageNotification(message, "error");
 });
 
-document.addEventListener("keydown", (e) => {
+const handleKeyDown = (e) => {
   const active = document.activeElement;
   if (active && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(active.tagName)) {
     return;
   }
 
+  if (e.key === "Enter" && focusChatInputFromShortcut()) {
+    e.preventDefault();
+    return;
+  }
+
+  const key = normalizeGameKey(e.key);
+  if (!key) return;
+
   if (roomState && (roomState.status === "waiting_for_players" || roomState.status === "ready_check") && selectedKey) {
-    if (e.key.toLowerCase() === selectedKey) {
+    if (key === selectedKey) {
       e.preventDefault();
       socket.emit("toggleReady");
     }
@@ -555,17 +848,116 @@ document.addEventListener("keydown", (e) => {
 
   if (!roomState || (roomState.status !== "countdown" && roomState.status !== "waiting" && roomState.status !== "react")) return;
 
-  if (selectedKey && e.key.toLowerCase() === selectedKey) {
+  if (selectedKey && key === selectedKey) {
     e.preventDefault();
     socket.emit("playerInput");
   }
-});
+};
 
-document.addEventListener("touchstart", (e) => {
+function wireKeyboardKeys() {
+  const keyInput = document.getElementById("keyInput");
+  if (!keyInput) return;
+
+  document.querySelectorAll(".holo-key").forEach((button) => {
+    button.addEventListener("click", () => {
+      keyInput.value = normalizeGameKey(button.dataset.key || "").toUpperCase();
+      keyInput.focus();
+      syncKeyboardInputHighlights(root, keyInput.value);
+    });
+
+    button.addEventListener("dragstart", (event) => {
+      if (button.dataset.draggable !== "true") {
+        event.preventDefault();
+        return;
+      }
+
+      button.classList.add("holo-key--dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", button.dataset.key || "");
+      event.dataTransfer.setData("application/x-player-color", button.style.getPropertyValue("--key-color"));
+    });
+
+    button.addEventListener("dragend", () => {
+      button.classList.remove("holo-key--dragging");
+      document.querySelectorAll(".holo-key--drop-target").forEach((key) => {
+        key.classList.remove("holo-key--drop-target");
+        key.style.removeProperty("--drop-color");
+      });
+    });
+
+    button.addEventListener("dragover", (event) => {
+      if (button.dataset.occupied === "true") return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      button.style.setProperty("--drop-color", event.dataTransfer.getData("application/x-player-color"));
+      button.classList.add("holo-key--drop-target");
+    });
+
+    button.addEventListener("dragleave", () => {
+      button.classList.remove("holo-key--drop-target");
+      button.style.removeProperty("--drop-color");
+    });
+
+    button.addEventListener("drop", (event) => {
+      event.preventDefault();
+      button.classList.remove("holo-key--drop-target");
+      button.style.removeProperty("--drop-color");
+
+      const targetKey = normalizeGameKey(button.dataset.key || "");
+      if (!targetKey || button.dataset.occupied === "true") return;
+
+      keyInput.value = targetKey.toUpperCase();
+      selectedKey = targetKey;
+      socket.emit("bindKey", { key: targetKey });
+    });
+  });
+}
+
+function wireInputKeyboardHighlights(inputs) {
+  inputs.filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", (event) => pulseKeyboardKey(root, event.key));
+    input.addEventListener("input", () => syncKeyboardInputHighlights(root, input.value));
+  });
+}
+
+function wireEntryKeyboardKeys(inputs) {
+  const focusableInputs = inputs.filter(Boolean);
+  document.querySelectorAll(".holo-key").forEach((button) => {
+    button.addEventListener("click", () => {
+      const active = focusableInputs.includes(document.activeElement) ? document.activeElement : focusableInputs[0];
+      if (!active) return;
+
+      const key = normalizeGameKey(button.dataset.key || "").toUpperCase();
+      const maxLength = Number(active.maxLength || 0);
+      if (maxLength > 0 && active.value.length >= maxLength) return;
+
+      active.value = `${active.value || ""}${key}`;
+      active.focus();
+      active.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  });
+}
+
+const handleTouchStart = (e) => {
   if (!roomState || (roomState.status !== "countdown" && roomState.status !== "waiting" && roomState.status !== "react")) return;
   if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return;
   socket.emit("playerInput");
-});
+};
+
+document.addEventListener("keydown", handleKeyDown);
+document.addEventListener("touchstart", handleTouchStart);
+
+const cleanupRemoteGame = () => {
+  document.removeEventListener("keydown", handleKeyDown);
+  document.removeEventListener("touchstart", handleTouchStart);
+  socket.removeAllListeners();
+  socket.disconnect();
+  if (window.__reflexRoyaleRemoteCleanup === cleanupRemoteGame) {
+    window.__reflexRoyaleRemoteCleanup = undefined;
+  }
+};
+
+window.__reflexRoyaleRemoteCleanup = cleanupRemoteGame;
 
 function formatResult(result) {
   if (result.outcome === "false_start") return "False start!";
