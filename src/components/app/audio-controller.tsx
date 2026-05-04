@@ -93,6 +93,18 @@ function pickRandomTrackIndex(playlist: Array<{ category: string }>, category: A
   return indexes[Math.floor(Math.random() * indexes.length)] ?? indexes[0];
 }
 
+function VolumeSlider({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <div className="audio-dialog__volume-row">
+      <div className="audio-dialog__label-row">
+        <span className="inline-flex items-center gap-2"><Volume1 className="h-3.5 w-3.5" /> {label}</span>
+        <span>{Math.round(value * 100)}%</span>
+      </div>
+      <Slider className="audio-dialog__hud-slider" value={[value * 100]} min={0} max={100} step={1} onValueChange={([nextValue]) => onChange((nextValue ?? 0) / 100)} aria-label={label} />
+    </div>
+  );
+}
+
 export function AudioController() {
   const pathname = usePathname();
   const musicRef = useRef<HTMLAudioElement | null>(null);
@@ -490,16 +502,6 @@ export function AudioController() {
     window.dispatchEvent(new CustomEvent(AUDIO_PREFERENCES_CHANGED_EVENT));
     setCurrentTime(0);
   };
-
-  const VolumeSlider = ({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) => (
-    <div className="audio-dialog__volume-row">
-      <div className="audio-dialog__label-row">
-        <span className="inline-flex items-center gap-2"><Volume1 className="h-3.5 w-3.5" /> {label}</span>
-        <span>{Math.round(value * 100)}%</span>
-      </div>
-      <Slider className="audio-dialog__hud-slider" value={[value * 100]} min={0} max={100} step={1} onValueChange={([nextValue]) => onChange((nextValue ?? 0) / 100)} aria-label={label} />
-    </div>
-  );
 
   const audioConsoleBody = (
     <>

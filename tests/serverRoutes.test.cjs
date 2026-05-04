@@ -503,6 +503,8 @@ test("game routes render inside the modern game shell", () => {
   assert.match(audioSource, /audio-dialog__track-scroller/);
   assert.match(audioSource, /audio-dialog__mix-field/);
   assert.match(audioSource, /Master Volume/);
+  assert.match(audioSource, /function VolumeSlider/);
+  assert.doesNotMatch(audioSource, /const VolumeSlider =/);
   assert.match(audioSource, /AUDIO_MIX_MODE_KEY/);
   assert.match(audioSource, /resolveMixCategory/);
   assert.match(audioSource, /pickRandomTrackIndex/);
