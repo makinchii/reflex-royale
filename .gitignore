@@ -2,6 +2,7 @@ node_modules/
 .env
 .DS_store
 .next/
+.audio-work/
 public/audio/*
 !public/audio/
 !public/audio/ui-click.mp3

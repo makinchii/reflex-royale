@@ -415,6 +415,8 @@ test("game routes render inside the modern game shell", () => {
   const audioModelSource = fs.readFileSync(require.resolve("../models/AudioTrack.js"), "utf8");
   const audioCatalogSource = fs.readFileSync(require.resolve("../lib/audioCatalog.js"), "utf8");
   const seedAudioSource = fs.readFileSync(require.resolve("../scripts/seed-audio-library.js"), "utf8");
+  const extractAudioSource = fs.readFileSync(require.resolve("../scripts/extract-audio-library.js"), "utf8");
+  const packageSource = fs.readFileSync(require.resolve("../package.json"), "utf8");
   const videoPlayerSource = fs.readFileSync(require.resolve("../src/components/thegridcn/video-player.tsx"), "utf8");
   const waveformSource = fs.readFileSync(require.resolve("../src/components/thegridcn/waveform.tsx"), "utf8");
   const crtSource = fs.readFileSync(require.resolve("../src/components/thegridcn/crt-effect.tsx"), "utf8");
@@ -553,6 +555,8 @@ test("game routes render inside the modern game shell", () => {
   assert.match(audioCatalogSource, /FLOWER_FIELDS_TRACK_ID/);
   assert.match(seedAudioSource, /AudioTrack\.findOneAndUpdate/);
   assert.match(seedAudioSource, /ALLOW_MISSING_AUDIO/);
+  assert.match(packageSource, /audio:extract/);
+  assert.match(extractAudioSource, /CONFIRM_AUDIO_RIGHTS/);
   assert.match(videoPlayerSource, /data-slot="video-player"/);
   assert.match(videoPlayerSource, /relative aspect-video overflow-hidden/);
   assert.match(videoPlayerSource, /bottom-3 left-3/);
