@@ -30,6 +30,7 @@ mongoose.set("bufferCommands", false);
 
 function createApp(options = {}) {
   const useSessionStore = options.useSessionStore !== false;
+  const mongoSessionStore = options.sessionStore;
   const useNextFrontend = options.useNextFrontend === true;
   const app = express();
   const isProduction = process.env.NODE_ENV === "production";
@@ -60,12 +61,7 @@ function createApp(options = {}) {
       secret: SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
-      store: useSessionStore && MONGODB_URI
-        ? MongoStore.create({
-            mongoUrl: MONGODB_URI,
-            collectionName: "sessions"
-          })
-        : undefined,
+      store: useSessionStore ? mongoSessionStore : undefined,
       cookie: {
         httpOnly: true,
         sameSite: "lax",
@@ -217,7 +213,25 @@ function registerShutdownHandlers({ server, io, nextApp }) {
 
 async function startServer() {
   const useNextFrontend = process.env.NEXT_FRONTEND !== "false";
-  const { app, server, io } = createServer({ useNextFrontend });
+  let sessionStore = null;
+
+  if (MONGODB_URI) {
+    try {
+      await mongoose.connect(MONGODB_URI);
+      sessionStore = MongoStore.create({
+        client: mongoose.connection.getClient(),
+        collectionName: "sessions"
+      });
+      console.log("MongoDB connected successfully.");
+    } catch (error) {
+      console.error("MongoDB connection error:", error.message);
+      console.warn("Starting server without MongoDB. Pages will load, but signup/login will not work until the database connects.");
+    }
+  } else {
+    console.warn("MongoDB not connected: add MONGODB_URI to your .env file to enable signup/login.");
+  }
+
+  const { app, server, io } = createServer({ useNextFrontend, sessionStore });
   let nextApp = null;
 
   registerShutdownHandlers({ server, io, nextApp });
@@ -233,28 +247,9 @@ async function startServer() {
     app.setNextRequestHandler(nextApp.getRequestHandler());
   }
 
-  if (!MONGODB_URI) {
-    console.warn("MongoDB not connected: add MONGODB_URI to your .env file to enable signup/login.");
-    server.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-    return;
-  }
-
-  try {
-    await mongoose.connect(MONGODB_URI);
-    console.log("MongoDB connected successfully.");
-
-    server.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.error("MongoDB connection error:", error.message);
-    console.warn("Starting server without MongoDB. Pages will load, but signup/login will not work until the database connects.");
-    server.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  }
+  server.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
 }
 
 if (require.main === module) {
