@@ -116,6 +116,8 @@ export function AudioController() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const waveformRafRef = useRef<number | null>(null);
+  const currentMixCategoryRef = useRef<AudioCategory | null>(null);
+  const appliedCustomTrackIdRef = useRef("");
   const unlockedRef = useRef(false);
   const lastHoverAtRef = useRef(0);
   const lastClickAtRef = useRef(0);
@@ -311,15 +313,28 @@ export function AudioController() {
     if (mixMode === "custom" && customTrackId) {
       const customIndex = playlist.findIndex((track) => track.trackId === customTrackId);
       if (customIndex >= 0) {
-        setTrackIndex(customIndex);
-        setCurrentTime(0);
+        currentMixCategoryRef.current = null;
+        if (appliedCustomTrackIdRef.current !== customTrackId) {
+          appliedCustomTrackIdRef.current = customTrackId;
+          setTrackIndex((currentIndex) => playlist[currentIndex]?.trackId === customTrackId ? currentIndex : customIndex);
+        }
         return;
       }
     }
 
-    const category = resolveMixCategory(mixMode, pathname ?? "/");
-    setTrackIndex(pickRandomTrackIndex(playlist, category));
-    setCurrentTime(0);
+    appliedCustomTrackIdRef.current = "";
+    const nextCategory = resolveMixCategory(mixMode, pathname ?? "/");
+    setTrackIndex((currentIndex) => {
+      const boundedIndex = Math.min(currentIndex, playlist.length - 1);
+      const currentTrack = playlist[boundedIndex];
+
+      if (currentMixCategoryRef.current === nextCategory && currentTrack) {
+        return boundedIndex;
+      }
+
+      currentMixCategoryRef.current = nextCategory;
+      return currentTrack?.category === nextCategory ? boundedIndex : pickRandomTrackIndex(playlist, nextCategory);
+    });
   }, [customTrackId, mixMode, pathname, playlist]);
 
   useEffect(() => {

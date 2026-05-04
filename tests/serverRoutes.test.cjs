@@ -507,6 +507,10 @@ test("game routes render inside the modern game shell", () => {
   assert.doesNotMatch(audioSource, /const VolumeSlider =/);
   assert.match(audioSource, /AUDIO_MIX_MODE_KEY/);
   assert.match(audioSource, /resolveMixCategory/);
+  assert.match(audioSource, /currentMixCategoryRef/);
+  assert.match(audioSource, /appliedCustomTrackIdRef/);
+  assert.match(audioSource, /currentMixCategoryRef\.current === nextCategory/);
+  assert.match(audioSource, /currentTrack\?\.category === nextCategory/);
   assert.match(audioSource, /pickRandomTrackIndex/);
   assert.doesNotMatch(audioSource, /Change Track/);
   assert.doesNotMatch(audioSource, /Source Timestamp/);
