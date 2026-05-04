@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const express = require("express");
 const http = require("http");
 const next = require("next");
@@ -27,6 +28,23 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "reflex-royale-dev-secret";
 
 // Disable Mongoose command buffering so DB problems fail clearly.
 mongoose.set("bufferCommands", false);
+
+function isMongoConnectionError(error) {
+  return Boolean(
+    error &&
+      (error.name === "MongoServerError" || error.name === "MongoNetworkError") &&
+      (error.code === 8000 || error.errorLabelSet?.has?.("HandshakeError") || /authentication failed|bad auth/i.test(error.message || ""))
+  );
+}
+
+process.on("unhandledRejection", (reason) => {
+  if (isMongoConnectionError(reason)) {
+    console.error("MongoDB background connection error:", reason.message);
+    return;
+  }
+
+  throw reason;
+});
 
 function createApp(options = {}) {
   const useSessionStore = options.useSessionStore !== false;
@@ -226,6 +244,7 @@ async function startServer() {
     } catch (error) {
       console.error("MongoDB connection error:", error.message);
       console.warn("Starting server without MongoDB. Pages will load, but signup/login will not work until the database connects.");
+      await mongoose.disconnect().catch(() => {});
     }
   } else {
     console.warn("MongoDB not connected: add MONGODB_URI to your .env file to enable signup/login.");
@@ -238,8 +257,10 @@ async function startServer() {
 
   if (useNextFrontend) {
     const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
-    if (process.env.NODE_ENV === "production" && !require("fs").existsSync(buildIdPath)) {
+    if (process.env.NODE_ENV === "production" && !fs.existsSync(buildIdPath)) {
       console.error("Missing Next production build. Run `npm run build` before `npm start`, or set Render Start Command to `npm run render-start`.");
+      process.exitCode = 1;
+      return;
     }
 
     nextApp = next({
