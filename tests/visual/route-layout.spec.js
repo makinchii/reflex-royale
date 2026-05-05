@@ -46,6 +46,10 @@ function expectCloseRatio(actual, expected, label, tolerance = 0.035) {
   expect(Math.abs(actual - expected), `${label} ratio parity`).toBeLessThanOrEqual(tolerance);
 }
 
+function expectClosePx(actual, expected, label, tolerance = 2) {
+  expect(Math.abs(actual - expected), `${label} pixel parity`).toBeLessThanOrEqual(tolerance);
+}
+
 async function routeLineEndpoint(page, lineSelector, buttonSelector, direction) {
   return page.evaluate(({ lineSelector, buttonSelector, direction }) => {
     const line = document.querySelector(lineSelector);
@@ -313,6 +317,91 @@ for (const viewport of LANDING_COMPOSITION_VIEWPORTS.filter(({ name }) => name !
   });
 }
 
+for (const viewport of LANDING_COMPOSITION_VIEWPORTS.filter(({ name }) => name.startsWith("1080p"))) {
+test(`dashboard panels align with sidebar chrome at ${viewport.name}`, async ({ page }) => {
+  await openRoute(page, "/dashboard", viewport, { authenticated: true });
+
+  const viewportBounds = viewportBox(viewport);
+  const sidebar = await rect(page, ".dashboard-layout aside");
+  const playSection = await rect(page, ".dashboard-play-section");
+  const arenaCard = await rect(page, ".dashboard-arena-card");
+  const arenaTitle = await rect(page, ".dashboard-arena-card .fluorescent-title");
+  const arenaReadout = await rect(page, ".dashboard-arena-card__readout");
+  const arenaActions = await rect(page, ".dashboard-arena-card__actions");
+  const navigateButton = await rect(page, ".dashboard-navigation-button");
+
+  expectInside(viewportBounds, sidebar, "dashboard sidebar");
+  expectInside(viewportBounds, playSection, "dashboard play section");
+  expectClosePx(playSection.y, sidebar.y, "play section top should align with sidebar");
+  expectClosePx(playSection.height, sidebar.height, "play section height should match sidebar");
+  expectInside(playSection, arenaCard, "arena card inside play section");
+  expectInside(arenaCard, arenaTitle, "arena title inside card");
+  expectInside(arenaCard, arenaReadout, "arena readout inside card");
+  expectInside(arenaCard, arenaActions, "arena actions inside card");
+  expectInside(arenaCard, navigateButton, "navigation button inside arena card");
+  expect(arenaTitle.height, "arena title should not consume the whole hero card").toBeLessThanOrEqual(arenaCard.height * 0.32);
+  expect(navigateButton.width, "navigation button should not dominate the full card width").toBeLessThanOrEqual(arenaCard.width * 0.42);
+
+  for (const selector of [".dashboard-analytics-section", '[data-section-id="visuals"]', '[data-section-id="sound"]', ".dashboard-personalization-section"]) {
+    await page.locator(selector).scrollIntoViewIfNeeded();
+    const section = await rect(page, selector);
+    expectClosePx(section.height, sidebar.height, `${selector} height should match sidebar`, 3);
+    expect(section.width, `${selector} should share main content width`).toBeGreaterThanOrEqual(playSection.width - 2);
+    expect(section.width, `${selector} should share main content width`).toBeLessThanOrEqual(playSection.width + 2);
+  }
+});
+}
+
+test("dashboard 1080p card internals scale into panel bounds", async ({ page }) => {
+  const viewport = { name: "1080p-browser-content", width: 1920, height: 966 };
+  await openRoute(page, "/dashboard", viewport, { authenticated: true });
+
+  const analytics = await rect(page, ".dashboard-analytics-section");
+  const performance = await rect(page, ".dashboard-performance-content");
+  const leaderboard = await rect(page, ".dashboard-leaderboard-content");
+  const recentMatches = await rect(page, ".dashboard-recent-matches-card");
+  expectInside(analytics, performance, "performance content inside analytics");
+  expectInside(analytics, leaderboard, "leaderboard content inside analytics");
+  expectInside(analytics, recentMatches, "recent matches inside analytics");
+
+  for (let index = 0; index < 12; index += 1) {
+    expectInside(performance, await page.locator(".dashboard-performance-content > div").nth(index).boundingBox(), `performance metric ${index + 1}`);
+  }
+  for (let index = 0; index < 10; index += 1) {
+    expectInside(leaderboard, await page.locator(".dashboard-leaderboard-content > div").nth(index).boundingBox(), `leaderboard row ${index + 1}`);
+  }
+
+  await page.locator('[data-section-id="sound"]').scrollIntoViewIfNeeded();
+  const sound = await rect(page, '[data-section-id="sound"]');
+  const soundPlayer = await rect(page, ".dashboard-sound-player-card");
+  const videoPlayer = await rect(page, '.dashboard-audio-player [data-slot="video-player"]');
+  const albumArt = await rect(page, ".dashboard-audio-player .audio-dialog__album-art");
+  const timeRow = await rect(page, ".dashboard-audio-player .audio-dialog__time-row");
+  expectInside(sound, soundPlayer, "sound player card inside sound section");
+  expectInside(soundPlayer, videoPlayer, "video player inside sound player card");
+  expectInside(videoPlayer, albumArt, "album art inside video player");
+  expectInside(videoPlayer, timeRow, "video controls time row inside player");
+  expect(albumArt.height, "album art should leave room for player controls").toBeLessThanOrEqual(videoPlayer.height * 0.72);
+
+  await page.locator('[data-section-id="personalization"]').scrollIntoViewIfNeeded();
+  const personalization = await rect(page, '[data-section-id="personalization"]');
+  const preferredCard = await rect(page, ".dashboard-personalization-key-card");
+  const keyboard = await rect(page, ".dashboard-preferred-keyboard");
+  const keyGrid = await rect(page, ".dashboard-preferred-keyboard__keys");
+  const themePicker = await rect(page, ".dashboard-theme-picker-card");
+  const themeTabs = await rect(page, ".dashboard-theme-tabs__list");
+  const themeOption = await rect(page, ".dashboard-theme-option");
+  const hexPicker = await rect(page, ".dashboard-theme-color-picker");
+  expectInside(personalization, preferredCard, "preferred key content inside personalization");
+  expectInside(preferredCard, keyboard, "keyboard inside preferred card");
+  expectInside(keyboard, keyGrid, "key grid inside keyboard");
+  expectInside(personalization, themePicker, "theme picker inside personalization");
+  expectInside(themePicker, themeTabs, "theme tabs inside theme picker");
+  expectInside(themePicker, themeOption, "theme option inside theme picker");
+  expectInside(themePicker, hexPicker, "hex color picker inside theme picker");
+  expect(hexPicker.y + hexPicker.height, "hex picker should clear the theme card bottom").toBeLessThanOrEqual(themePicker.y + themePicker.height - 4);
+});
+
 test("landing keeps proportional composition between 1080p and 1440p", async ({ page }) => {
   const reference = await landingRatios(page, { name: "qhd-effective", width: 2560, height: 1440 });
   const current = await landingRatios(page, { name: "1080p", width: 1920, height: 1080 });
@@ -356,13 +445,32 @@ for (const viewport of VIEWPORTS) {
     await openRoute(page, "/online", viewport, { authenticated: true });
     await expect(page.locator("#game-root .lobby")).toBeVisible();
     const { root } = await expectGameSurface(page);
-    for (const selector of [".lobby", ".lobby-form", ".holo-keyboard-panel"]) {
+    for (const selector of [".lobby", ".lobby-form", ".chroma-sigil-field", ".holo-keyboard-panel"]) {
       const target = page.locator(`#game-root ${selector}`).first();
       if ((await target.count()) > 0) expectInside(root, await target.boundingBox(), selector);
     }
     await expectNoHorizontalOverflow(page, "#game-root");
   });
 }
+
+test("online create room exposes Chroma Sigil and round slider controls", async ({ page }) => {
+  const viewport = { name: "1080p-browser-content", width: 1920, height: 966 };
+  await openRoute(page, "/online", viewport, { authenticated: true });
+  await page.locator("#createTabBtn").click();
+  await expect(page.locator("#game-root .chroma-sigil-field")).toBeVisible();
+  await expect(page.locator("#game-root .round-slider--create")).toBeVisible();
+
+  const { root } = await expectGameSurface(page);
+  const sigilField = await rect(page, "#game-root .chroma-sigil-field");
+  const slider = await rect(page, "#game-root .round-slider--create");
+  expectInside(root, slider, "create room round slider");
+  expectClosePx(slider.width, sigilField.width, "create round slider should match control width", 2);
+
+  await page.locator("#joinTabBtn").click();
+  await page.locator("#themePickerButton").click();
+  const panelBackground = await page.locator("#themePickerPanel").evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(panelBackground, "join sigil panel should have a solid fallback background").not.toMatch(/rgba\([^,]+,[^,]+,[^,]+,\s*0\)/);
+});
 
 test("not found route does not overflow", async ({ page }) => {
   await openRoute(page, "/route-that-does-not-exist", { width: 800, height: 600 });

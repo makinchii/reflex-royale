@@ -84,8 +84,6 @@ export class UIRenderer {
             <p id="lobbyStatus" class="hint"></p>
           </div>
 
-          <div id="playerSlots" class="player-slots"></div>
-
           <div class="lobby-settings">
             <div data-slot="tron-slider" class="round-slider" aria-label="Rounds slider">
               <div class="round-slider__header">
@@ -101,6 +99,8 @@ export class UIRenderer {
             </div>
           </div>
         </div>
+
+        <div id="playerSlots" class="player-slots player-slots--docked" aria-label="Player slots"></div>
 
         <div id="holoKeyboardMount">${renderHolographicKeyboard([], { title: "LOCAL KEYBOARD MATRIX" })}</div>
 
@@ -285,13 +285,7 @@ export class UIRenderer {
       if (activeInput) syncKeyboardInputHighlights(this.root, activeInput.value.slice(-1));
     }
 
-    container.innerHTML = players.map((p, i) => `
-      <div class="player-slot ${p.ready ? "player-slot--ready" : ""}" style="--player-color:${p.color}; border-color:${p.color}">
-        <span class="player-slot-name" style="color:${p.color}">${this._esc(p.name)}</span>
-        <span class="player-slot__protocol">${this._esc(this.themePalette.find((protocol) => protocol.id === p.themeCommand)?.label || "Custom")}</span>
-        <button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${this._esc(p.name)}" data-id="${p.id}">&times;</button>
-      </div>
-    `).join("");
+    container.innerHTML = this._renderDockedPlayerSlots(players);
 
     // Remove buttons
     container.querySelectorAll(".btn-remove").forEach(btn => {
@@ -304,6 +298,26 @@ export class UIRenderer {
     const startBtn = this.root.querySelector("#startGameBtn");
     if (startBtn) startBtn.disabled = players.length < 2 || !players.every(p => p.ready);
     this._refreshThemePicker();
+  }
+
+  _renderDockedPlayerSlots(players) {
+    const positions = ["top-left", "top-right", "bottom-left", "bottom-right"];
+    return positions.map((position, index) => {
+      const p = players[index];
+      if (!p) {
+        return `<div class="player-slot-dock player-slot-dock--${position} player-slot-dock--empty" aria-hidden="true"></div>`;
+      }
+
+      return `
+        <div class="player-slot-dock player-slot-dock--${position}">
+          <div class="player-slot ${p.ready ? "player-slot--ready" : ""}" style="--player-color:${p.color}; border-color:${p.color}">
+            <span class="player-slot-name" style="color:${p.color}">${this._esc(p.name)}</span>
+            <span class="player-slot__protocol">${this._esc(this.themePalette.find((protocol) => protocol.id === p.themeCommand)?.label || "Custom")}</span>
+            <button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${this._esc(p.name)}" data-id="${p.id}">&times;</button>
+          </div>
+        </div>
+      `;
+    }).join("");
   }
 
   _wireKeyboardKeys() {

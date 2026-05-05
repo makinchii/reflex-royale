@@ -844,7 +844,7 @@ function initGameSockets(io) {
   io.on("connection", (socket) => {
     let currentRoom = null;
 
-    socket.on("createRoom", ({ name, preferredKey, preferredThemeCommand, preferredThemeColor }) => {
+    socket.on("createRoom", ({ name, totalRounds, preferredKey, preferredThemeCommand, preferredThemeColor }) => {
       if (!name?.trim()) {
         return socket.emit("error", { message: "Enter your name first." });
       }
@@ -854,6 +854,7 @@ function initGameSockets(io) {
       rooms.set(code, room);
       const verifier = crypto.randomUUID();
       room.addPlayer(socket.id, name.trim(), verifier, true);
+      room.setRoundCount(socket.id, totalRounds);
       const unavailable = applyPreferredPlayerOptions(room, socket.id, { preferredKey, preferredThemeCommand, preferredThemeColor });
       currentRoom = code;
       socket.join(code);

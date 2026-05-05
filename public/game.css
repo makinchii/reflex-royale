@@ -790,6 +790,7 @@ body {
 #game-root .lobby,
 #game-root .game-over {
   display: grid;
+  position: relative;
   gap: clamp(8px, 1.6cqh, 16px);
   align-content: start;
   width: min(100%, 1120px);
@@ -921,6 +922,10 @@ body {
   width: min(100%, 34rem);
 }
 
+#game-root .lobby-form > .round-slider {
+  width: 100%;
+}
+
 #game-root .round-slider__header {
   display: flex;
   align-items: center;
@@ -1007,6 +1012,103 @@ body {
   padding: clamp(12px, 2.2cqw, 28px);
 }
 
+#game-root .lobby:has(.player-slots--docked) {
+  width: min(100%, 1500px);
+}
+
+@container (max-height: 860px) and (min-width: 900px) {
+  #game-root .lobby:has(.holo-keyboard-panel) {
+    gap: clamp(8px, 1.35cqh, 14px);
+    overflow: hidden;
+    padding: clamp(10px, 1.65cqh, 18px) clamp(12px, 2cqw, 24px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .game-title {
+    width: min(100%, 56rem);
+    justify-self: center;
+    font-size: clamp(4.4rem, 7.15cqw, 7.5rem);
+    letter-spacing: 0.15em;
+    overflow-wrap: normal;
+    white-space: normal;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .subtitle {
+    font-size: clamp(0.88rem, 1.3cqw, 1.25rem);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-layout-top {
+    gap: clamp(6px, 1.05cqh, 10px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-form {
+    gap: 10px;
+    padding: clamp(9px, 1.3cqh, 14px) clamp(12px, 1.5cqw, 18px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-form .hint {
+    margin: 0;
+    font-size: clamp(0.66rem, 0.88cqw, 0.86rem);
+    line-height: 1.4;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) input,
+  #game-root .lobby:has(.holo-keyboard-panel) .btn,
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-button {
+    min-height: clamp(2.45rem, 5.2cqh, 3.25rem);
+    padding-block: 0.42rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-field {
+    margin-top: 0;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .chroma-sigil-button {
+    gap: 0.9rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-settings {
+    padding: clamp(8px, 1.15cqh, 12px) clamp(12px, 1.5cqw, 18px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .round-slider {
+    gap: 0.38rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .round-slider__track-wrap {
+    height: 1rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-keyboard-panel {
+    width: min(100%, 980px);
+    padding: clamp(7px, 1.1cqh, 13px) clamp(10px, 1.25cqw, 16px);
+    transform: perspective(900px) rotateX(6deg);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-keyboard-panel__header {
+    margin-bottom: clamp(5px, 0.85cqh, 9px);
+    font-size: 0.62rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-keyboard {
+    gap: clamp(4px, 0.75cqh, 8px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-keyboard-row {
+    gap: clamp(4px, 0.62cqw, 7px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .holo-key {
+    width: clamp(24px, 3.35cqw, 46px);
+    height: clamp(23px, 2.35cqw, 36px);
+    font-size: clamp(0.58rem, 1.25cqw, 0.88rem);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .lobby-layout-bottom .btn-go {
+    min-height: clamp(2.6rem, 5.8cqh, 3.5rem);
+    font-size: clamp(0.78rem, 1cqw, 0.96rem);
+  }
+}
+
 #game-root .lobby:has(.chat-panel--terminal) {
   align-content: start;
 }
@@ -1028,9 +1130,17 @@ body {
   width: 100%;
 }
 
+#game-root #holoKeyboardMount {
+  display: grid;
+  justify-items: center;
+  justify-self: center;
+  width: 100%;
+}
+
 #game-root .holo-keyboard-panel {
   position: relative;
   width: min(100%, 980px);
+  margin-inline: auto;
   justify-self: center;
   align-self: center;
   padding: clamp(8px, 1.4cqw, 18px);
@@ -1207,12 +1317,9 @@ body {
 }
 
 #game-root .online-host-controls {
-  position: absolute;
-  left: clamp(1rem, 2cqw, 1.5rem);
-  top: clamp(1rem, 2cqh, 1.5rem);
-  z-index: 38;
   display: grid;
-  width: clamp(19rem, 24cqw, 28rem);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
   gap: 0.75rem;
   border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 24%, transparent);
   background:
@@ -1224,11 +1331,11 @@ body {
   padding: 1rem;
   text-align: left;
   backdrop-filter: blur(16px);
-  opacity: 1;
 }
 
 #game-root .online-host-controls::before {
   content: "HOST CONTROLS";
+  grid-column: 1 / -1;
   color: var(--primary, #68e8ff);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.62rem;
@@ -1237,7 +1344,7 @@ body {
 }
 
 #game-root .online-host-controls .btn {
-  width: 100%;
+  height: 100%;
 }
 
 #game-root .player-slot__protocol {
@@ -1263,6 +1370,16 @@ body {
   min-width: 0;
   margin-top: 0.7rem;
   width: 100%;
+}
+
+#game-root .chroma-sigil-field:has(.chroma-sigil-panel:not([hidden])) {
+  z-index: 2600;
+}
+
+#game-root .lobby-layout-top:has(.chroma-sigil-panel:not([hidden])),
+#game-root .lobby-form:has(.chroma-sigil-panel:not([hidden])) {
+  position: relative;
+  z-index: 2600;
 }
 
 #game-root .chroma-sigil-button {
@@ -1311,13 +1428,13 @@ body {
   position: absolute;
   left: 50%;
   top: calc(100% + 0.5rem);
-  z-index: 30;
+  z-index: 2601;
   width: min(92vw, 54rem);
   transform: translateX(-50%);
   border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 28%, transparent);
   background:
-    linear-gradient(180deg, color-mix(in oklch, var(--background, #000) 94%, transparent), color-mix(in oklch, var(--background, #000) 82%, black)),
-    var(--background, #000);
+    linear-gradient(180deg, color-mix(in oklch, var(--background, #000) 96%, white 4%), color-mix(in oklch, var(--background, #000) 86%, black)),
+    #05070b;
   box-shadow:
     0 0 30px color-mix(in oklch, var(--primary, #68e8ff) 20%, transparent),
     inset 0 0 20px rgba(255, 255, 255, 0.04);
@@ -1522,6 +1639,24 @@ body {
     0 0 38px color-mix(in oklch, var(--primary, #68e8ff) 22%, transparent);
 }
 
+#game-root .chroma-sigil-button:hover:not(:disabled),
+#game-root .chroma-sigil-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 20%, transparent);
+  border-color: color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 78%, white 8%);
+  color: color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 76%, white 24%);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 38%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 16%, transparent);
+}
+
+#game-root .chroma-sigil-button:hover:not(:disabled) .chroma-sigil-summary__label,
+#game-root .chroma-sigil-button:hover:not(:disabled) .chroma-sigil-summary__name,
+#game-root .chroma-sigil-button[aria-expanded="true"] .chroma-sigil-summary__label,
+#game-root .chroma-sigil-button[aria-expanded="true"] .chroma-sigil-summary__name {
+  color: color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 58%, white 42%);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--sigil-color, var(--primary, #68e8ff)) 54%, transparent);
+}
+
 #game-root .btn:focus-visible,
 #game-root .btn-remove:focus-visible {
   outline: none;
@@ -1540,6 +1675,94 @@ body {
   width: min(100%, 760px);
   flex-wrap: wrap;
   justify-content: center;
+}
+
+#game-root .player-slots--docked {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: block;
+  width: 100%;
+  margin: 0;
+  pointer-events: none;
+}
+
+#game-root .player-slot-dock {
+  --player-slot-dock-width: clamp(9.5rem, 14cqw, 13.5rem);
+  --player-slot-dock-gap: clamp(1rem, 2cqw, 2.75rem);
+  position: absolute;
+  width: var(--player-slot-dock-width);
+  min-height: clamp(2.9rem, 5.8cqh, 4.4rem);
+  pointer-events: auto;
+}
+
+#game-root .player-slot-dock--top-left {
+  left: clamp(0.75rem, calc(50% - 380px - var(--player-slot-dock-width) - var(--player-slot-dock-gap)), 18rem);
+  top: clamp(12.5rem, 28cqh, 17rem);
+}
+
+#game-root .player-slot-dock--top-right {
+  right: clamp(0.75rem, calc(50% - 380px - var(--player-slot-dock-width) - var(--player-slot-dock-gap)), 18rem);
+  top: clamp(12.5rem, 28cqh, 17rem);
+}
+
+#game-root .player-slot-dock--bottom-left {
+  left: clamp(0.75rem, calc(50% - 380px - var(--player-slot-dock-width) - var(--player-slot-dock-gap)), 18rem);
+  top: clamp(18rem, 42cqh, 24rem);
+}
+
+#game-root .player-slot-dock--bottom-right {
+  right: clamp(0.75rem, calc(50% - 380px - var(--player-slot-dock-width) - var(--player-slot-dock-gap)), 18rem);
+  top: clamp(18rem, 42cqh, 24rem);
+}
+
+#game-root .player-slot-dock--empty {
+  border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 42%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in oklch, var(--background, #000) 52%, transparent), color-mix(in oklch, var(--background, #000) 78%, transparent));
+  box-shadow:
+    0 0 18px color-mix(in oklch, var(--primary, #68e8ff) 10%, transparent),
+    inset 0 0 16px color-mix(in oklch, var(--primary, #68e8ff) 6%, transparent);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+#game-root .player-slot-dock .player-slot {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  min-height: inherit;
+}
+
+#game-root .lobby--online-room #remotePlayerSlots:not(.player-slots--docked) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  width: min(100%, 760px);
+  max-height: clamp(3.25rem, 10cqh, 7rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-color: color-mix(in oklch, var(--primary, #68e8ff) 50%, transparent) transparent;
+}
+
+#game-root .lobby--online-room #hostRosterControls {
+  display: flex;
+  width: min(100%, 760px);
+  max-height: clamp(2.5rem, 7cqh, 4.5rem);
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+  overflow-y: auto;
+  scrollbar-color: color-mix(in oklch, var(--primary, #68e8ff) 50%, transparent) transparent;
+}
+
+#game-root .lobby--online-room #hostRosterControls .btn {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.66rem;
+}
+
+#game-root .lobby--online-room .lobby-form .lobby-layout-bottom {
+  width: 100%;
 }
 
 #game-root .round-history {
@@ -1570,6 +1793,14 @@ body {
   color: var(--player-color, currentColor);
   cursor: pointer;
   transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, color 220ms ease;
+}
+
+#game-root .lobby--online-room #remotePlayerSlots:not(.player-slots--docked) .player-slot {
+  flex: none;
+  max-width: none;
+  min-height: clamp(2.35rem, 5.8cqh, 3.2rem);
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
 }
 
 #game-root .player-slot::before {
@@ -1924,10 +2155,7 @@ body {
   }
 
   #game-root .online-host-controls {
-    position: absolute;
-    left: 1.25rem;
-    top: 1.25rem;
-    width: min(calc(100% - 2.5rem), 32rem);
+    grid-template-columns: 1fr;
   }
 
   #game-root .chroma-sigil-panel {
@@ -1940,6 +2168,20 @@ body {
 
   #game-root .chroma-sigil-tabs {
     grid-template-columns: repeat(8, minmax(5.7rem, 1fr));
+  }
+
+  #game-root .player-slots--docked {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    order: 2;
+  }
+
+  #game-root .player-slots--docked .player-slot-dock {
+    position: static;
+    width: auto;
+    min-height: 3.25rem;
   }
 
   #game-root #playerKey,
@@ -1957,6 +2199,11 @@ body {
     overflow: hidden;
   }
 
+  #game-root .lobby:has(.player-slots--docked) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+
   #game-root .lobby:has(.holo-keyboard-panel) .lobby-layout-top {
     grid-column: 1;
     grid-row: 1;
@@ -1971,6 +2218,13 @@ body {
     min-width: 0;
   }
 
+  #game-root .lobby:has(.player-slots--docked) #holoKeyboardMount {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: center;
+    width: min(100%, 980px);
+  }
+
   #game-root .lobby:has(.holo-keyboard-panel) .holo-keyboard-panel {
     width: 100%;
   }
@@ -1981,6 +2235,12 @@ body {
     width: 100%;
     position: relative;
     z-index: 2;
+  }
+
+  #game-root .lobby:has(.player-slots--docked) .lobby-layout-bottom {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: center;
   }
 
   #game-root .lobby:has(.holo-keyboard-panel) .game-title {
@@ -1995,6 +2255,12 @@ body {
   #game-root .lobby:has(.holo-keyboard-panel) .lobby-form,
   #game-root .lobby:has(.holo-keyboard-panel) .lobby-settings {
     width: 100%;
+    padding: clamp(8px, 1.2cqw, 12px);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .online-host-controls {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
     padding: clamp(8px, 1.2cqw, 12px);
   }
 
@@ -2031,11 +2297,44 @@ body {
     gap: 0.25rem;
   }
 
-  #game-root .lobby:has(.holo-keyboard-panel) .player-slots {
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slots:not(.player-slots--docked) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.35rem;
     width: 100%;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slots--docked {
+    display: block;
+    width: 100%;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock {
+    --player-slot-dock-width: clamp(7.75rem, 12.5cqw, 8.75rem);
+    --player-slot-dock-gap: clamp(0.8rem, 1.15cqw, 1.15rem);
+    width: var(--player-slot-dock-width);
+    min-height: clamp(2.35rem, 4.8cqh, 3rem);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--top-left,
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--bottom-left {
+    left: clamp(0.75rem, calc(50% - 380px - var(--player-slot-dock-width) - var(--player-slot-dock-gap)), 18rem);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--top-right,
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--bottom-right {
+    right: clamp(0.75rem, calc(50% - 380px - var(--player-slot-dock-width) - var(--player-slot-dock-gap)), 18rem);
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--top-left,
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--top-right {
+    top: 0.5rem;
+  }
+
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--bottom-left,
+  #game-root .lobby:has(.holo-keyboard-panel) .player-slot-dock--bottom-right {
+    top: auto;
+    bottom: 0.5rem;
   }
 
   #game-root .lobby:has(.holo-keyboard-panel) .player-slot {

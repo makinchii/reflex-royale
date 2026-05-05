@@ -35,6 +35,7 @@ let matchStartedAt = 0;
 let pendingJoinSource = null;
 let roomEntryMode = "join";
 let selectedThemeCommand = getCurrentLocalThemeCommand();
+let selectedEntryRoundCount = 5;
 const themePalette = getLocalPlayerThemePalette();
 
 function announceMatchState(inProgress) {
@@ -81,6 +82,7 @@ function attemptAutoReconnect() {
 
 function renderJoinScreen(message = "") {
   announceMatchState(false);
+  roomState = null;
   const isCreateMode = roomEntryMode === "create";
   root.innerHTML = `
     <div class="lobby">
@@ -98,7 +100,9 @@ function renderJoinScreen(message = "") {
             ${isCreateMode ? `<button id="createRoomBtn" class="btn btn-primary">Create Room</button>` : `<button id="joinBtn" class="btn btn-primary">Join</button>`}
           </div>
         </div>
-        <p class="hint">${isCreateMode ? "Create a room, then share the generated room code with friends." : "Enter a room code from the host, then join on your own device."}</p>
+        ${renderThemePickerField()}
+        ${isCreateMode ? renderRoundSlider(selectedEntryRoundCount, "Round count", "round-slider--create") : ""}
+        <p class="hint">${isCreateMode ? "Create a room, claim a Chroma Sigil, then share the generated room code with friends." : "Enter a room code, claim a Chroma Sigil, then join on your own device."}</p>
       </div>
       <div id="holoKeyboardMount">${renderHolographicKeyboard([], { title: "ROOM ENTRY MATRIX" })}</div>
     </div>
@@ -124,7 +128,7 @@ function renderJoinScreen(message = "") {
     const name = document.getElementById("playerName").value.trim();
     if (!name) return showPageNotification("Enter your name first.", "error");
     localStorage.setItem(PLAYER_NAME_KEY, name);
-    socket.emit("createRoom", { name, verifier, ...getPreferredPlayerOptions() });
+    socket.emit("createRoom", { name, verifier, totalRounds: selectedEntryRoundCount, ...getPreferredPlayerOptions() });
   };
   if (createRoomBtn) createRoomBtn.addEventListener("click", createRoom);
 
@@ -150,6 +154,12 @@ function renderJoinScreen(message = "") {
       }
       joinRoom();
     });
+  });
+
+  wireThemePickerDisclosure();
+  renderThemePicker();
+  wireRoundSlider((value) => {
+    selectedEntryRoundCount = value;
   });
 }
 
@@ -239,10 +249,76 @@ function renderThemePicker() {
       const protocol = themePalette.find((item) => item.id === command);
       if (!protocol || tab.disabled) return;
       selectedThemeCommand = protocol.id;
-      socket.emit("bindTheme", { themeCommand: protocol.id, color: protocol.color });
+      if (roomState && myPlayerId) socket.emit("bindTheme", { themeCommand: protocol.id, color: protocol.color });
       renderThemePicker();
     });
   });
+}
+
+function renderThemePickerField() {
+  return `
+    <div class="chroma-sigil-field">
+      <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
+        <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
+        <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
+      </button>
+      <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
+        <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
+      </div>
+    </div>
+  `;
+}
+
+function wireThemePickerDisclosure() {
+  const themeBtn = document.getElementById("themePickerButton");
+  const themePanel = document.getElementById("themePickerPanel");
+  if (!themeBtn || !themePanel) return;
+
+  themeBtn.addEventListener("click", () => {
+    const isOpen = !themePanel.hidden;
+    themePanel.hidden = isOpen;
+    themeBtn.setAttribute("aria-expanded", String(!isOpen));
+  });
+}
+
+function renderRoundSlider(value, label = "Round count", modifier = "") {
+  return `
+    <div data-slot="tron-slider" class="round-slider ${modifier}" aria-label="Round count slider">
+      <div class="round-slider__header">
+        <span class="round-control">${label}</span>
+        <span id="roundCountInputValue" class="round-slider__value">${value}</span>
+      </div>
+      <div class="round-slider__track-wrap">
+        <div data-slot="slider-track" class="round-slider__track"></div>
+        <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
+        <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
+        <input id="roundCountInput" class="round-slider__input" type="range" min="1" max="20" step="1" value="${value}" />
+      </div>
+    </div>
+  `;
+}
+
+function wireRoundSlider(onChange) {
+  const roundCountInput = document.getElementById("roundCountInput");
+  const roundCountInputValue = document.getElementById("roundCountInputValue");
+  if (!roundCountInput) return;
+
+  const updateRoundSlider = () => {
+    const min = Number(roundCountInput.min || 1);
+    const max = Number(roundCountInput.max || 20);
+    const current = Number(roundCountInput.value || 1);
+    const percent = ((current - min) / (max - min)) * 100;
+
+    if (roundCountInputValue) roundCountInputValue.textContent = String(current);
+    const range = document.querySelector('[data-slot="slider-range"]');
+    const thumb = document.querySelector('[data-slot="slider-thumb"]');
+    if (range) range.style.width = `${percent}%`;
+    if (thumb) thumb.style.left = `${percent}%`;
+    if (onChange) onChange(current);
+  };
+
+  roundCountInput.addEventListener("input", updateRoundSlider);
+  updateRoundSlider();
 }
 
 function renderPreferenceConflictDialog(unavailable = []) {
@@ -278,37 +354,26 @@ function renderLobby(state) {
   const roundText = `Rounds: ${state.totalRounds}`;
   const waitingText = state.waitingFor?.length ? `Waiting for: ${state.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
   const canToggleReady = Boolean(currentPlayer?.hasKeyBinding);
-  const hostControls = isHost ? `
-    <aside class="online-host-controls" aria-label="Host controls">
+  const hostRoundControls = isHost ? `
+    <section class="online-host-controls" aria-label="Host controls">
       <div class="host-control host-control--rounds">
-        <div data-slot="tron-slider" class="round-slider round-slider--host" aria-label="Round count slider">
-          <div class="round-slider__header">
-            <span class="round-control">Round count</span>
-            <span id="roundCountInputValue" class="round-slider__value">${state.totalRounds}</span>
-          </div>
-          <div class="round-slider__track-wrap">
-            <div data-slot="slider-track" class="round-slider__track"></div>
-            <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
-            <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
-            <input id="roundCountInput" class="round-slider__input" type="range" min="1" max="20" step="1" value="${state.totalRounds}" />
-          </div>
-        </div>
+        ${renderRoundSlider(state.totalRounds, "Round count", "round-slider--host")}
       </div>
       <button id="applyRoundCountBtn" class="btn btn-secondary">Update Rounds</button>
       <button id="closeRoomBtn" class="btn btn-secondary">Close Room</button>
-    </aside>
+    </section>
   ` : "";
   root.innerHTML = `
-    ${hostControls}
-    <div class="lobby">
+    <div class="lobby lobby--online-room">
       <div class="lobby-layout-top">
         <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
         <p class="subtitle">Room ${esc(state.room)}</p>
         <p id="roomHint" class="hint">${esc(readyText)} · ${esc(roundText)}</p>
         <p id="waitingHint" class="hint">${esc(waitingText)}</p>
-        <div id="remotePlayerSlots" class="player-slots"></div>
         ${isHost ? `<div id="hostRosterControls" class="game-over-actions"></div>` : ""}
       </div>
+
+      <div id="remotePlayerSlots" class="player-slots player-slots--docked" aria-label="Player slots"></div>
 
       <div class="lobby-form">
         <div class="input-row input-row--online-key-card">
@@ -316,23 +381,16 @@ function renderLobby(state) {
           <button id="bindKeyBtn" class="btn btn-secondary">Set Key</button>
           <button id="readyBtn" class="btn btn-primary" ${canToggleReady ? "" : "disabled"}>${currentPlayer?.isReady ? "Unready" : canToggleReady ? "Ready Up" : "Set Key First"}</button>
         </div>
-        <div class="chroma-sigil-field">
-          <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
-            <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
-            <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
-          </button>
-          <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
-            <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
-          </div>
-        </div>
-        <p class="hint">Click a holographic key or press a character key, then set it. Press your assigned key to toggle ready.</p>
+        ${renderThemePickerField()}
+        ${hostRoundControls}
+        ${isHost ? `<div class="lobby-layout-bottom"><button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button></div>` : ""}
+        <p class="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then set it. Press your assigned key to toggle ready.</p>
       </div>
 
       <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
 
       ${renderChatPanel()}
 
-      ${isHost ? `<div class="lobby-layout-bottom"><button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button></div>` : ""}
     </div>
   `;
 
@@ -362,15 +420,7 @@ function renderLobby(state) {
     wireInputKeyboardHighlights([keyInput]);
   }
 
-  const themeBtn = document.getElementById("themePickerButton");
-  const themePanel = document.getElementById("themePickerPanel");
-  if (themeBtn && themePanel) {
-    themeBtn.addEventListener("click", () => {
-      const isOpen = !themePanel.hidden;
-      themePanel.hidden = isOpen;
-      themeBtn.setAttribute("aria-expanded", String(!isOpen));
-    });
-  }
+  wireThemePickerDisclosure();
   renderThemePicker();
 
   wireKeyboardKeys();
@@ -388,25 +438,7 @@ function renderLobby(state) {
     });
   }
 
-  const roundCountInput = document.getElementById("roundCountInput");
-  const roundCountInputValue = document.getElementById("roundCountInputValue");
-  if (roundCountInput) {
-    const updateRoundSlider = () => {
-      const min = Number(roundCountInput.min || 1);
-      const max = Number(roundCountInput.max || 20);
-      const current = Number(roundCountInput.value || 1);
-      const percent = ((current - min) / (max - min)) * 100;
-
-      if (roundCountInputValue) roundCountInputValue.textContent = String(current);
-      const range = document.querySelector('[data-slot="slider-range"]');
-      const thumb = document.querySelector('[data-slot="slider-thumb"]');
-      if (range) range.style.width = `${percent}%`;
-      if (thumb) thumb.style.left = `${percent}%`;
-    };
-
-    roundCountInput.addEventListener("input", updateRoundSlider);
-    updateRoundSlider();
-  }
+  wireRoundSlider();
 
   const closeBtn = document.getElementById("closeRoomBtn");
   if (closeBtn) closeBtn.addEventListener("click", () => socket.emit("closeRoom"));
@@ -420,12 +452,39 @@ function renderRoster(players) {
   const container = document.getElementById("remotePlayerSlots");
   if (!container) return;
 
+  if (container.classList.contains("player-slots--docked")) {
+    container.innerHTML = renderDockedRoster(players);
+    return;
+  }
+
   container.innerHTML = players.map((player) => `
     <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
       <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
       <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
     </div>
   `).join("");
+}
+
+function renderDockedRoster(players) {
+  const positions = ["top-left", "top-right", "bottom-left", "bottom-right"];
+  const host = players.find((player) => player.id === roomState?.hostId) || players[0] || null;
+  const ordered = host ? [host, ...players.filter((player) => player.id !== host.id)] : players;
+
+  return positions.map((position, index) => {
+    const player = ordered[index];
+    if (!player) {
+      return `<div class="player-slot-dock player-slot-dock--${position} player-slot-dock--empty" aria-hidden="true"></div>`;
+    }
+
+    return `
+      <div class="player-slot-dock player-slot-dock--${position}">
+        <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
+          <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
+          <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderHostControls(players) {

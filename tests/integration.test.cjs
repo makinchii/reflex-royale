@@ -497,10 +497,11 @@ test("lobby join, chat, kick, blacklist, and host reclaim work", async () => {
 
     const host = new FakeSocket("host-1", io);
     io.connect(host);
-    host.trigger("createRoom", { name: "Host" });
+    host.trigger("createRoom", { name: "Host", totalRounds: 7 });
 
     const created = lastEvent(host, "roomCreated");
     assert.ok(created);
+    assert.equal(created.payload.room.totalRounds, 7);
     const roomCode = created.payload.room.room;
     const hostToken = created.payload.hostReclaimToken;
 
