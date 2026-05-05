@@ -77,7 +77,7 @@ export default async function HomePage() {
             </div>
 
             <div className="landing-leaderboard-body px-3 py-3">
-              <div className="landing-leaderboard-rows space-y-2">
+              <div className="landing-leaderboard-rows">
                 {leaderboardRows.map((entry, index) => {
                   const rank = index + 1;
                   const rankColor = rank === 1 ? "#D4AF37" : rank === 2 ? "#C0C0C0" : rank === 3 ? "#CD7F32" : undefined;

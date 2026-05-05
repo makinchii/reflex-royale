@@ -845,6 +845,8 @@
   --landing-frame-inset: 1rem;
   --landing-shell-padding-top: 1.5rem;
   --landing-shell-padding-bottom: 1.5rem;
+  --landing-stage-width: min(calc(100vw - (var(--landing-frame-inset) * 2)), calc((100svh - (var(--landing-frame-inset) * 2)) * 16 / 9));
+  --landing-stage-height: calc(var(--landing-stage-width) * 9 / 16);
   --landing-content-top: clamp(2.75rem, 4.5svh, 4rem);
   --landing-content-max-width: 64rem;
   --landing-hero-min-height: clamp(20rem, 38svh, 34rem);
@@ -985,30 +987,117 @@
   width: var(--landing-location-width);
 }
 
+@media (min-width: 1024px) {
+  .landing-shell {
+    padding: 0;
+  }
+
+  .landing-content-stack {
+    container-type: size;
+    position: absolute;
+    left: 50%;
+    top: var(--landing-frame-inset);
+    width: var(--landing-stage-width);
+    height: var(--landing-stage-height);
+    max-width: none;
+    margin: 0;
+    transform: translateX(-50%);
+  }
+
+  .landing-hero-card {
+    position: absolute;
+    left: 50%;
+    top: 5.6cqh;
+    width: 41cqw;
+    min-height: 0;
+    height: 39cqh;
+    transform: translateX(-50%);
+  }
+
+  .landing-reticle {
+    width: 29cqw;
+    height: 29cqw;
+  }
+
+  .landing-hero-content {
+    padding: 2.7cqh 2.2cqw;
+  }
+
+  .landing-title-lockup {
+    font-size: 5.55cqw;
+    line-height: 0.84;
+    letter-spacing: 0.1em;
+  }
+
+  .landing-hero-copy {
+    max-width: 32cqw;
+    margin-top: 1.35cqh;
+    font-size: 0.62cqw;
+    line-height: 1.75;
+  }
+
+  .landing-action-row {
+    position: absolute;
+    left: 50%;
+    top: 48.6cqh;
+    margin: 0;
+    gap: 0.9cqw;
+    transform: translateX(-50%);
+  }
+
+  .landing-action-button,
+  .landing-action-button--secondary {
+    width: 15.6cqw;
+    min-width: 0;
+    height: 6.5cqh;
+    padding-inline: 1.5cqw;
+    font-size: 0.84cqw;
+    letter-spacing: 0.28em;
+  }
+
+  .landing-leaderboard-terminal {
+    position: absolute;
+    left: 50%;
+    top: 58.2cqh;
+    width: 44cqw;
+    max-width: none;
+    margin: 0;
+    transform: translateX(-50%);
+  }
+
+  .landing-leaderboard-header {
+    min-height: 2.2cqh;
+    padding-block: 0.45cqh;
+  }
+
+  .landing-leaderboard-body {
+    max-height: none;
+    overflow: visible;
+    padding: 0.8cqh 0.8cqw;
+  }
+
+  .landing-leaderboard-rows {
+    display: grid;
+    gap: 0.48cqh;
+  }
+
+  .landing-leaderboard-row {
+    min-height: 2.55cqh;
+    padding-block: 0.35cqh;
+    padding-inline: 0.75cqw;
+  }
+
+  .landing-leaderboard-row .font-display {
+    font-size: 0.78cqw;
+  }
+
+  .landing-leaderboard-row .font-mono:last-child {
+    font-size: 0.62cqw;
+  }
+}
+
 @media (max-height: 1120px) and (min-width: 1024px) {
   .landing-root {
-    --landing-shell-padding-top: 1rem;
-    --landing-shell-padding-bottom: 1rem;
-    --landing-content-top: clamp(1.75rem, 3.1svh, 2.4rem);
-    --landing-hero-min-height: clamp(15.5rem, 31svh, 21rem);
-    --landing-hero-content-padding-block: clamp(1.75rem, 3svh, 2.5rem);
-    --landing-title-size: clamp(4.6rem, 6.25vw, 7.35rem);
-    --landing-title-line-height: 0.86;
-    --landing-title-tracking: 0.12em;
-    --landing-copy-top: clamp(0.75rem, 1.55svh, 1.1rem);
-    --landing-copy-line-height: 1.55rem;
-    --landing-action-top: clamp(0.8rem, 1.7svh, 1.1rem);
-    --landing-action-height: clamp(3.9rem, 7.2svh, 5.1rem);
-    --landing-action-min-width: clamp(18rem, 25vw, 21rem);
-    --landing-secondary-min-width: clamp(15rem, 22vw, 18rem);
-    --landing-action-padding-inline: clamp(2rem, 3.4vw, 3rem);
-    --landing-action-font-size: clamp(1rem, 1.35vw, 1.25rem);
-    --landing-action-tracking: 0.24em;
-    --landing-leaderboard-top: clamp(0.8rem, 1.7svh, 1.1rem);
-    --landing-leaderboard-body-max-height: clamp(11.25rem, 27svh, 19rem);
-    --landing-row-padding-y: 0.375rem;
-    --landing-row-name-size: 0.9rem;
-    --landing-row-score-size: 0.8rem;
     --landing-panel-edge: 2rem;
     --landing-panel-bottom: 3rem;
     --landing-radar-size: clamp(12rem, 13vw, 15.5rem);
@@ -1017,42 +1106,10 @@
   }
 }
 
-@media (max-height: 1000px) and (min-width: 1024px) {
-  .landing-root {
-    --landing-shell-padding-top: 0.75rem;
-    --landing-shell-padding-bottom: 0.75rem;
-    --landing-content-top: clamp(1rem, 1.9svh, 1.25rem);
-    --landing-hero-min-height: clamp(15rem, 27svh, 17rem);
-    --landing-hero-content-padding-block: clamp(1.2rem, 2.2svh, 1.75rem);
-    --landing-title-size: clamp(4.2rem, 5.25vw, 6.25rem);
-    --landing-title-line-height: 0.82;
-    --landing-title-tracking: 0.1em;
-    --landing-copy-top: 0.65rem;
-    --landing-copy-line-height: 1.4rem;
-    --landing-action-top: 0.75rem;
-    --landing-action-height: clamp(3.25rem, 5.8svh, 3.9rem);
-    --landing-action-font-size: clamp(0.95rem, 1.12vw, 1.08rem);
-    --landing-action-tracking: 0.22em;
-    --landing-leaderboard-top: 0.75rem;
-    --landing-leaderboard-body-max-height: clamp(14rem, 29svh, 18rem);
-    --landing-row-padding-y: 0.32rem;
-    --landing-row-name-size: 0.875rem;
-    --landing-row-score-size: 0.75rem;
-    --landing-panel-bottom: 3.25rem;
-    --landing-radar-size: clamp(11.5rem, 12vw, 14.5rem);
-  }
-}
-
 @media (max-height: 820px) and (min-width: 1024px) {
-  .landing-root {
-    --landing-shell-padding-top: 0.5rem;
-    --landing-shell-padding-bottom: 0.5rem;
-    --landing-content-top: clamp(1.25rem, 2.5svh, 1.75rem);
-    --landing-hero-min-height: clamp(14.5rem, 30svh, 16rem);
-    --landing-title-size: clamp(4.2rem, 5.8vw, 5.25rem);
-    --landing-action-height: clamp(3.5rem, 7svh, 4.25rem);
-    --landing-action-font-size: clamp(0.95rem, 1.2vw, 1.1rem);
-    --landing-leaderboard-body-max-height: clamp(10rem, 24svh, 12.5rem);
+  .landing-leaderboard-body {
+    max-height: 20cqh;
+    overflow-y: auto;
   }
 
   .landing-decor {
@@ -1150,7 +1207,7 @@
 .landing-footer-text {
   position: absolute;
   left: 50%;
-  bottom: max(0.125rem, env(safe-area-inset-bottom));
+  bottom: calc(var(--landing-frame-inset, 1rem) + max(0.125rem, env(safe-area-inset-bottom, 0px)));
   transform: translateX(-50%);
   z-index: 2;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
