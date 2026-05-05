@@ -280,6 +280,11 @@
   border-radius: 0;
 }
 
+.audio-dialog[data-slot="dialog-content"] {
+  width: min(48rem, calc(100vw - 2rem));
+  max-height: calc(100svh - 1rem);
+}
+
 .audio-dialog::before {
   content: "";
   position: absolute;
@@ -295,7 +300,10 @@
 
 .audio-dialog__shell {
   display: grid;
-  gap: 1rem;
+  min-height: 0;
+  max-height: inherit;
+  gap: 0.35rem;
+  overflow: hidden;
   padding: clamp(1rem, 2vw, 1.5rem);
   background:
     radial-gradient(circle at 25% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 36%),
@@ -480,15 +488,21 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem;
+  min-height: 0;
 }
 
 .audio-dialog__control-group,
 .audio-dialog__track-list {
   display: grid;
   gap: 0.7rem;
+  min-height: 0;
   border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
   background: color-mix(in oklch, var(--card) 42%, transparent);
   padding: 0.85rem;
+}
+
+.audio-dialog__controls > * {
+  min-height: 0;
 }
 
 .audio-dialog__volume-row {
@@ -629,7 +643,9 @@
 }
 
 .audio-dialog__track-list {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .audio-dialog__track-list-header {
@@ -692,10 +708,64 @@
   display: grid;
   align-content: start;
   gap: 0.45rem;
+  min-height: 0;
+  min-width: 0;
+  justify-self: start;
+  width: calc(100% - 0.35rem);
   max-height: 12.5rem;
   overflow: auto;
   padding-right: 0.2rem;
   scrollbar-color: color-mix(in oklch, var(--primary) 46%, transparent) transparent;
+}
+
+@media (max-height: 1100px) and (min-width: 768px) {
+  .audio-dialog[data-slot="dialog-content"] {
+    width: min(40rem, calc(100vw - 2rem));
+    height: calc(100svh - 1.5rem);
+    max-height: calc(100svh - 1.5rem);
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__shell {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    gap: 0.7rem;
+    height: 100%;
+    padding: 1rem;
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__header {
+    gap: 0.45rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__title {
+    font-size: clamp(1.4rem, 2.4vw, 2rem);
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__subtitle,
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__track-meta {
+    font-size: 0.72rem;
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__control-group,
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__track-list {
+    gap: 0.5rem;
+    height: 100%;
+    max-height: 100%;
+    padding: 0.65rem;
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__track-search input {
+    min-height: 2.1rem;
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__track-scroller {
+    max-height: none;
+  }
+
+  .audio-dialog[data-slot="dialog-content"] .audio-dialog__track-scroller > button {
+    min-height: 3rem;
+    padding-block: 0.35rem;
+  }
 }
 
 .audio-dialog__track-scroller > button {

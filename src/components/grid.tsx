@@ -581,8 +581,11 @@ function BackgroundMoons({ color, spin = true }: { color: string; spin?: boolean
   )
 }
 
+type Vector3Tuple = [number, number, number]
+
 // Camera controller with cached far-horizon target
-const HORIZON_TARGET = new THREE.Vector3(0, -1.4, -95)
+const DEFAULT_CAMERA_POSITION: Vector3Tuple = [0, 7.2, 28]
+const DEFAULT_HORIZON_TARGET: Vector3Tuple = [0, -1.4, -95]
 
 function SceneSway({
   amplitude,
@@ -610,13 +613,26 @@ function SceneSway({
   return <group ref={groupRef}>{children}</group>
 }
 
-function CameraController() {
+function CameraController({ position, target }: { position: Vector3Tuple; target: Vector3Tuple }) {
   const { camera } = useThree()
+  const lookAtTarget = React.useMemo(() => new THREE.Vector3(...target), [target])
 
   useFrame(() => {
-    camera.position.set(0, 7.2, 28)
-    camera.lookAt(HORIZON_TARGET)
+    camera.position.set(...position)
+    camera.lookAt(lookAtTarget)
   })
+
+  return null
+}
+
+function StaticCamera({ position, target }: { position: Vector3Tuple; target: Vector3Tuple }) {
+  const { camera } = useThree()
+
+  React.useEffect(() => {
+    camera.position.set(...position)
+    camera.lookAt(new THREE.Vector3(...target))
+    camera.updateProjectionMatrix()
+  }, [camera, position, target])
 
   return null
 }
@@ -634,9 +650,13 @@ const themeColors: Record<string, string> = {
 // Main 3D scene component
 interface Grid3DProps {
   className?: string
+  animated?: boolean
   enableParticles?: boolean
   enableBeams?: boolean
   cameraAnimation?: boolean
+  cameraFov?: number
+  cameraPosition?: Vector3Tuple
+  cameraTarget?: Vector3Tuple
   sway?: number
   swaySpeed?: number
   particleCount?: number
@@ -644,14 +664,20 @@ interface Grid3DProps {
   beamOpacity?: number
   beamThickness?: number
   backgroundMoons?: boolean
+  fogFar?: number
+  fogNear?: number
   moonSpin?: boolean
 }
 
 export function Grid3D({
   className,
+  animated = true,
   enableParticles = true,
   enableBeams = true,
   cameraAnimation = true,
+  cameraFov = 48,
+  cameraPosition = DEFAULT_CAMERA_POSITION,
+  cameraTarget = DEFAULT_HORIZON_TARGET,
   sway = 0.45,
   swaySpeed = 0.5,
   particleCount = 180,
@@ -659,6 +685,8 @@ export function Grid3D({
   beamOpacity = 0.42,
   beamThickness = 0.045,
   backgroundMoons = true,
+  fogFar = 260,
+  fogNear = 36,
   moonSpin = true,
 }: Grid3DProps) {
   const { theme } = useTheme()
@@ -668,14 +696,15 @@ export function Grid3D({
   return (
     <div className={className}>
       <Canvas
-        camera={{ position: [0, 7.2, 28], fov: 48, far: 720 }}
+        camera={{ position: cameraPosition, fov: cameraFov, far: 720 }}
+        frameloop={animated ? "always" : "demand"}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         dpr={[1, 2]} // Limit DPR to max 2 for performance
         style={{ background: "transparent", pointerEvents: "none" }}
       >
-        <fog attach="fog" args={["#000", 36, 260]} />
+        <fog attach="fog" args={["#000", fogNear, fogFar]} />
 
-        {cameraAnimation && <CameraController />}
+        {cameraAnimation ? <CameraController position={cameraPosition} target={cameraTarget} /> : <StaticCamera position={cameraPosition} target={cameraTarget} />}
 
         <SceneSway amplitude={sway} speed={swaySpeed}>
           {backgroundMoons && <BackgroundMoons color={color} spin={moonSpin} />}

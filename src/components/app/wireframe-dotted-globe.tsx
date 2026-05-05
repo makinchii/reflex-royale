@@ -33,10 +33,12 @@ type MoonCrater = {
 };
 
 type WireframeDottedGlobeProps = {
+  animateOnHoverWithinSelector?: string;
   animated?: boolean;
   className?: string;
   height?: number;
   kind?: "earth" | "moon";
+  maxFps?: number;
   surface?: "detailed" | "grid";
   width?: number;
 };
@@ -116,7 +118,7 @@ const moonDots: DotData[] = Array.from({ length: 240 }, (_, index) => {
   return createDot(((theta * 180) / Math.PI) % 360 - 180, 90 - (phi * 180) / Math.PI);
 });
 
-export function WireframeDottedGlobe({ animated = true, className, height = 420, kind = "earth", surface = "detailed", width = 420 }: WireframeDottedGlobeProps) {
+export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = true, className, height = 420, kind = "earth", maxFps = 30, surface = "detailed", width = 420 }: WireframeDottedGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState(false);
   const [visualAnimationsEnabled, setVisualAnimationsEnabled] = useState(true);
@@ -150,17 +152,20 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
     let lastFrameAt = 0;
     let animationStarted = false;
     let unsubscribeFrame: (() => void) | null = null;
-    const decorativePlanetQuery = window.matchMedia("(max-width: 900px)");
-    const isHiddenDecorativePlanet = () => className?.includes("navigate-simple-planet") && decorativePlanetQuery.matches;
+    const hoverAnimationTrigger = animateOnHoverWithinSelector ? document.querySelector<HTMLElement>(animateOnHoverWithinSelector) : null;
     const styles = getComputedStyle(document.documentElement);
     const primary = styles.getPropertyValue("--primary").trim() || "oklch(0.75 0.18 25)";
     const background = styles.getPropertyValue("--background").trim() || "#000";
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const minDimension = Math.min(width, height, 260);
     const targetWidth = surface === "grid" ? width : window.innerWidth * (kind === "earth" ? 0.64 : 0.3);
+    const targetHeight = surface === "grid" ? height : window.innerHeight - 96;
     const containerWidth = Math.min(width, Math.max(minDimension, targetWidth));
-    const containerHeight = Math.min(height, Math.max(minDimension, window.innerHeight - 96));
-    const radius = Math.min(containerWidth, containerHeight) / (kind === "earth" ? 2.18 : 2.32);
+    const containerHeight = Math.min(height, Math.max(minDimension, targetHeight));
+    const globeSize = surface === "grid" ? null : Math.min(width, height, Math.max(minDimension, targetWidth, targetHeight));
+    const renderWidth = globeSize ?? containerWidth;
+    const renderHeight = globeSize ?? containerHeight;
+    const radius = Math.min(renderWidth, renderHeight) / (kind === "earth" ? 2.18 : 2.32);
     let dots: DotData[] = cachedEarthDots ?? [];
     let landFeatures: { features: GlobeFeature[] } | null = null;
     let landRings: LandRing[] = cachedLandRings ?? [];
@@ -170,10 +175,11 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
     const fixedTiltRadians = (kind === "earth" ? -8 : -4) * degreesToRadians;
     const fixedTiltCos = Math.cos(fixedTiltRadians);
     const fixedTiltSin = Math.sin(fixedTiltRadians);
+    const minFrameDuration = 1000 / Math.max(1, maxFps);
 
     const dpr = Math.min(window.devicePixelRatio || 1, 1.6);
-    canvas.width = containerWidth * dpr;
-    canvas.height = containerHeight * dpr;
+    canvas.width = renderWidth * dpr;
+    canvas.height = renderHeight * dpr;
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -296,7 +302,7 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
       const tiltedY = point.sinLat * fixedTiltCos + rotatedZ * fixedTiltSin;
       const tiltedZ = rotatedZ * fixedTiltCos - point.sinLat * fixedTiltSin;
       if (tiltedZ <= 0) return null;
-      return [containerWidth / 2 + radius * rotatedX, containerHeight / 2 - radius * tiltedY];
+      return [renderWidth / 2 + radius * rotatedX, renderHeight / 2 - radius * tiltedY];
     }
 
     function drawVisibleRings(rings: LandRing[]) {
@@ -360,14 +366,14 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
     }
 
     function draw() {
-      if (cancelled || isHiddenDecorativePlanet()) return;
-      ctx.clearRect(0, 0, containerWidth, containerHeight);
+      if (cancelled) return;
+      ctx.clearRect(0, 0, renderWidth, renderHeight);
 
       ctx.save();
       ctx.shadowColor = primary;
       ctx.shadowBlur = kind === "earth" ? 26 : 18;
       ctx.beginPath();
-      ctx.arc(containerWidth / 2, containerHeight / 2, radius, 0, Math.PI * 2);
+      ctx.arc(renderWidth / 2, renderHeight / 2, radius, 0, Math.PI * 2);
       ctx.fillStyle = background;
       ctx.fill();
       ctx.strokeStyle = primary;
@@ -378,7 +384,7 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
       if (kind === "moon") {
         ctx.save();
         ctx.beginPath();
-        ctx.arc(containerWidth / 2, containerHeight / 2, radius - 1, 0, Math.PI * 2);
+        ctx.arc(renderWidth / 2, renderHeight / 2, radius - 1, 0, Math.PI * 2);
         ctx.clip();
 
         ctx.strokeStyle = primary;
@@ -421,7 +427,7 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
         }
 
         ctx.beginPath();
-        ctx.arc(containerWidth / 2, containerHeight / 2, radius - 1, 0, Math.PI * 2);
+        ctx.arc(renderWidth / 2, renderHeight / 2, radius - 1, 0, Math.PI * 2);
         ctx.strokeStyle = primary;
         ctx.globalAlpha = 0.68;
         ctx.lineWidth = 1.5;
@@ -462,12 +468,12 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
     }
 
     function animate(timestamp = 0) {
-      if (cancelled || document.hidden || isHiddenDecorativePlanet()) {
+      if (cancelled || document.hidden) {
         animationStarted = false;
         return;
       }
 
-      if (timestamp - lastFrameAt < 33) {
+      if (timestamp - lastFrameAt < minFrameDuration) {
         return;
       }
 
@@ -479,11 +485,19 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
       draw();
     }
 
+    function shouldAnimate() {
+      if (prefersReducedMotion || !animated || !visualAnimationsEnabled) return false;
+      return !hoverAnimationTrigger || hoverAnimationTrigger.matches(":hover") || hoverAnimationTrigger.matches(":focus-within");
+    }
+
     function startRendering() {
-      if (cancelled || document.hidden || isHiddenDecorativePlanet() || animationStarted) return;
+      if (cancelled || document.hidden || animationStarted) return;
+      if (!shouldAnimate()) {
+        draw();
+        return;
+      }
       animationStarted = true;
-      if (prefersReducedMotion || !animated || !visualAnimationsEnabled) draw();
-      else unsubscribeFrame = subscribeGlobeFrame(animate);
+      unsubscribeFrame = subscribeGlobeFrame(animate);
     }
 
     function stopRendering() {
@@ -493,8 +507,13 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
     }
 
     function handleVisibilityChange() {
-      if (document.hidden || isHiddenDecorativePlanet()) stopRendering();
+      if (document.hidden) stopRendering();
       else startRendering();
+    }
+
+    function handleHoverAnimationChange() {
+      if (shouldAnimate()) startRendering();
+      else stopRendering();
     }
 
     async function loadWorldData() {
@@ -540,15 +559,21 @@ export function WireframeDottedGlobe({ animated = true, className, height = 420,
 
     loadWorldData();
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    decorativePlanetQuery.addEventListener("change", handleVisibilityChange);
+    hoverAnimationTrigger?.addEventListener("mouseenter", handleHoverAnimationChange);
+    hoverAnimationTrigger?.addEventListener("mouseleave", handleHoverAnimationChange);
+    hoverAnimationTrigger?.addEventListener("focusin", handleHoverAnimationChange);
+    hoverAnimationTrigger?.addEventListener("focusout", handleHoverAnimationChange);
 
     return () => {
       cancelled = true;
       stopRendering();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      decorativePlanetQuery.removeEventListener("change", handleVisibilityChange);
+      hoverAnimationTrigger?.removeEventListener("mouseenter", handleHoverAnimationChange);
+      hoverAnimationTrigger?.removeEventListener("mouseleave", handleHoverAnimationChange);
+      hoverAnimationTrigger?.removeEventListener("focusin", handleHoverAnimationChange);
+      hoverAnimationTrigger?.removeEventListener("focusout", handleHoverAnimationChange);
     };
-  }, [animated, className, height, kind, surface, visualAnimationsEnabled, width]);
+  }, [animateOnHoverWithinSelector, animated, className, height, kind, maxFps, surface, visualAnimationsEnabled, width]);
 
   return (
     <div className={cn("navigate-globe-canvas", className)}>

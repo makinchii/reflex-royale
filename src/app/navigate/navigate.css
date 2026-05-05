@@ -1,4 +1,8 @@
 .navigate-scene {
+  --navigate-title-size: clamp(4.25rem, 8.6vw, 9.75rem);
+  --earth-size: clamp(51rem, 58vw, 74rem);
+  --earth-layer-x: clamp(-21rem, -18vw, -10rem);
+  --earth-layer-y: clamp(54rem, 88svh, 76rem);
   position: relative;
   z-index: 1;
   display: grid;
@@ -7,7 +11,7 @@
   align-content: start;
   gap: 0;
   overflow: hidden;
-  padding: clamp(7rem, 14svh, 11rem) clamp(1rem, 4vw, 4rem) clamp(2rem, 4vw, 4rem);
+  padding: clamp(5.5rem, 9svh, 7.25rem) clamp(1rem, 4vw, 4rem) clamp(2rem, 4vw, 4rem);
 }
 
 .navigate-circuit-bg {
@@ -55,8 +59,12 @@
   position: relative;
   z-index: 2;
   margin-inline: auto;
-  max-width: 54rem;
+  max-width: 64rem;
   text-align: center;
+}
+
+.navigate-scene__header .fluorescent-title {
+  font-size: var(--navigate-title-size);
 }
 
 .navigate-border-hud {
@@ -147,8 +155,15 @@
 .navigate-border-hud__rail--right { right: clamp(1rem, 4vw, 5rem); }
 
 .navigate-orbit-stage {
+  --navigate-stage-width: min(100%, 136rem);
+  --moon-size: clamp(30rem, 28vw, 48rem);
+  --moon-body-x: min(91%, calc(100% - (var(--moon-size) * 0.08)));
+  --moon-body-y: clamp(-5rem, -3svh, 0rem);
+  --route-stack-y: clamp(4.75rem, 11svh, 8.5rem);
   position: relative;
-  min-height: min(72svh, 58rem);
+  width: var(--navigate-stage-width);
+  min-height: clamp(31rem, 53svh, 54rem);
+  margin-inline: auto;
 }
 
 .navigate-link-field {
@@ -158,46 +173,51 @@
   isolation: isolate;
 }
 
-.navigate-simple-planet {
+.navigate-grid-backdrop {
   pointer-events: none;
-  position: absolute;
-  z-index: 1;
+  position: fixed;
+  inset: -18svh -14vw;
+  z-index: 0;
+  opacity: 0.34;
   overflow: visible;
-  opacity: 0.82;
+  filter: saturate(0.82) brightness(0.78);
 }
 
-.navigate-globe-canvas.navigate-simple-planet {
-  filter: drop-shadow(0 0 14px color-mix(in oklch, var(--primary) 14%, transparent));
-}
-
-.navigate-globe-canvas.navigate-simple-planet--upper-left {
-  left: clamp(9rem, 18vw, 22rem);
-  top: max(-12rem, -16svh);
-  width: clamp(3.75rem, 6vw, 6.75rem);
-}
-
-.navigate-globe-canvas.navigate-simple-planet--lower-right {
+.navigate-grid-backdrop::before,
+.navigate-grid-backdrop::after {
+  content: "";
   position: absolute;
-  left: auto;
-  right: 26rem;
-  bottom: -5rem;
-  width: clamp(8rem, 24vw, 30rem);
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
-.navigate-link-field--local {
+.navigate-grid-backdrop::before {
+  background:
+    radial-gradient(circle at 50% 40%, color-mix(in oklch, var(--background) 16%, transparent) 0 18%, transparent 46%),
+    linear-gradient(90deg, color-mix(in oklch, var(--background) 72%, transparent) 0%, transparent 18%, transparent 82%, color-mix(in oklch, var(--background) 72%, transparent) 100%);
+}
+
+.navigate-grid-backdrop::after {
+  background:
+    radial-gradient(circle at 50% 42%, transparent 0 34%, color-mix(in oklch, var(--background) 30%, transparent) 72%, color-mix(in oklch, var(--background) 64%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in oklch, var(--background) 62%, transparent) 0%, transparent 18%, transparent 76%, color-mix(in oklch, var(--background) 72%, transparent) 100%);
+}
+
+.navigate-grid-backdrop__canvas {
   position: absolute;
-  left: max(-34rem, -30vw);
-  bottom: max(-40rem, -50svh);
-  width: min(92rem, 86vw);
-  justify-items: center;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .navigate-link-field--online {
   position: absolute;
-  right: clamp(5rem, 13vw, 18rem);
-  top: max(-24rem, -30svh);
-  width: clamp(16rem, 20vw, 26rem);
+  left: var(--moon-body-x);
+  top: var(--moon-body-y);
+  width: var(--moon-size);
   justify-items: center;
+  transform: translate(-50%, -50%);
 }
 
 .navigate-earth,
@@ -206,6 +226,23 @@
   display: grid;
   place-items: center;
   transition: filter 300ms ease, transform 300ms ease;
+}
+
+.navigate-earth-viewport-layer {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: visible;
+  mask-image: linear-gradient(180deg, black 0%, black 78%, transparent 96%);
+}
+
+.navigate-earth-anchor {
+  position: absolute;
+  left: var(--earth-layer-x);
+  top: var(--earth-layer-y);
+  width: var(--earth-size);
+  transform: translateY(-50%);
 }
 
 .navigate-body-reticle {
@@ -218,20 +255,30 @@
   transform: translate(-50%, -50%);
 }
 
+.navigate-body-reticle svg {
+  animation-play-state: paused;
+}
+
+.navigate-scene:has(.navigate-route-row--local:is(:hover, :focus-within)) .navigate-body-reticle--earth svg,
+.navigate-scene:has(.navigate-route-row--online:is(:hover, :focus-within)) .navigate-body-reticle--moon svg {
+  animation-play-state: running;
+}
+
 .navigate-body-reticle--earth {
+  width: calc(var(--earth-size) * 1.34);
+  height: auto;
   opacity: 0.34;
 }
 
 .navigate-body-reticle--moon {
+  width: calc(var(--moon-size) * 1.58);
+  height: auto;
   opacity: 0.42;
 }
 
-.navigate-link-field:has(.navigate-tab:hover) .navigate-earth,
-.navigate-link-field:has(.navigate-tab:focus-visible) .navigate-earth,
 .navigate-link-field:has(.navigate-tab:hover) .navigate-moon,
 .navigate-link-field:has(.navigate-tab:focus-visible) .navigate-moon,
-.navigate-orbit-stage:has(.navigate-tab--local:hover) .navigate-earth,
-.navigate-orbit-stage:has(.navigate-tab--local:focus-visible) .navigate-earth,
+.navigate-scene:has(.navigate-route-row--local:is(:hover, :focus-within)) .navigate-earth,
 .navigate-orbit-stage:has(.navigate-tab--online:hover) .navigate-moon,
 .navigate-orbit-stage:has(.navigate-tab--online:focus-visible) .navigate-moon {
   filter: drop-shadow(0 0 24px color-mix(in oklch, var(--primary) 70%, transparent)) drop-shadow(0 0 64px color-mix(in oklch, var(--primary) 28%, transparent));
@@ -240,7 +287,7 @@
 
 .navigate-earth__glow {
   position: absolute;
-  width: clamp(60rem, 104vw, 108rem);
+  width: calc(var(--earth-size) * 1.45);
   aspect-ratio: 1;
   border-radius: 999px;
   background: radial-gradient(circle, color-mix(in oklch, var(--primary) 16%, transparent), transparent 67%);
@@ -250,7 +297,7 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: clamp(63rem, 106vw, 112rem);
+  width: calc(var(--earth-size) * 1.52);
   aspect-ratio: 1;
   border: 1px solid color-mix(in oklch, var(--primary) 14%, transparent);
   border-left-color: transparent;
@@ -278,7 +325,7 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: clamp(56rem, 88vw, 92rem);
+  width: 100%;
   aspect-ratio: 1;
   border-radius: 999px;
   overflow: visible;
@@ -286,7 +333,7 @@
 }
 
 .navigate-globe-canvas--moon {
-  width: clamp(28rem, 35vw, 44rem);
+  width: 100%;
   background: radial-gradient(circle at 50% 50%, color-mix(in oklch, var(--primary) 5%, transparent), transparent 70%);
   filter: drop-shadow(0 0 18px color-mix(in oklch, var(--primary) 16%, transparent));
 }
@@ -336,14 +383,14 @@
 .navigate-earth__longitude--right { right: 19%; }
 
 .navigate-moon {
-  min-height: clamp(30rem, 40vw, 49rem);
+  min-height: calc(var(--moon-size) * 1.12);
 }
 
 .navigate-moon__orbit {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: clamp(23rem, 34vw, 41rem);
+  width: calc(var(--moon-size) * 1.24);
   aspect-ratio: 1;
   border: 1px solid color-mix(in oklch, var(--primary) 18%, transparent);
   border-left-color: transparent;
@@ -356,11 +403,11 @@
 .navigate-route-stack {
   position: absolute;
   left: 50%;
-  top: clamp(5rem, 12svh, 8rem);
+  top: var(--route-stack-y);
   z-index: 3;
   display: grid;
-  width: min(58rem, 72vw);
-  grid-template-columns: repeat(2, minmax(17rem, 1fr));
+  width: min(58rem, 64vw);
+  grid-template-columns: repeat(2, minmax(16rem, 1fr));
   justify-items: center;
   gap: clamp(1rem, 2vw, 2rem);
   transform: translateX(-50%);
@@ -419,9 +466,9 @@
 
 .navigate-route-line--online {
   left: calc(100% - 1rem);
-  width: clamp(18rem, 38vw, 42rem);
+  width: clamp(20rem, 22vw, 34rem);
   background: linear-gradient(90deg, color-mix(in oklch, var(--primary) 72%, transparent), transparent);
-  transform: rotate(-31deg);
+  transform: rotate(-25deg);
   transform-origin: left center;
 }
 
@@ -570,15 +617,10 @@
     padding-top: 2rem;
   }
 
-  .navigate-link-field--local,
   .navigate-link-field--online {
     position: relative;
     inset: auto;
     width: 100%;
-  }
-
-  .navigate-simple-planet {
-    display: none;
   }
 
   .navigate-globe-canvas {

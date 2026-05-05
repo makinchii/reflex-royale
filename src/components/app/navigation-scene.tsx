@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RadioTower, Zap } from "lucide-react";
+import { NavigateGridBackdrop } from "@/components/app/navigate-grid-backdrop";
 import { WireframeDottedGlobe } from "@/components/app/wireframe-dotted-globe";
 import { LocationDisplay } from "@/components/thegridcn/location-display";
 import { Reticle } from "@/components/thegridcn/reticle";
@@ -19,7 +20,7 @@ function EarthNode() {
       <Reticle size={1800} variant="scanning" className="navigate-body-reticle navigate-body-reticle--earth" />
       <div className="navigate-earth__orbit" />
       <div className="navigate-earth__glow" />
-      <WireframeDottedGlobe width={1380} height={1380} />
+      <WireframeDottedGlobe animateOnHoverWithinSelector=".navigate-route-row--local" maxFps={16} width={1380} height={1380} />
     </div>
   );
 }
@@ -29,13 +30,9 @@ function MoonNode() {
     <div className="navigate-moon" aria-hidden="true">
       <Reticle size={850} variant="scanning" className="navigate-body-reticle navigate-body-reticle--moon" />
       <div className="navigate-moon__orbit" />
-      <WireframeDottedGlobe className="navigate-globe-canvas--moon" width={540} height={540} kind="moon" />
+      <WireframeDottedGlobe animateOnHoverWithinSelector=".navigate-route-row--online" className="navigate-globe-canvas--moon" width={720} height={720} kind="moon" />
     </div>
   );
-}
-
-function SimplePlanet({ className, size = 140 }: { className: string; size?: number }) {
-  return <WireframeDottedGlobe animated={false} className={`navigate-simple-planet ${className}`} width={size} height={size} kind="moon" surface="grid" />;
 }
 
 export function NavigationScene({ canPlayOnline }: { canPlayOnline: boolean }) {
@@ -51,13 +48,14 @@ export function NavigationScene({ canPlayOnline }: { canPlayOnline: boolean }) {
         <h1 className="fluorescent-title font-display text-[clamp(4.5rem,10vw,10.5rem)] font-black leading-none uppercase tracking-[0.12em] text-primary">Choose Vector</h1>
       </div>
 
-      <div className="navigate-orbit-stage">
-        <SimplePlanet className="navigate-simple-planet--upper-left" />
-        <SimplePlanet className="navigate-simple-planet--lower-right" size={650} />
-
-        <div className="navigate-link-field navigate-link-field--local">
+      <div className="navigate-earth-viewport-layer" aria-hidden="true">
+        <div className="navigate-earth-anchor">
           <EarthNode />
         </div>
+      </div>
+
+      <div className="navigate-orbit-stage">
+        <NavigateGridBackdrop />
 
         <div className="navigate-link-field navigate-link-field--online">
           <MoonNode />
