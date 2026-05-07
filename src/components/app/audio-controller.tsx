@@ -89,14 +89,14 @@ function isDisabledUiInteraction(target: Element) {
   return (target instanceof HTMLButtonElement && target.disabled) || target.getAttribute("aria-disabled") === "true";
 }
 
-function pickRandomTrackIndex(playlist: Array<{ category: string }>, category: AudioCategory) {
-  const indexes = playlist.map((track, index) => track.category === category ? index : -1).filter((index) => index >= 0);
+function pickRandomTrackIndex(playlist: Array<{ category: string; sources?: unknown[] }>, category: AudioCategory) {
+  const indexes = playlist.map((track, index) => track.category === category && (track.sources?.length ?? 0) > 0 ? index : -1).filter((index) => index >= 0);
   if (indexes.length === 0) return 0;
   return indexes[Math.floor(Math.random() * indexes.length)] ?? indexes[0];
 }
 
-function pickRandomTrackIndexExcept(playlist: Array<{ category: string }>, category: AudioCategory, currentIndex: number) {
-  const indexes = playlist.map((track, index) => track.category === category && index !== currentIndex ? index : -1).filter((index) => index >= 0);
+function pickRandomTrackIndexExcept(playlist: Array<{ category: string; sources?: unknown[] }>, category: AudioCategory, currentIndex: number) {
+  const indexes = playlist.map((track, index) => track.category === category && index !== currentIndex && (track.sources?.length ?? 0) > 0 ? index : -1).filter((index) => index >= 0);
   return indexes.length > 0 ? indexes[Math.floor(Math.random() * indexes.length)] ?? indexes[0] : pickRandomTrackIndex(playlist, category);
 }
 
@@ -123,7 +123,6 @@ export function AudioController() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const waveformRafRef = useRef<number | null>(null);
-  const currentMixSignatureRef = useRef("");
   const appliedCustomTrackIdRef = useRef("");
   const unlockedRef = useRef(false);
   const lastHoverAtRef = useRef(0);
@@ -138,7 +137,6 @@ export function AudioController() {
   const [trackLoopEnabled, setTrackLoopEnabled] = useState(false);
   const [matchInProgress, setMatchInProgress] = useState(false);
   const [mixMode, setMixMode] = useState("default");
-  const [mixShuffleNonce, setMixShuffleNonce] = useState(0);
   const [customTrackId, setCustomTrackId] = useState("");
   const [audioSearch, setAudioSearch] = useState("");
   const [audioCategoryFilter, setAudioCategoryFilter] = useState<AudioCategoryFilter>("all");
@@ -343,7 +341,6 @@ export function AudioController() {
     if (mixMode === "custom" && customTrackId) {
       const customIndex = playlist.findIndex((track) => track.trackId === customTrackId);
       if (customIndex >= 0) {
-        currentMixSignatureRef.current = "";
         if (appliedCustomTrackIdRef.current !== customTrackId) {
           appliedCustomTrackIdRef.current = customTrackId;
           setTrackIndex((currentIndex) => playlist[currentIndex]?.trackId === customTrackId ? currentIndex : customIndex);
@@ -354,19 +351,17 @@ export function AudioController() {
 
     appliedCustomTrackIdRef.current = "";
     const nextCategory = resolveMixCategory(mixMode, matchInProgress);
-    const mixContext = pathname?.startsWith("/local") || pathname?.startsWith("/online") ? "game" : "app";
-    const nextSignature = `${mixMode}:${nextCategory}:${mixContext}:${mixShuffleNonce}`;
     setTrackIndex((currentIndex) => {
       const boundedIndex = Math.min(currentIndex, playlist.length - 1);
+      const currentTrack = playlist[boundedIndex];
 
-      if (currentMixSignatureRef.current === nextSignature) {
+      if (currentTrack?.category === nextCategory && currentTrack.sources.length > 0) {
         return boundedIndex;
       }
 
-      currentMixSignatureRef.current = nextSignature;
       return pickRandomTrackIndexExcept(playlist, nextCategory, boundedIndex);
     });
-  }, [customTrackId, matchInProgress, mixMode, mixShuffleNonce, pathname, playlist]);
+  }, [customTrackId, matchInProgress, mixMode, playlist]);
 
   useEffect(() => {
     const music = musicRef.current;
@@ -636,7 +631,6 @@ export function AudioController() {
               {(["default", "custom", "lobby", "battle"] as AudioMixMode[]).map((mode) => (
                 <button key={mode} type="button" className={mixMode === mode ? "is-active" : undefined} onClick={() => {
                   setMixMode(mode);
-                  if (mode !== "custom") setMixShuffleNonce((nonce) => nonce + 1);
                   window.localStorage.setItem(AUDIO_MIX_MODE_KEY, mode);
                   window.dispatchEvent(new CustomEvent(AUDIO_PREFERENCES_CHANGED_EVENT));
                 }}>

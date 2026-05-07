@@ -36,6 +36,7 @@ let pendingJoinSource = null;
 let roomEntryMode = "join";
 let selectedThemeCommand = getCurrentLocalThemeCommand();
 let selectedEntryRoundCount = 5;
+let closeThemePickerOnOutsideClick = null;
 const themePalette = getLocalPlayerThemePalette();
 
 function announceMatchState(inProgress) {
@@ -213,14 +214,19 @@ function renderThemePicker() {
   const tabs = document.getElementById("themePickerTabs");
   const label = document.getElementById("themePickerButtonLabel");
   const button = document.getElementById("themePickerButton");
+  const field = document.querySelector(".chroma-sigil-field");
+  const keyboard = document.getElementById("holoKeyboardMount");
   if (!tabs || !label || !button) return;
 
   syncSelectedThemeAfterRosterChange();
   const claimed = getClaimedThemeCommands();
   const currentPlayer = roomState?.players?.find((player) => player.id === myPlayerId);
   const selected = getSelectedThemeProtocol();
+  const selectedColor = selected?.color || "var(--primary, #68e8ff)";
   label.textContent = selected?.label || "All Claimed";
-  button.style.setProperty("--sigil-color", selected?.color || "var(--primary, #68e8ff)");
+  button.style.setProperty("--sigil-color", selectedColor);
+  field?.style.setProperty("--sigil-color", selectedColor);
+  keyboard?.style.setProperty("--keyboard-accent", selectedColor);
   button.disabled = !selected;
 
   tabs.innerHTML = themePalette.map((protocol) => {
@@ -270,15 +276,32 @@ function renderThemePickerField() {
 }
 
 function wireThemePickerDisclosure() {
+  cleanupThemePickerDisclosure();
   const themeBtn = document.getElementById("themePickerButton");
   const themePanel = document.getElementById("themePickerPanel");
   if (!themeBtn || !themePanel) return;
 
-  themeBtn.addEventListener("click", () => {
+  themeBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
     const isOpen = !themePanel.hidden;
     themePanel.hidden = isOpen;
     themeBtn.setAttribute("aria-expanded", String(!isOpen));
   });
+
+  closeThemePickerOnOutsideClick = (event) => {
+    if (themePanel.hidden) return;
+    const target = event.target;
+    if (target instanceof Node && (themePanel.contains(target) || themeBtn.contains(target))) return;
+    themePanel.hidden = true;
+    themeBtn.setAttribute("aria-expanded", "false");
+  };
+  document.addEventListener("click", closeThemePickerOnOutsideClick);
+}
+
+function cleanupThemePickerDisclosure() {
+  if (!closeThemePickerOnOutsideClick) return;
+  document.removeEventListener("click", closeThemePickerOnOutsideClick);
+  closeThemePickerOnOutsideClick = null;
 }
 
 function renderRoundSlider(value, label = "Round count", modifier = "") {
@@ -364,30 +387,39 @@ function renderLobby(state) {
     </section>
   ` : "";
   root.innerHTML = `
-    <div class="lobby lobby--online-room">
-      <div class="lobby-layout-top">
-        <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
-        <p class="subtitle">Room ${esc(state.room)}</p>
-        <p id="roomHint" class="hint">${esc(readyText)} · ${esc(roundText)}</p>
-        <p id="waitingHint" class="hint">${esc(waitingText)}</p>
-        ${isHost ? `<div id="hostRosterControls" class="game-over-actions"></div>` : ""}
-      </div>
-
-      <div id="remotePlayerSlots" class="player-slots player-slots--docked" aria-label="Player slots"></div>
-
-      <div class="lobby-form">
-        <div class="input-row input-row--online-key-card">
-          <input id="keyInput" type="text" placeholder="Pick your key" maxlength="1" autocomplete="off" value="${selectedKey ? esc(selectedKey.toUpperCase()) : ""}" />
-          <button id="bindKeyBtn" class="btn btn-secondary">Set Key</button>
-          <button id="readyBtn" class="btn btn-primary" ${canToggleReady ? "" : "disabled"}>${currentPlayer?.isReady ? "Unready" : canToggleReady ? "Ready Up" : "Set Key First"}</button>
+      <div class="lobby lobby--online-room">
+        <div class="lobby-layout-top">
+          <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
+          <p class="subtitle">Room ${esc(state.room)}</p>
+          <p id="roomHint" class="hint">${esc(readyText)} · ${esc(roundText)}</p>
+          <p id="waitingHint" class="hint">${esc(waitingText)}</p>
         </div>
-        ${renderThemePickerField()}
-        ${hostRoundControls}
-        ${isHost ? `<div class="lobby-layout-bottom"><button id="startGameBtn" class="btn btn-big btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button></div>` : ""}
-        <p class="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then set it. Press your assigned key to toggle ready.</p>
-      </div>
 
-      <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
+        <div class="lobby-player-grid">
+          <div id="remotePlayerSlots" class="player-slots player-slots--grid" aria-label="Player slots"></div>
+
+          <div class="lobby-control-stack">
+            <div class="lobby-form">
+              <div class="input-row input-row--online-key-card">
+                <input id="keyInput" type="text" placeholder="Pick your key" maxlength="1" autocomplete="off" value="${selectedKey ? esc(selectedKey.toUpperCase()) : ""}" />
+                <button id="bindKeyBtn" class="btn btn-secondary">Set Key</button>
+                <button id="readyBtn" class="btn btn-primary" ${canToggleReady ? "" : "disabled"}>${currentPlayer?.isReady ? "Unready" : canToggleReady ? "Ready Up" : "Set Key First"}</button>
+              </div>
+              ${renderThemePickerField()}
+              <p class="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then set it. Press your assigned key to toggle ready.</p>
+            </div>
+          </div>
+        </div>
+
+        ${isHost ? `
+          <aside class="online-host-terminal" aria-label="Host terminal">
+            ${hostRoundControls}
+            <button id="startGameBtn" class="btn btn-primary btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button>
+            <div id="hostRosterControls" class="game-over-actions"></div>
+          </aside>
+        ` : ""}
+
+        <div id="holoKeyboardMount">${renderHolographicKeyboard(state.players, { currentPlayerId: myPlayerId, draggable: true, title: "Room Buzzer Matrix" })}</div>
 
       ${renderChatPanel()}
 
@@ -452,7 +484,7 @@ function renderRoster(players) {
   const container = document.getElementById("remotePlayerSlots");
   if (!container) return;
 
-  if (container.classList.contains("player-slots--docked")) {
+  if (container.classList.contains("player-slots--grid") || container.classList.contains("player-slots--docked")) {
     container.innerHTML = renderDockedRoster(players);
     return;
   }
@@ -470,7 +502,7 @@ function renderDockedRoster(players) {
   const host = players.find((player) => player.id === roomState?.hostId) || players[0] || null;
   const ordered = host ? [host, ...players.filter((player) => player.id !== host.id)] : players;
 
-  return positions.map((position, index) => {
+  const cards = positions.map((position, index) => {
     const player = ordered[index];
     if (!player) {
       return `<div class="player-slot-dock player-slot-dock--${position} player-slot-dock--empty" aria-hidden="true"></div>`;
@@ -484,7 +516,18 @@ function renderDockedRoster(players) {
         </div>
       </div>
     `;
-  }).join("");
+  });
+
+  return `
+    <div class="player-slot-stack player-slot-stack--left">
+      ${cards[0]}
+      ${cards[2]}
+    </div>
+    <div class="player-slot-stack player-slot-stack--right">
+      ${cards[1]}
+      ${cards[3]}
+    </div>
+  `;
 }
 
 function renderHostControls(players) {
@@ -681,8 +724,13 @@ socket.on("keyBound", ({ key }) => {
   }
 });
 
-socket.on("themeBound", ({ themeCommand }) => {
+socket.on("themeBound", ({ themeCommand, color }) => {
   if (themeCommand) selectedThemeCommand = themeCommand;
+  const currentPlayer = roomState?.players?.find((player) => player.id === myPlayerId);
+  if (currentPlayer && themeCommand) {
+    currentPlayer.themeCommand = themeCommand;
+    if (color) currentPlayer.color = color;
+  }
   if (roomState && (roomState.status === "waiting_for_players" || roomState.status === "ready_check")) {
     renderLobby(roomState);
   }
@@ -1019,6 +1067,7 @@ document.addEventListener("touchstart", handleTouchStart);
 const cleanupRemoteGame = () => {
   document.removeEventListener("keydown", handleKeyDown);
   document.removeEventListener("touchstart", handleTouchStart);
+  cleanupThemePickerDisclosure();
   socket.removeAllListeners();
   socket.disconnect();
   if (window.__reflexRoyaleRemoteCleanup === cleanupRemoteGame) {

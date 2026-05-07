@@ -10,6 +10,9 @@ import { normalizeGameKey, pulseKeyboardKey, renderHolographicKeyboard, syncKeyb
 import { getCurrentLocalThemeCommand, getLocalPlayerThemePalette } from "./localThemePalette.js";
 
 const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
+const LOCAL_TRANSITION_EVENT = "reflex-royale-local-transition";
+const LOCAL_TRANSITION_DURATION_MS = 3000;
+const LOCAL_PLAYER_SPLASH_DURATION_MS = 2800;
 
 function announceMatchState(inProgress) {
   window.dispatchEvent(new CustomEvent(AUDIO_MATCH_STATE_EVENT, { detail: { inProgress } }));
@@ -27,6 +30,8 @@ export class UIRenderer {
     this.matchRecorded = false;
     this.themePalette = getLocalPlayerThemePalette();
     this.selectedThemeCommand = getCurrentLocalThemeCommand();
+    this.closeThemePickerOnOutsideClick = null;
+    this.localStartTransitionTimer = null;
 
     this._bindEngineEvents();
     this.renderLobby();
@@ -59,48 +64,53 @@ export class UIRenderer {
 
   renderLobby() {
     announceMatchState(false);
+    this._cleanupThemePickerDisclosure();
     this.root.innerHTML = `
       <div class="lobby">
         <div class="lobby-layout-top">
           <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
           <p class="subtitle">Local Multiplayer — 2-4 Players</p>
+        </div>
 
-          <div class="lobby-form">
-            <div class="input-row input-row--local-player">
-              <input id="playerName" type="text" placeholder="Player name" maxlength="12" autocomplete="off" />
-              <input id="playerKey"  type="text" placeholder="Key" maxlength="1" autocomplete="off" />
-              <button id="addPlayerBtn" class="btn btn-primary">Add Player</button>
-            </div>
-            <div class="chroma-sigil-field">
-              <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
-                <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
-                <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
-              </button>
-              <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
-                <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
-              </div>
-            </div>
-            <p class="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then add the player. Press assigned keys to toggle ready.</p>
-            <p id="lobbyStatus" class="hint"></p>
-          </div>
+        <div class="lobby-player-grid">
+          <div id="playerSlots" class="player-slots player-slots--grid" aria-label="Player slots"></div>
 
-          <div class="lobby-settings">
-            <div data-slot="tron-slider" class="round-slider" aria-label="Rounds slider">
-              <div class="round-slider__header">
-                <span class="round-control">Rounds</span>
-                <span id="roundCountValue" class="round-slider__value">5</span>
+          <div class="lobby-control-stack">
+            <div class="lobby-form">
+              <div class="input-row input-row--local-player">
+                <input id="playerName" type="text" placeholder="Player name" maxlength="12" autocomplete="off" />
+                <input id="playerKey"  type="text" placeholder="Key" maxlength="1" autocomplete="off" />
+                <button id="addPlayerBtn" class="btn btn-primary">Add Player</button>
               </div>
-              <div class="round-slider__track-wrap">
-                <div data-slot="slider-track" class="round-slider__track"></div>
-                <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
-                <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
-                <input id="roundCount" class="round-slider__input" type="range" min="1" max="20" step="1" value="5" />
+              <div class="chroma-sigil-field">
+                <button id="themePickerButton" class="btn btn-secondary chroma-sigil-button" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="themePickerPanel">
+                  <span class="chroma-sigil-summary__label">Chroma Sigil:</span>
+                  <span id="themePickerButtonLabel" class="chroma-sigil-summary__name"></span>
+                </button>
+                <div id="themePickerPanel" class="chroma-sigil-panel" role="dialog" aria-label="Choose Chroma Sigil" hidden>
+                  <div id="themePickerTabs" class="chroma-sigil-tabs" role="tablist" aria-label="Player color protocol"></div>
+                </div>
+              </div>
+              <p class="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then add the player. Press assigned keys to toggle ready.</p>
+              <p id="lobbyStatus" class="hint"></p>
+            </div>
+
+            <div class="lobby-settings">
+              <div data-slot="tron-slider" class="round-slider" aria-label="Rounds slider">
+                <div class="round-slider__header">
+                  <span class="round-control">Rounds</span>
+                  <span id="roundCountValue" class="round-slider__value">5</span>
+                </div>
+                <div class="round-slider__track-wrap">
+                  <div data-slot="slider-track" class="round-slider__track"></div>
+                  <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
+                  <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
+                  <input id="roundCount" class="round-slider__input" type="range" min="1" max="20" step="1" value="5" />
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <div id="playerSlots" class="player-slots player-slots--docked" aria-label="Player slots"></div>
 
         <div id="holoKeyboardMount">${renderHolographicKeyboard([], { title: "LOCAL KEYBOARD MATRIX" })}</div>
 
@@ -137,11 +147,21 @@ export class UIRenderer {
 
     addBtn.addEventListener("click", () => this._addPlayerFromForm());
 
-    themeBtn.addEventListener("click", () => {
+    themeBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
       const isOpen = !themePanel.hidden;
       themePanel.hidden = isOpen;
       themeBtn.setAttribute("aria-expanded", String(!isOpen));
     });
+
+    this.closeThemePickerOnOutsideClick = (event) => {
+      if (themePanel.hidden) return;
+      const target = event.target;
+      if (target instanceof Node && (themePanel.contains(target) || themeBtn.contains(target))) return;
+      themePanel.hidden = true;
+      themeBtn.setAttribute("aria-expanded", "false");
+    };
+    document.addEventListener("click", this.closeThemePickerOnOutsideClick);
 
     nameInp.addEventListener("keydown", (e) => {
       if (e.key === "Enter") this._addPlayerFromForm();
@@ -158,15 +178,59 @@ export class UIRenderer {
     this._wireInputKeyboardHighlights([nameInp, keyInp]);
 
     startBtn.addEventListener("click", () => {
+      const players = this.engine.getPlayers();
+      if (players.length < 2 || !players.every((player) => player.ready) || this.localStartTransitionTimer) return;
+
       const rounds = parseInt(roundInp.value, 10) || 5;
+      const transitionPlayers = players.map((player) => {
+        const theme = this.themePalette.find((protocol) => protocol.id === player.themeCommand);
+        return {
+          id: player.id,
+          name: player.name,
+          color: player.color,
+          themeCommand: player.themeCommand,
+          themeLabel: theme?.label || "Custom",
+          key: player.key,
+        };
+      });
       this.engine.totalRounds = rounds;
-      this.engine.startGame();
+      startBtn.disabled = true;
+      window.dispatchEvent(new CustomEvent(LOCAL_TRANSITION_EVENT, {
+        detail: {
+          duration: LOCAL_TRANSITION_DURATION_MS,
+          splashDuration: LOCAL_PLAYER_SPLASH_DURATION_MS,
+          players: transitionPlayers,
+        },
+      }));
+      const started = this.engine.startGame({ countdownDelayMs: LOCAL_TRANSITION_DURATION_MS + LOCAL_PLAYER_SPLASH_DURATION_MS });
+      if (!started) {
+        this.localStartTransitionTimer = null;
+        this._refreshLobbyPlayers();
+        return;
+      }
+      this.localStartTransitionTimer = window.setTimeout(() => {
+        this.localStartTransitionTimer = null;
+      }, LOCAL_TRANSITION_DURATION_MS + LOCAL_PLAYER_SPLASH_DURATION_MS);
     });
 
     roundInp.addEventListener("input", updateRoundSlider);
     updateRoundSlider();
     this._refreshThemePicker();
     this._wireKeyboardKeys();
+  }
+
+  _cleanupThemePickerDisclosure() {
+    if (!this.closeThemePickerOnOutsideClick) return;
+    document.removeEventListener("click", this.closeThemePickerOnOutsideClick);
+    this.closeThemePickerOnOutsideClick = null;
+  }
+
+  cleanup() {
+    this._cleanupThemePickerDisclosure();
+    if (this.localStartTransitionTimer) {
+      window.clearTimeout(this.localStartTransitionTimer);
+      this.localStartTransitionTimer = null;
+    }
   }
 
   _getClaimedThemeCommands() {
@@ -193,14 +257,19 @@ export class UIRenderer {
     const tabs = this.root.querySelector("#themePickerTabs");
     const label = this.root.querySelector("#themePickerButtonLabel");
     const button = this.root.querySelector("#themePickerButton");
+    const field = this.root.querySelector(".chroma-sigil-field");
+    const keyboard = this.root.querySelector("#holoKeyboardMount");
     if (!tabs || !label || !button) return;
 
     this._syncSelectedThemeAfterRosterChange();
     const claimed = this._getClaimedThemeCommands();
     const selected = this._getSelectedThemeProtocol();
     const selectedLabel = selected?.label || "All Claimed";
+    const selectedColor = selected?.color || "var(--primary, #68e8ff)";
     label.textContent = selectedLabel;
-    button.style.setProperty("--sigil-color", selected?.color || "var(--primary, #68e8ff)");
+    button.style.setProperty("--sigil-color", selectedColor);
+    field?.style.setProperty("--sigil-color", selectedColor);
+    keyboard?.style.setProperty("--keyboard-accent", selectedColor);
     button.disabled = !selected;
 
     tabs.innerHTML = this.themePalette.map((protocol) => {
@@ -296,13 +365,13 @@ export class UIRenderer {
 
     // Enable/disable start button
     const startBtn = this.root.querySelector("#startGameBtn");
-    if (startBtn) startBtn.disabled = players.length < 2 || !players.every(p => p.ready);
+    if (startBtn) startBtn.disabled = Boolean(this.localStartTransitionTimer) || players.length < 2 || !players.every(p => p.ready);
     this._refreshThemePicker();
   }
 
   _renderDockedPlayerSlots(players) {
     const positions = ["top-left", "top-right", "bottom-left", "bottom-right"];
-    return positions.map((position, index) => {
+    const cards = positions.map((position, index) => {
       const p = players[index];
       if (!p) {
         return `<div class="player-slot-dock player-slot-dock--${position} player-slot-dock--empty" aria-hidden="true"></div>`;
@@ -317,7 +386,18 @@ export class UIRenderer {
           </div>
         </div>
       `;
-    }).join("");
+    });
+
+    return `
+      <div class="player-slot-stack player-slot-stack--left">
+        ${cards[0]}
+        ${cards[2]}
+      </div>
+      <div class="player-slot-stack player-slot-stack--right">
+        ${cards[1]}
+        ${cards[3]}
+      </div>
+    `;
   }
 
   _wireKeyboardKeys() {

@@ -52,6 +52,7 @@ document.addEventListener("keydown", handleKeyDown);
 
 const cleanupLocalGame = () => {
   document.removeEventListener("keydown", handleKeyDown);
+  renderer.cleanup?.();
   if (window.__reflexRoyaleLocalCleanup === cleanupLocalGame) {
     window.__reflexRoyaleLocalCleanup = undefined;
   }

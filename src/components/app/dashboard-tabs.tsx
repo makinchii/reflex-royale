@@ -983,18 +983,9 @@ export function DashboardTabs({
                       <CardDescription>Shared grid soundtrack and waveform monitor.</CardDescription>
                     </div>
                   </CardHeader>
-                  <CardContent className="dashboard-panel-card-content dashboard-sound-player-slot" />
-                </Card>
-
-                <Card className="dashboard-panel-card dashboard-audio-settings-card border-primary/25 bg-card/15 backdrop-blur-xl">
-                  <CardHeader className="dashboard-panel-card-header">
-                    <div>
-                      <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">Audio Settings</CardTitle>
-                      <CardDescription>Mix interface clicks, alerts, and arena feedback.</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="dashboard-panel-card-content dashboard-settings-controls dashboard-audio-settings-content">
-                    <div className="dashboard-settings-control-group dashboard-audio-settings-group">
+                  <CardContent className="dashboard-panel-card-content dashboard-sound-player-content">
+                    <div className="dashboard-sound-player-slot" />
+                    <div className="dashboard-settings-control-group dashboard-audio-settings-group dashboard-audio-settings-group--player">
                       <SettingsRoundSlider label="Master Volume" value={masterVolume} onChange={(value) => changeAudioVolume(AUDIO_MASTER_VOLUME_KEY, setMasterVolume, value)} />
                       <SettingsRoundSlider label="SFX Volume" value={sfxVolume} onChange={(value) => changeAudioVolume(AUDIO_SFX_VOLUME_KEY, setSfxVolume, value)} />
                       <SettingsRoundSlider label="Music Volume" value={musicVolume} onChange={(value) => changeAudioVolume(AUDIO_MUSIC_VOLUME_KEY, setMusicVolume, value)} />
@@ -1018,8 +1009,19 @@ export function DashboardTabs({
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                      <div className="dashboard-audio-catalog" aria-label="Audio Catalog">
+                <Card className="dashboard-panel-card dashboard-audio-settings-card border-primary/25 bg-card/15 backdrop-blur-xl">
+                  <CardHeader className="dashboard-panel-card-header">
+                    <div>
+                      <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">Audio Catalog</CardTitle>
+                      <CardDescription>Search the grid library and select a custom soundtrack.</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="dashboard-panel-card-content dashboard-audio-settings-content">
+                    <div className="dashboard-audio-catalog" aria-label="Audio Catalog">
                         <div className="dashboard-audio-catalog__header">
                           <span>Audio Catalog</span>
                           <strong>{filteredAudioPlaylist.length} tracks</strong>
@@ -1057,7 +1059,6 @@ export function DashboardTabs({
                           })}
                         </div>
                       </div>
-                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -1075,7 +1076,7 @@ export function DashboardTabs({
         >
           <div className="mb-4 border-b border-primary/20 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Personalization</div>
           <div className="dashboard-personalization-grid grid gap-5 xl:grid-cols-[minmax(340px,0.78fr)_minmax(0,1.22fr)]">
-            <Card className="dashboard-panel-card border-primary/25 bg-card/15 backdrop-blur-xl">
+            <Card className="dashboard-panel-card dashboard-personalization-key-panel border-primary/25 bg-card/15 backdrop-blur-xl">
               <CardHeader className="dashboard-panel-card-header">
                 <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">Preferred Key</CardTitle>
                 <CardDescription>Your online lobby default. Auto-selects in online lobbies if available.</CardDescription>
@@ -1114,7 +1115,7 @@ export function DashboardTabs({
               </CardContent>
             </Card>
 
-            <Card className="dashboard-panel-card border-primary/25 bg-card/15 backdrop-blur-xl">
+            <Card className="dashboard-panel-card dashboard-theme-picker-panel border-primary/25 bg-card/15 backdrop-blur-xl">
               <CardHeader className="dashboard-panel-card-header">
                 <div className="dashboard-theme-header-row">
                   <div>

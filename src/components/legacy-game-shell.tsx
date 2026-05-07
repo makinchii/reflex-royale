@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { flushSync } from "react-dom";
 import Script from "next/script";
+import { LocalGameTransition, LocalPlayerSplash, type LocalTransitionPlayer } from "@/components/app/local-game-transition";
 
 declare global {
   interface Window {
@@ -14,6 +16,16 @@ declare global {
   }
 }
 
+const LOCAL_TRANSITION_EVENT = "reflex-royale-local-transition";
+const LOCAL_TRANSITION_DURATION_MS = 3000;
+
+type LocalTransitionDetail = {
+  duration: number;
+  splashDuration: number;
+  players: LocalTransitionPlayer[];
+  phase: "tunnel" | "splash";
+};
+
 type LegacyGameShellProps = {
   mode: "local" | "remote";
   showAccountMenu?: boolean;
@@ -24,6 +36,7 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
   const [notificationsReady, setNotificationsReady] = useState(mode === "local");
   const [accountMenuReady, setAccountMenuReady] = useState(!showAccountMenu);
   const [socketReady, setSocketReady] = useState(mode === "local");
+  const [localTransition, setLocalTransition] = useState<LocalTransitionDetail | null>(null);
   const moduleVersion = useId().replace(/:/g, "");
 
   useEffect(() => {
@@ -58,12 +71,52 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
     };
   }, [localPlayerThemeShades, mode]);
 
+  useEffect(() => {
+    if (mode !== "local") return;
+
+    let tunnelTimeout: number | null = null;
+    let clearTimeoutId: number | null = null;
+    const handleTransition = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      const duration = typeof detail?.duration === "number" ? detail.duration : LOCAL_TRANSITION_DURATION_MS;
+      const splashDuration = typeof detail?.splashDuration === "number" ? detail.splashDuration : 2800;
+      const players = Array.isArray(detail?.players) ? detail.players : [];
+      if (tunnelTimeout) window.clearTimeout(tunnelTimeout);
+      if (clearTimeoutId) window.clearTimeout(clearTimeoutId);
+      flushSync(() => {
+        setLocalTransition({ duration, splashDuration, players, phase: "tunnel" });
+      });
+      tunnelTimeout = window.setTimeout(() => {
+        setLocalTransition({ duration, splashDuration, players, phase: "splash" });
+        tunnelTimeout = null;
+      }, duration);
+      clearTimeoutId = window.setTimeout(() => {
+        setLocalTransition(null);
+        clearTimeoutId = null;
+      }, duration + splashDuration);
+    };
+
+    window.addEventListener(LOCAL_TRANSITION_EVENT, handleTransition);
+
+    return () => {
+      window.removeEventListener(LOCAL_TRANSITION_EVENT, handleTransition);
+      if (tunnelTimeout) window.clearTimeout(tunnelTimeout);
+      if (clearTimeoutId) window.clearTimeout(clearTimeoutId);
+    };
+  }, [mode]);
+
   return (
     <>
       <link rel="stylesheet" href="/game.css" />
       <div data-wait-for-legacy-ready="true" className="flex min-h-0 w-full flex-1">
         {showAccountMenu ? <div id="account-menu-root" className="account-menu-root" suppressHydrationWarning /> : null}
         <div id="game-root" suppressHydrationWarning />
+        {mode === "local" && localTransition?.phase === "tunnel" ? (
+          <LocalGameTransition className="local-game-transition-overlay" durationMs={localTransition.duration} />
+        ) : null}
+        {mode === "local" && localTransition?.phase === "splash" ? (
+          <LocalPlayerSplash className="local-player-splash-overlay" players={localTransition.players} durationMs={localTransition.splashDuration} />
+        ) : null}
       </div>
 
       <Script src={`/js/pageNotifications.js?v=${moduleVersion}`} strategy="afterInteractive" onLoad={() => setNotificationsReady(true)} />

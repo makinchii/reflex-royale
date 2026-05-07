@@ -51,6 +51,7 @@ export class GameEngine {
     // Internal timing handles
     this._countdownTimer  = null;
     this._delayTimer      = null;
+    this._roundStartTimer = null;
     this._reactStartTime  = null;
 
     // Event bus (simple observer)
@@ -175,10 +176,12 @@ export class GameEngine {
   /* ───────── Game flow ───────── */
 
   /** Start match from lobby */
-  startGame() {
+  startGame(options = {}) {
     if (this.state !== GameState.LOBBY && this.state !== GameState.GAME_OVER) return false;
     if (this.players.size < 2) return false;
     if (!this._allPlayersReady()) return false;
+
+    const countdownDelayMs = Math.max(0, Number(options.countdownDelayMs) || 0);
 
     // Reset cumulative stats for a new match
     for (const p of this.players.values()) {
@@ -193,7 +196,15 @@ export class GameEngine {
     this.roundHistory = [];
 
     this._emit("gameStarted", { totalRounds: this.totalRounds });
-    this._nextRound();
+    this.state = GameState.COUNTDOWN;
+    if (countdownDelayMs > 0) {
+      this._roundStartTimer = setTimeout(() => {
+        this._roundStartTimer = null;
+        this._nextRound();
+      }, countdownDelayMs);
+    } else {
+      this._nextRound();
+    }
     return true;
   }
 
@@ -457,6 +468,7 @@ export class GameEngine {
   _clearTimers() {
     if (this._countdownTimer) { clearInterval(this._countdownTimer); this._countdownTimer = null; }
     if (this._delayTimer) { clearTimeout(this._delayTimer); this._delayTimer = null; }
+    if (this._roundStartTimer) { clearTimeout(this._roundStartTimer); this._roundStartTimer = null; }
     if (this._reactTimeout) { clearTimeout(this._reactTimeout); this._reactTimeout = null; }
   }
 
