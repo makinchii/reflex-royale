@@ -476,8 +476,8 @@ export class UIRenderer {
             <div class="panel-header">
               <span class="panel-name">${this._esc(p.name)}</span>
               <kbd class="panel-key">${p.key.toUpperCase()}</kbd>
-              <span class="panel-score">0 pts</span>
             </div>
+            <span class="panel-score">0 pts</span>
             <div class="panel-light">
               <div class="light-circle off"></div>
             </div>
@@ -489,12 +489,32 @@ export class UIRenderer {
     `;
   }
 
-  _onCountdown({ remaining }) {
+  _hideCenterOverlay() {
     const overlay = this.root.querySelector("#centerOverlay");
-    if (overlay) {
-      overlay.className = "center-overlay visible";
-      overlay.innerHTML = `<span class="countdown-num">${remaining}</span>`;
-    }
+    if (!overlay) return;
+    overlay.className = "center-overlay";
+    overlay.innerHTML = "";
+  }
+
+  _setArenaPhase(phase) {
+    const arena = this.root.querySelector(".arena");
+    if (!arena) return;
+    arena.classList.remove("arena--countdown", "arena--waiting", "arena--react");
+    if (phase) arena.classList.add(`arena--${phase}`);
+  }
+
+  _clearPanelSignals() {
+    this.root.querySelectorAll(".player-panel").forEach((panel) => {
+      panel.removeAttribute("data-signal");
+    });
+  }
+
+  _onCountdown({ remaining }) {
+    this._hideCenterOverlay();
+    this._setArenaPhase("countdown");
+    this.root.querySelectorAll(".player-panel").forEach((panel) => {
+      panel.dataset.signal = String(remaining);
+    });
 
     // Reset panel lights
     this.root.querySelectorAll(".light-circle").forEach(el => {
@@ -506,11 +526,9 @@ export class UIRenderer {
   }
 
   _onWaiting() {
-    const overlay = this.root.querySelector("#centerOverlay");
-    if (overlay) {
-      overlay.className = "center-overlay visible";
-      overlay.innerHTML = `<span class="wait-text">Wait for it…</span>`;
-    }
+    this._hideCenterOverlay();
+    this._clearPanelSignals();
+    this._setArenaPhase("waiting");
 
     // Red light
     this.root.querySelectorAll(".light-circle").forEach(el => {
@@ -519,11 +537,9 @@ export class UIRenderer {
   }
 
   _onReact() {
-    const overlay = this.root.querySelector("#centerOverlay");
-    if (overlay) {
-      overlay.className = "center-overlay visible";
-      overlay.innerHTML = `<span class="go-text">GO!</span>`;
-    }
+    this._hideCenterOverlay();
+    this._clearPanelSignals();
+    this._setArenaPhase("react");
 
     // Green light
     this.root.querySelectorAll(".light-circle").forEach(el => {
@@ -547,6 +563,9 @@ export class UIRenderer {
   }
 
   _onRoundEnd({ roundNum, results }) {
+    this._clearPanelSignals();
+    this._setArenaPhase(null);
+
     // Update scores on panels
     for (const p of this.engine.getPlayers()) {
       const panel = this.root.querySelector(`#panel-${CSS.escape(p.id)}`);
