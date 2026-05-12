@@ -584,6 +584,9 @@ test("lobby disconnect removes players and transfers host without ghost slots", 
     assert.deepEqual(afterHostDisconnect.players.map((entry) => entry.id), ["player-2"]);
     assert.equal(afterHostDisconnect.hostId, "player-2");
     assert.equal(afterHostDisconnect.players[0].isHost, true);
+    const hostTransferChat = lastEvent(nextHost, "chatMessage").payload.messages.at(-1);
+    assert.equal(hostTransferChat.senderName, "NextHost");
+    assert.equal(hostTransferChat.content, "is now the host.");
   } finally {
     restoreTimers();
     delete require.cache[gameRoomPath];

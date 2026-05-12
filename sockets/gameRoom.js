@@ -1152,8 +1152,11 @@ function initGameSockets(io) {
       const player = room.players.get(socket.id) || null;
       const shouldAnnounceLeave = Boolean(player?.connected);
       const leaveMessage = shouldAnnounceLeave ? room.addSystemChatMessage(player, "left the room.") : null;
+      const wasHost = room.hostId === socket.id;
 
       const result = room.markDisconnected(socket.id);
+      const newHost = wasHost && room.hostId ? room.players.get(room.hostId) : null;
+      const hostTransferMessage = newHost ? room.addSystemChatMessage(newHost, "is now the host.") : null;
 
       // Notify lobby clients after roster removal or host transfer.
       if (room.status === ROOM_STATUS.WAITING_FOR_PLAYERS || room.status === ROOM_STATUS.READY_CHECK || room.status === ROOM_STATUS.POST_MATCH) {
@@ -1166,7 +1169,7 @@ function initGameSockets(io) {
       }
 
       if (result.endMatch) {
-        if (leaveMessage) emitChatMessages(io, room, leaveMessage);
+        if (leaveMessage || hostTransferMessage) emitChatMessages(io, room, hostTransferMessage || leaveMessage);
         endGame(io, room);
         return;
       }
@@ -1174,7 +1177,7 @@ function initGameSockets(io) {
       if (room.status !== ROOM_STATUS.CLOSED) {
         room.setLobbyView(socket.id, false);
         emitRoomState(io, room);
-        if (leaveMessage) emitChatMessages(io, room, leaveMessage);
+        if (leaveMessage || hostTransferMessage) emitChatMessages(io, room, hostTransferMessage || leaveMessage);
       }
     });
   });
