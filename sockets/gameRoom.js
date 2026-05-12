@@ -462,16 +462,23 @@ class RoomGame {
     }
 
     if (this._isLobbyState() || this.status === ROOM_STATUS.POST_MATCH || this.status === ROOM_STATUS.ROUND_END || this.status === ROOM_STATUS.GAME_OVER) {
+      const shouldReturnToLobby = this.status === ROOM_STATUS.ROUND_END && this._connectedPlayers().length <= 2;
       this.players.delete(socketId);
       if (this.hostId === socketId) {
         this._reassignHost();
       }
-      this._refreshLobbyStatus();
+
+      if (shouldReturnToLobby) {
+        this._returnConnectedPlayersToLobby();
+      } else {
+        this._refreshLobbyStatus();
+      }
 
       return {
         changed: true,
         closed: this.players.size === 0,
-        endMatch: false
+        endMatch: false,
+        returnToLobby: shouldReturnToLobby && this.players.size > 0
       };
     }
 

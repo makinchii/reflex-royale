@@ -40,6 +40,7 @@ let roomEntryMode = "join";
 let selectedThemeCommand = getCurrentLocalThemeCommand();
 let selectedEntryRoundCount = 5;
 let closeThemePickerOnOutsideClick = null;
+let lastRoundEndData = null;
 const themePalette = getLocalPlayerThemePalette();
 
 function announceMatchState(inProgress) {
@@ -796,6 +797,39 @@ function renderPostMatchScreen(state) {
   renderHostControls(state.players);
 }
 
+function renderRoundEndScreen({ roundNum, results }) {
+  root.innerHTML = `
+  <div class="online-state online-state--round-end">
+      <div class="online-state__center">
+        <div class="round-results">
+          <h2>Round ${roundNum} Results</h2>
+          <ol class="results-list">
+            ${results.map((r, i) => `
+              <li class="${i === 0 && r.outcome === "valid" ? 'winner' : ''}${r.id === myPlayerId ? ' you' : ''}">
+                <span class="result-name">${esc(r.name)}</span>
+                <span class="result-time">${formatResult(r)}</span>
+                <span class="result-points">${r.points ? "+" + r.points : "—"}</span>
+              </li>
+            `).join("")}
+          </ol>
+          <div class="game-over-actions">
+            ${isHost ? '<button id="nextRoundBtn" class="btn btn-primary btn-big">Next Round</button>' : '<p class="hint">Waiting for host…</p>'}
+          </div>
+        </div>
+      </div>
+      ${renderMatchHostControls()}
+      ${renderChatPanel()}
+  </div>
+  `;
+
+  if (isHost) {
+    document.getElementById("nextRoundBtn").addEventListener("click", () => socket.emit("nextRound"));
+  }
+  wireChatControls();
+  renderChat(roomState?.chatMessages || []);
+  renderHostControls(roomState?.players || [], "Kick");
+}
+
 socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier, hostReclaimToken: createdHostReclaimToken }) => {
   pendingJoinSource = null;
   dismissReconnectPrompt();
@@ -854,15 +888,19 @@ socket.on("roomState", (state) => {
   const currentPlayer = state.players.find((player) => player.id === myPlayerId);
 
   if (state.status === "waiting_for_players" || state.status === "ready_check") {
+    lastRoundEndData = null;
     renderLobby(state);
     renderChat(state.chatMessages || []);
   } else if (state.status === "post_match") {
+    lastRoundEndData = null;
     if (currentPlayer?.isInLobbyView || state.players.length <= 1) {
       renderLobby(state);
     } else {
       renderPostMatchScreen(state);
     }
     renderChat(state.chatMessages || []);
+  } else if (state.status === "roundEnd" && lastRoundEndData) {
+    renderRoundEndScreen(lastRoundEndData);
   }
 });
 
@@ -959,6 +997,7 @@ socket.on("removedFromLobby", () => {
 
 socket.on("countdown", ({ remaining }) => {
   announceMatchState(true);
+  lastRoundEndData = null;
   if (!matchStartedAt) {
     matchStartedAt = Date.now();
     matchRecorded = false;
@@ -986,36 +1025,8 @@ socket.on("playerReacted", ({ id, time }) => {
 });
 
 socket.on("roundEnd", ({ roundNum, results }) => {
-  root.innerHTML = `
-  <div class="online-state online-state--round-end">
-      <div class="online-state__center">
-        <div class="round-results">
-          <h2>Round ${roundNum} Results</h2>
-          <ol class="results-list">
-            ${results.map((r, i) => `
-              <li class="${i === 0 && r.outcome === "valid" ? 'winner' : ''}${r.id === myPlayerId ? ' you' : ''}">
-                <span class="result-name">${esc(r.name)}</span>
-                <span class="result-time">${formatResult(r)}</span>
-                <span class="result-points">${r.points ? "+" + r.points : "—"}</span>
-              </li>
-            `).join("")}
-          </ol>
-          <div class="game-over-actions">
-            ${isHost ? '<button id="nextRoundBtn" class="btn btn-primary btn-big">Next Round</button>' : '<p class="hint">Waiting for host…</p>'}
-          </div>
-        </div>
-      </div>
-      ${renderMatchHostControls()}
-      ${renderChatPanel()}
-  </div>
-  `;
-
-  if (isHost) {
-    document.getElementById("nextRoundBtn").addEventListener("click", () => socket.emit("nextRound"));
-  }
-  wireChatControls();
-  renderChat(roomState?.chatMessages || []);
-  renderHostControls(roomState?.players || [], "Kick");
+  lastRoundEndData = { roundNum, results };
+  renderRoundEndScreen(lastRoundEndData);
 });
 
 socket.on("gameOver", ({ standings }) => {
