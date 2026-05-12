@@ -499,10 +499,10 @@ function renderRoster(players) {
 function renderRosterSlot(player) {
   const canRemove = isHost && player.id !== myPlayerId;
   return `
-    <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
+    <div class="player-slot ${player.isReady ? "player-slot--ready" : ""} ${canRemove ? "player-slot--removable" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
       <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
       <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
-      ${canRemove ? `<button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${esc(player.name)}" data-remove-id="${player.id}">&times;</button>` : ""}
+      ${canRemove ? `<button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${esc(player.name)}" data-remove-id="${player.id}"></button>` : ""}
     </div>
   `;
 }
@@ -627,15 +627,23 @@ function renderMatchScreen(message, lightClass) {
   const feedback = isFlash ? `<span class="false-start">${message}</span>` : "";
 
   root.innerHTML = `
-    <div class="${arenaClass}">
-      <div class="player-panel-solo"${signalAttr}>
-        <div class="panel-light">
-          <div class="light-circle ${lightClass}"></div>
+    <div class="online-state online-state--match">
+      <div class="online-state__center">
+        <div class="${arenaClass}">
+          <div class="player-panel-solo"${signalAttr}>
+            <div class="panel-light">
+              <div class="light-circle ${lightClass}"></div>
+            </div>
+          </div>
+          <div class="solo-feedback">${feedback}</div>
         </div>
       </div>
-      <div class="solo-feedback">${feedback}</div>
+      ${renderChatPanel()}
     </div>
   `;
+
+  wireChatControls();
+  renderChat(roomState?.chatMessages || []);
 }
 
 function renderPostMatchScreen(state) {
@@ -643,33 +651,37 @@ function renderPostMatchScreen(state) {
   const waitingText = state.waitingFor?.length ? `Waiting for: ${state.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
 
   root.innerHTML = `
-      <div class="game-over">
-      <h1 class="winner-banner">Room ${esc(state.room)}</h1>
-      <p class="hint">${esc(waitingText)}</p>
-      <p class="hint">Rounds: ${state.totalRounds}</p>
-      ${renderChatPanel()}
-      <div class="game-over-actions">
-        <button id="returnLobbyBtn" class="btn btn-primary btn-big">${currentPlayer?.isInLobbyView ? "Back in Lobby" : "Return to Lobby"}</button>
-        <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
+      <div class="online-state online-state--post-match">
+        <div class="online-state__center">
+          <div class="game-over">
+            <h1 class="winner-banner">Room ${esc(state.room)}</h1>
+            <p class="hint">${esc(waitingText)}</p>
+            <p class="hint">Rounds: ${state.totalRounds}</p>
+            <div class="game-over-actions">
+              <button id="returnLobbyBtn" class="btn btn-primary btn-big">${currentPlayer?.isInLobbyView ? "Back in Lobby" : "Return to Lobby"}</button>
+              <button id="leaveRoomBtn" class="btn btn-secondary">Leave Room</button>
+            </div>
+            ${isHost ? '<div id="hostRosterControls" class="game-over-actions"></div>' : ""}
+            <div id="remotePlayerSlots" class="player-slots"></div>
+            <table class="standings-table">
+              <thead><tr>
+                <th>#</th><th>Player</th><th>Score</th><th>Wins</th>
+                <th>Best</th><th>Avg</th><th>False Starts</th>
+              </tr></thead>
+              <tbody>
+                ${(state.standings || []).map((s, i) => `
+                  <tr style="color:${s.color}" class="${i === 0 ? 'first-place' : ''}${s.id === myPlayerId ? ' you-row' : ''}">
+                    <td>${i + 1}</td><td>${esc(s.name)}</td><td>${s.totalScore}</td>
+                    <td>${s.wins}</td><td>${s.bestTime !== null ? s.bestTime + " ms" : "—"}</td>
+                    <td>${s.avgTime !== null ? s.avgTime + " ms" : "—"}</td><td>${s.falseStarts}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        ${renderChatPanel()}
       </div>
-      ${isHost ? '<div id="hostRosterControls" class="game-over-actions"></div>' : ""}
-      <div id="remotePlayerSlots" class="player-slots"></div>
-      <table class="standings-table">
-        <thead><tr>
-          <th>#</th><th>Player</th><th>Score</th><th>Wins</th>
-          <th>Best</th><th>Avg</th><th>False Starts</th>
-        </tr></thead>
-        <tbody>
-          ${(state.standings || []).map((s, i) => `
-            <tr style="color:${s.color}" class="${i === 0 ? 'first-place' : ''}${s.id === myPlayerId ? ' you-row' : ''}">
-              <td>${i + 1}</td><td>${esc(s.name)}</td><td>${s.totalScore}</td>
-              <td>${s.wins}</td><td>${s.bestTime !== null ? s.bestTime + " ms" : "—"}</td>
-              <td>${s.avgTime !== null ? s.avgTime + " ms" : "—"}</td><td>${s.falseStarts}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
   `;
 
   document.getElementById("returnLobbyBtn").addEventListener("click", () => socket.emit("requestLobbyView"));
@@ -850,22 +862,26 @@ socket.on("playerReacted", ({ id, time }) => {
 
 socket.on("roundEnd", ({ roundNum, results }) => {
   root.innerHTML = `
-  <div class="game-over">
-      <div class="round-results">
-        <h2>Round ${roundNum} Results</h2>
-        <ol class="results-list">
-          ${results.map((r, i) => `
-            <li class="${i === 0 && r.outcome === "valid" ? 'winner' : ''}${r.id === myPlayerId ? ' you' : ''}">
-              <span class="result-name">${esc(r.name)}</span>
-              <span class="result-time">${formatResult(r)}</span>
-              <span class="result-points">${r.points ? "+" + r.points : "—"}</span>
-            </li>
-          `).join("")}
-        </ol>
-        ${renderChatPanel()}
-        ${isHost ? '<button id="nextRoundBtn" class="btn btn-primary btn-big">Next Round</button>' : '<p class="hint">Waiting for host…</p>'}
+  <div class="online-state online-state--round-end">
+      <div class="online-state__center">
+        <div class="round-results">
+          <h2>Round ${roundNum} Results</h2>
+          <ol class="results-list">
+            ${results.map((r, i) => `
+              <li class="${i === 0 && r.outcome === "valid" ? 'winner' : ''}${r.id === myPlayerId ? ' you' : ''}">
+                <span class="result-name">${esc(r.name)}</span>
+                <span class="result-time">${formatResult(r)}</span>
+                <span class="result-points">${r.points ? "+" + r.points : "—"}</span>
+              </li>
+            `).join("")}
+          </ol>
+          <div class="game-over-actions">
+            ${isHost ? '<button id="nextRoundBtn" class="btn btn-primary btn-big">Next Round</button>' : '<p class="hint">Waiting for host…</p>'}
+          </div>
+        </div>
       </div>
-    </div>
+      ${renderChatPanel()}
+  </div>
   `;
 
   if (isHost) {
@@ -880,27 +896,32 @@ socket.on("gameOver", ({ standings }) => {
   recordOnlineRecentMatch(standings || []);
 
   root.innerHTML = `
-    <div class="game-over">
-      <h1 class="winner-banner">🏆 ${esc(standings[0].name)} Wins! 🏆</h1>
-      <table class="standings-table">
-        <thead><tr>
-          <th>#</th><th>Player</th><th>Score</th><th>Wins</th>
-          <th>Best</th><th>Avg</th><th>False Starts</th>
-        </tr></thead>
-        <tbody>
-          ${standings.map((s, i) => `
-            <tr style="color:${s.color}" class="${i === 0 ? 'first-place' : ''}${s.id === myPlayerId ? ' you-row' : ''}">
-              <td>${i + 1}</td><td>${esc(s.name)}</td><td>${s.totalScore}</td>
-              <td>${s.wins}</td><td>${s.bestTime !== null ? s.bestTime + " ms" : "—"}</td>
-              <td>${s.avgTime !== null ? s.avgTime + " ms" : "—"}</td><td>${s.falseStarts}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-      <div class="game-over-actions">
-        <button id="returnLobbyBtn" class="btn btn-primary btn-big">Return to Lobby</button>
-        ${isHost ? '<button id="playAgainBtn" class="btn btn-secondary">Play Again</button>' : ''}
+    <div class="online-state online-state--game-over">
+      <div class="online-state__center">
+        <div class="game-over">
+          <h1 class="winner-banner">🏆 ${esc(standings[0].name)} Wins! 🏆</h1>
+          <table class="standings-table">
+            <thead><tr>
+              <th>#</th><th>Player</th><th>Score</th><th>Wins</th>
+              <th>Best</th><th>Avg</th><th>False Starts</th>
+            </tr></thead>
+            <tbody>
+              ${standings.map((s, i) => `
+                <tr style="color:${s.color}" class="${i === 0 ? 'first-place' : ''}${s.id === myPlayerId ? ' you-row' : ''}">
+                  <td>${i + 1}</td><td>${esc(s.name)}</td><td>${s.totalScore}</td>
+                  <td>${s.wins}</td><td>${s.bestTime !== null ? s.bestTime + " ms" : "—"}</td>
+                  <td>${s.avgTime !== null ? s.avgTime + " ms" : "—"}</td><td>${s.falseStarts}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+          <div class="game-over-actions">
+            <button id="returnLobbyBtn" class="btn btn-primary btn-big">Return to Lobby</button>
+            ${isHost ? '<button id="playAgainBtn" class="btn btn-secondary">Play Again</button>' : ''}
+          </div>
+        </div>
       </div>
+      ${renderChatPanel()}
     </div>
   `;
 

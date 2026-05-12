@@ -356,12 +356,18 @@ export class UIRenderer {
 
     container.innerHTML = this._renderDockedPlayerSlots(players);
 
-    // Remove buttons
-    container.querySelectorAll(".btn-remove").forEach(btn => {
-      btn.addEventListener("click", () => {
-        this.engine.removePlayer(btn.dataset.id);
+    if (!container.dataset.removeDelegated) {
+      container.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = target.closest(".btn-remove[data-id]");
+        if (!button || !container.contains(button)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.engine.removePlayer(button.dataset.id);
       });
-    });
+      container.dataset.removeDelegated = "true";
+    }
 
     // Enable/disable start button
     const startBtn = this.root.querySelector("#startGameBtn");
@@ -379,10 +385,10 @@ export class UIRenderer {
 
       return `
         <div class="player-slot-dock player-slot-dock--${position}">
-          <div class="player-slot ${p.ready ? "player-slot--ready" : ""}" style="--player-color:${p.color}; border-color:${p.color}">
+          <div class="player-slot ${p.ready ? "player-slot--ready" : ""} player-slot--removable" style="--player-color:${p.color}; border-color:${p.color}">
             <span class="player-slot-name" style="color:${p.color}">${this._esc(p.name)}</span>
             <span class="player-slot__protocol">${this._esc(this.themePalette.find((protocol) => protocol.id === p.themeCommand)?.label || "Custom")}</span>
-            <button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${this._esc(p.name)}" data-id="${p.id}">&times;</button>
+            <button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${this._esc(p.name)}" data-id="${p.id}"></button>
           </div>
         </div>
       `;

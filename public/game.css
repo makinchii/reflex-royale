@@ -536,8 +536,12 @@ body {
 }
 
 .player-panel-solo {
+  position: relative;
   display: flex;
+  align-items: center;
   justify-content: center;
+  width: min(88cqw, 44rem);
+  min-height: min(56cqh, 30rem);
 }
 
 .solo-feedback {
@@ -1696,8 +1700,8 @@ body {
 }
 
 #game-root .player-slot--ready .player-slot__protocol,
-#game-root .player-slot:hover .player-slot__protocol,
-#game-root .player-slot:focus-within .player-slot__protocol {
+#game-root .player-slot.player-slot--removable:hover .player-slot__protocol,
+#game-root .player-slot.player-slot--removable:focus-within .player-slot__protocol {
   border-color: rgba(5, 7, 11, 0.28);
   color: #05070b;
 }
@@ -2232,71 +2236,104 @@ body {
 }
 
 #game-root .player-slot--ready .player-slot__protocol,
-#game-root .player-slot:hover .player-slot__protocol,
-#game-root .player-slot:focus-within .player-slot__protocol {
+#game-root .player-slot.player-slot--removable:hover .player-slot__protocol,
+#game-root .player-slot.player-slot--removable:focus-within .player-slot__protocol {
   border-color: rgba(5, 7, 11, 0.28);
   color: #05070b;
 }
 
 #game-root .player-slot__remove {
+  appearance: none;
   position: absolute;
-  right: 10px;
-  top: 50%;
-  z-index: 2;
-  width: 30px;
-  height: 30px;
+  inset: 0;
+  z-index: 8;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   padding: 0;
-  border: 2px solid var(--red, #ff1744);
-  background: color-mix(in srgb, var(--red, #ff1744) 16%, transparent);
+  border: 0;
+  background: transparent;
   color: var(--red, #ff1744);
-  display: grid;
-  place-items: center;
-  font-size: 1.25rem;
+  display: block;
+  font-size: 0;
   line-height: 0;
+  letter-spacing: 0;
   font-weight: 900;
+  text-align: center;
+  text-transform: none;
   opacity: 0;
+  overflow: visible;
   pointer-events: none;
-  transform: translateY(-50%) scale(0.94);
-  box-shadow:
-    0 0 0 color-mix(in srgb, var(--red, #ff1744) 0%, transparent),
-    inset 0 0 0 color-mix(in srgb, var(--red, #ff1744) 0%, transparent);
-  transition: opacity 160ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transform: none;
+  transition: opacity 160ms ease, color 180ms ease, transform 180ms ease;
 }
 
-#game-root .player-slot:hover,
-#game-root .player-slot:focus-within {
+#game-root .player-slot__remove::before,
+#game-root .player-slot__remove::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  width: clamp(1.5rem, 2.7cqw, 2rem);
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--player-color, currentColor) 48%, transparent);
+  transform-origin: center;
+}
+
+#game-root .player-slot__remove::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+#game-root .player-slot__remove::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+#game-root .player-slot__remove-icon {
+  display: none;
+}
+
+#game-root .player-slot.player-slot--removable:hover,
+#game-root .player-slot.player-slot--removable:focus-within {
+  --player-slot-hover-color: var(--player-color, currentColor);
+  border-color: color-mix(in srgb, var(--red, #ff1744) 84%, white 8%) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    color-mix(in srgb, var(--player-color, currentColor) 74%, black 26%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.025)),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--player-slot-hover-color) 34%, transparent), transparent 46%),
+    color-mix(in srgb, var(--player-slot-hover-color) 44%, black 56%);
+  box-shadow:
+    0 0 22px color-mix(in srgb, var(--player-slot-hover-color) 54%, transparent),
+    0 0 52px color-mix(in srgb, var(--player-slot-hover-color) 24%, transparent),
+    inset 0 0 18px color-mix(in srgb, #ffffff 18%, transparent);
 }
 
-#game-root .player-slot:hover .player-slot-name,
-#game-root .player-slot:focus-within .player-slot-name {
+#game-root .player-slot.player-slot--removable:hover .player-slot-name,
+#game-root .player-slot.player-slot--removable:focus-within .player-slot-name {
+  opacity: 0;
   color: #05070b !important;
   text-shadow: none;
 }
 
-#game-root .player-slot:hover .player-slot__remove,
-#game-root .player-slot:focus-within .player-slot__remove {
+#game-root .player-slot.player-slot--removable:hover .player-slot__protocol,
+#game-root .player-slot.player-slot--removable:focus-within .player-slot__protocol {
+  opacity: 0;
+}
+
+#game-root .player-slot.player-slot--removable:hover .player-slot__remove,
+#game-root .player-slot.player-slot--removable:focus-within .player-slot__remove {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(-50%) scale(1);
-  background: color-mix(in srgb, var(--red, #ff1744) 100%, black 4%);
-  color: #05070b;
-  box-shadow:
-    0 0 20px color-mix(in srgb, var(--red, #ff1744) 72%, transparent),
-    0 0 42px color-mix(in srgb, var(--red, #ff1744) 42%, transparent),
-    inset 0 0 14px color-mix(in srgb, #ffffff 32%, transparent);
+  transform: none;
+  color: var(--red, #ff1744);
 }
 
 #game-root .player-slot__remove:hover,
 #game-root .player-slot__remove:focus-visible {
-  background: var(--red, #ff1744);
-  color: #000;
-  box-shadow:
-    0 0 24px color-mix(in srgb, var(--red, #ff1744) 82%, transparent),
-    0 0 56px color-mix(in srgb, var(--red, #ff1744) 54%, transparent),
-    inset 0 0 18px color-mix(in srgb, #ffffff 36%, transparent);
+  background: transparent;
+  box-shadow: none;
+  color: var(--red, #ff1744);
 }
 
 #game-root .player-slot kbd,
@@ -2394,10 +2431,10 @@ body {
 }
 
 #game-root .chat-panel.chat-panel--terminal {
-  position: absolute;
+  position: fixed;
   left: clamp(1rem, 2cqw, 1.5rem);
   bottom: clamp(1rem, 2cqh, 1.5rem);
-  z-index: 12;
+  z-index: 48;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
@@ -2413,6 +2450,55 @@ body {
     0 0 24px color-mix(in oklch, var(--primary, #68e8ff) 10%, transparent),
     inset 0 0 22px color-mix(in oklch, var(--primary, #68e8ff) 5%, transparent);
   text-align: left;
+  pointer-events: auto;
+}
+
+#game-root .online-state {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  place-items: center;
+  padding: clamp(1rem, 2.1cqh, 2rem) clamp(1rem, 2.4cqw, 2rem) clamp(14rem, 28cqh, 20rem);
+}
+
+#game-root .online-state__center {
+  position: relative;
+  z-index: 22;
+  display: grid;
+  place-items: center;
+  width: min(100%, 70rem);
+  min-height: min(60cqh, 36rem);
+  padding: clamp(0.75rem, 1.2cqh, 1.4rem);
+  pointer-events: none;
+}
+
+#game-root .online-state__center > * {
+  pointer-events: auto;
+}
+
+#game-root .online-state--match .arena-solo {
+  width: 100%;
+  min-height: min(56cqh, 34rem);
+}
+
+#game-root .online-state--round-end .round-results,
+#game-root .online-state--game-over .game-over,
+#game-root .online-state--post-match .game-over {
+  width: min(100%, 44rem);
+}
+
+#game-root .online-state--round-end .round-results,
+#game-root .online-state--game-over .game-over,
+#game-root .online-state--post-match .game-over,
+#game-root .online-state--match .arena-solo {
+  margin: 0;
+}
+
+#game-root .online-state .game-over-actions {
+  position: relative;
+  z-index: 56;
 }
 
 #game-root .chat-terminal-bar {

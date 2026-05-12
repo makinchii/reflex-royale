@@ -107,7 +107,7 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
 
   return (
     <>
-      <link rel="stylesheet" href="/game.css" />
+      <link rel="stylesheet" href={`/game.css?v=${moduleVersion}`} />
       <div data-wait-for-legacy-ready="true" className="flex min-h-0 w-full flex-1">
         {showAccountMenu ? <div id="account-menu-root" className="account-menu-root" suppressHydrationWarning /> : null}
         <div id="game-root" suppressHydrationWarning />
