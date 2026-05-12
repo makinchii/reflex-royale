@@ -122,6 +122,24 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState(false);
   const [visualAnimationsEnabled, setVisualAnimationsEnabled] = useState(true);
+  const [isInViewport, setIsInViewport] = useState(true);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        setIsInViewport(entry.isIntersecting && entry.intersectionRatio > 0.06);
+      },
+      { root: null, rootMargin: "120px", threshold: [0, 0.06, 0.2] },
+    );
+
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const syncAnimationPreference = () => {
@@ -176,8 +194,15 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
     const fixedTiltCos = Math.cos(fixedTiltRadians);
     const fixedTiltSin = Math.sin(fixedTiltRadians);
     const minFrameDuration = 1000 / Math.max(1, maxFps);
+    let dynamicFrameDuration = minFrameDuration;
+    let detailTier: 0 | 1 | 2 = 0;
+    let qualitySampleCount = 0;
+    let qualitySampleTotal = 0;
+    const qualitySampleWindow = 24;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.6);
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    const baseDprCap = kind === "earth" ? 1.35 : 1.45;
+    const dpr = Math.min(devicePixelRatio, baseDprCap);
     canvas.width = renderWidth * dpr;
     canvas.height = renderHeight * dpr;
     canvas.style.width = "100%";
@@ -395,9 +420,11 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
 
         if (surface === "detailed") {
           ctx.fillStyle = primary;
-          ctx.globalAlpha = 0.34;
+          ctx.globalAlpha = detailTier === 0 ? 0.34 : detailTier === 1 ? 0.3 : 0.26;
           ctx.beginPath();
-          for (const dot of moonDots) {
+          const moonDotStride = detailTier === 0 ? 1 : detailTier === 1 ? 2 : 3;
+          for (let index = 0; index < moonDots.length; index += moonDotStride) {
+            const dot = moonDots[index];
             if (!isDotVisible(dot)) continue;
             const projected = projectVisiblePoint(dot);
             if (!projected) continue;
@@ -406,7 +433,9 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
           }
           ctx.fill();
 
-          for (const crater of moonCraters) {
+          const craterStride = detailTier === 2 ? 2 : 1;
+          for (let craterIndex = 0; craterIndex < moonCraters.length; craterIndex += craterStride) {
+            const crater = moonCraters[craterIndex];
             if (!isCoordinateVisible(crater.lng, crater.lat)) continue;
             const projected = projectVisiblePoint(createDot(crater.lng, crater.lat));
             if (!projected) continue;
@@ -439,7 +468,7 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
 
       if (kind === "earth" && landFeatures) {
         ctx.strokeStyle = primary;
-        ctx.globalAlpha = 0.22;
+        ctx.globalAlpha = detailTier === 0 ? 0.22 : detailTier === 1 ? 0.19 : 0.16;
         ctx.lineWidth = 0.8;
         drawVisibleRings(earthGraticuleRings);
         ctx.stroke();
@@ -453,9 +482,11 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = primary;
-        ctx.globalAlpha = 0.42;
+        ctx.globalAlpha = detailTier === 0 ? 0.42 : detailTier === 1 ? 0.36 : 0.3;
         ctx.beginPath();
-        for (const dot of dots) {
+        const earthDotStride = detailTier === 0 ? 1 : detailTier === 1 ? 2 : 3;
+        for (let index = 0; index < dots.length; index += earthDotStride) {
+          const dot = dots[index];
           if (!isDotVisible(dot)) continue;
           const projected = projectVisiblePoint(dot);
           if (!projected) continue;
@@ -473,11 +504,32 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
         return;
       }
 
-      if (timestamp - lastFrameAt < minFrameDuration) {
+      if (timestamp - lastFrameAt < dynamicFrameDuration) {
         return;
       }
 
+      const frameInterval = lastFrameAt ? timestamp - lastFrameAt : minFrameDuration;
       lastFrameAt = timestamp;
+      qualitySampleCount += 1;
+      qualitySampleTotal += frameInterval;
+
+      if (qualitySampleCount >= qualitySampleWindow) {
+        const averageInterval = qualitySampleTotal / qualitySampleCount;
+        qualitySampleCount = 0;
+        qualitySampleTotal = 0;
+
+        if (averageInterval > 25) {
+          detailTier = 2;
+          dynamicFrameDuration = Math.max(minFrameDuration, 1000 / 30);
+        } else if (averageInterval > 20) {
+          detailTier = 1;
+          dynamicFrameDuration = Math.max(minFrameDuration, 1000 / 40);
+        } else {
+          detailTier = 0;
+          dynamicFrameDuration = minFrameDuration;
+        }
+      }
+
       frame += kind === "earth" ? 0.18 : -0.18;
       const frameRadians = frame * degreesToRadians;
       frameCos = Math.cos(frameRadians);
@@ -486,7 +538,7 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
     }
 
     function shouldAnimate() {
-      if (prefersReducedMotion || !animated || !visualAnimationsEnabled) return false;
+      if (prefersReducedMotion || !animated || !visualAnimationsEnabled || !isInViewport) return false;
       return !hoverAnimationTrigger || hoverAnimationTrigger.matches(":hover") || hoverAnimationTrigger.matches(":focus-within");
     }
 
@@ -573,7 +625,7 @@ export function WireframeDottedGlobe({ animateOnHoverWithinSelector, animated = 
       hoverAnimationTrigger?.removeEventListener("focusin", handleHoverAnimationChange);
       hoverAnimationTrigger?.removeEventListener("focusout", handleHoverAnimationChange);
     };
-  }, [animateOnHoverWithinSelector, animated, className, height, kind, maxFps, surface, visualAnimationsEnabled, width]);
+  }, [animateOnHoverWithinSelector, animated, className, height, isInViewport, kind, maxFps, surface, visualAnimationsEnabled, width]);
 
   return (
     <div className={cn("navigate-globe-canvas", className)}>

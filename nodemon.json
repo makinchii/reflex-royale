@@ -4,7 +4,6 @@
     "src",
     "routes",
     "sockets",
-    "views",
     "public",
     "components.json",
     "package.json"

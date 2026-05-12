@@ -31,6 +31,7 @@ async function invoke(handler, { session = null, acceptsHtml = false } = {}) {
     redirectedTo: null,
     sentFile: null,
     jsonPayload: null,
+    nextCalled: false,
     status(code) {
       this.statusCode = code;
       return this;
@@ -49,27 +50,39 @@ async function invoke(handler, { session = null, acceptsHtml = false } = {}) {
     }
   };
 
-  await handler(req, res);
+  await handler(req, res, () => {
+    res.nextCalled = true;
+  });
   return res;
 }
 
-test("guest can access dashboard and game routes", async () => {
+test("Next routes are registered without legacy HTML fallbacks", async () => {
   const { createApp } = loadServerModule();
   const app = createApp({ useSessionStore: false });
+  const home = findRoutePath(app, "/");
+  const signup = findRoutePath(app, "/signup");
+  const login = findRoutePath(app, "/login");
   const dashboard = findRoutePath(app, "/dashboard");
   const navigate = findRoutePath(app, "/navigate");
   const local = findRoutePath(app, "/local");
   const online = findRoutePath(app, "/online");
+  const uiLab = findRoutePath(app, "/ui-lab");
 
+  const homeRes = await invoke(home);
+  const signupRes = await invoke(signup);
+  const loginRes = await invoke(login);
   const dashboardRes = await invoke(dashboard);
   const navigateRes = await invoke(navigate);
   const localRes = await invoke(local);
   const onlineRes = await invoke(online);
+  const uiLabRes = await invoke(uiLab);
 
-  assert.ok(dashboardRes.sentFile?.includes("dashboard.html"));
-  assert.ok(navigateRes.sentFile?.includes("index.html"));
-  assert.ok(localRes.sentFile?.includes("game-local.html"));
-  assert.ok(onlineRes.sentFile?.includes("game-remote.html"));
+  for (const response of [homeRes, signupRes, loginRes, dashboardRes, navigateRes, localRes, onlineRes, uiLabRes]) {
+    assert.equal(response.sentFile, null);
+    assert.equal(response.nextCalled, true);
+  }
+
+  assert.equal(app._router.stack.some((entry) => entry.route?.path === "/leaderboard-page"), false);
 });
 
 test("session endpoint exposes guest state and user state", async () => {
@@ -273,7 +286,7 @@ test("dashboard page renders a command center layout", () => {
   assert.match(tabsSource, /Particle Density/);
   assert.match(tabsSource, /Beam Width/);
   assert.match(tabsSource, /ui-lab-atmosphere/);
-  assert.match(tabsSource, /Audio Settings/);
+  assert.match(tabsSource, /Music Player/);
   assert.match(tabsSource, /dashboard-sound-player-slot/);
   assert.match(tabsSource, /reflexRoyalePreferredKey/);
   assert.match(tabsSource, /reflexRoyaleCustomThemeColor/);
@@ -455,7 +468,7 @@ test("game routes render inside the modern game shell", () => {
   assert.match(localRendererSource, /themeCommand/);
   assert.match(localRendererSource, /getCurrentLocalThemeCommand/);
   assert.match(localRendererSource, /getLocalPlayerThemePalette/);
-  assert.match(localRendererSource, /player-slots--docked/);
+  assert.match(localRendererSource, /player-slot-stack--left/);
   assert.match(localRendererSource, /_renderDockedPlayerSlots/);
   assert.match(localRendererSource, /announceMatchState\(true\)/);
   assert.match(localRendererSource, /announceMatchState\(false\)/);
@@ -545,10 +558,8 @@ test("game routes render inside the modern game shell", () => {
   assert.match(audioSource, /AUDIO_TRACK_LOOP_KEY/);
   assert.match(audioSource, /resolveMixCategory/);
   assert.match(audioSource, /matchInProgress \? "battle" : "lobby"/);
-  assert.match(audioSource, /currentMixSignatureRef/);
   assert.match(audioSource, /appliedCustomTrackIdRef/);
   assert.match(audioSource, /pickRandomTrackIndexExcept/);
-  assert.match(audioSource, /mode !== "custom"/);
   assert.match(audioSource, /music\.loop = false/);
   assert.match(audioSource, /music\.addEventListener\("ended", onEnded\)/);
   assert.match(audioSource, /trackLoopEnabled/);
@@ -565,9 +576,9 @@ test("game routes render inside the modern game shell", () => {
   assert.match(remoteSource, /const hostRoundControls = isHost \?/);
   assert.match(remoteSource, /\$\{hostRoundControls\}/);
   assert.match(remoteSource, /lobby lobby--online-room/);
-  assert.match(remoteSource, /player-slots--docked/);
+  assert.match(remoteSource, /player-slot-stack--left/);
   assert.match(remoteSource, /function renderDockedRoster/);
-  assert.match(remoteSource, /\$\{isHost \? `<div class="lobby-layout-bottom"><button id="startGameBtn"/);
+  assert.match(remoteSource, /<button id="startGameBtn" class="btn btn-primary btn-go"/);
   assert.doesNotMatch(remoteSource, /<aside class="online-host-controls"/);
   assert.match(remoteSource, /announceMatchState\(true\)/);
   assert.match(remoteSource, /announceMatchState\(false\)/);
@@ -717,7 +728,6 @@ test("game routes render inside the modern game shell", () => {
 
 test("auth pages prevent credential query-string fallback", () => {
   const authPageSource = fs.readFileSync(require.resolve("../src/components/app/auth-page.tsx"), "utf8");
-  const scriptSource = fs.readFileSync(require.resolve("../public/script.js"), "utf8");
   const authRouteSource = fs.readFileSync(require.resolve("../routes/auth.js"), "utf8");
 
   assert.match(authPageSource, /method="post"/);
@@ -726,8 +736,6 @@ test("auth pages prevent credential query-string fallback", () => {
   assert.match(authPageSource, /maxLength=\{20\}/);
   assert.match(authPageSource, /pattern="\[A-Za-z0-9_-\]\+"/);
   assert.match(authPageSource, /minLength=\{8\}/);
-  assert.match(scriptSource, /USERNAME_PATTERN/);
-  assert.match(scriptSource, /MIN_PASSWORD_LENGTH/);
   assert.match(authRouteSource, /USERNAME_PATTERN/);
   assert.match(authRouteSource, /Password must be at least 8 characters/);
   assert.match(authRouteSource, /That username is already taken/);

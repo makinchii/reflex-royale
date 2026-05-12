@@ -5,6 +5,7 @@ node_modules/
 .audio-work/
 playwright-report/
 test-results/
+tsconfig.tsbuildinfo
 public/audio/*
 !public/audio/
 !public/audio/ui-click.mp3

@@ -7,15 +7,9 @@ Reflex Royale is a multiplayer reaction game built with a Next.js UI, an Express
 - Account signup and login with bcrypt password hashing
 - MongoDB Atlas persistence through Mongoose
 - Server-authoritative online rooms with chat, reconnect, and host controls
-- Local shared-keyboard play through the current legacy game shell
-- Next.js landing, dashboard, auth, and UI Lab screens for the ongoing UI overhaul
+- Local shared-keyboard play through the Next-mounted game shell
+- Next.js landing, dashboard, auth, navigation, play, and UI Lab screens
 - Theme and intensity controls for the new neon visual system
-
-## Planning Docs
-
-- UI overhaul roadmap: `UI_OVERHAUL_ROADMAP.md`
-- Canonical migration plan: `openspec/react-migration-master-plan.md`
-- Technical spec: `reflex_royale_technical_spec.md`
 
 ## Project Structure
 
@@ -25,8 +19,7 @@ reaction-game/
   src/app/                  Next.js app routes
   src/components/           React app and TheGridCN components
   src/lib/                  Shared auth, metadata, UI, and data helpers
-  public/                   Legacy game scripts/styles still used by play routes
-  views/                    Legacy fallback HTML when NEXT_FRONTEND=false
+  public/                   Static assets and game scripts/styles used by play routes
   routes/                   Express API routes
   sockets/                  Online game room socket logic
   tests/                    Node test suite
@@ -55,8 +48,6 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
-
-The Next frontend is enabled by default. Set `NEXT_FRONTEND=false` to use the legacy HTML fallback routes while the UI migration is still in progress.
 
 ## Tests
 

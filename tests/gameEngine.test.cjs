@@ -71,12 +71,9 @@ function loadGameEngine(clock = new FakeClock()) {
   const sourcePath = path.join(__dirname, "..", "public", "js", "GameEngine.js");
   let source = fs.readFileSync(sourcePath, "utf8");
 
+  source = source.replace(/import \{ normalizeGameKey \} from "\.\/keyMap\.js";\r?\n/, "const { normalizeGameKey } = globalThis.__gameKeys;\n");
   source = source.replace("export const GameState = Object.freeze({", "const GameState = Object.freeze({");
   source = source.replace("export class GameEngine {", "class GameEngine {");
-  source = source.replace(
-    'import { normalizeGameKey } from "./keyMap.js";\n',
-    "const { normalizeGameKey } = globalThis.__gameKeys;\n"
-  );
   source += "\nmodule.exports = { GameState, GameEngine };";
 
   const math = Object.create(Math);

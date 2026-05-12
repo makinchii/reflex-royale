@@ -30,7 +30,6 @@ module.exports = defineConfig({
     env: {
       PORT: String(PORT),
       NODE_ENV: "production",
-      NEXT_FRONTEND: "true",
       MONGODB_URI: "",
       VISUAL_TEST_AUTH: "true",
     },

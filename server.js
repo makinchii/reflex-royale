@@ -49,7 +49,6 @@ process.on("unhandledRejection", (reason) => {
 function createApp(options = {}) {
   const useSessionStore = options.useSessionStore !== false;
   const mongoSessionStore = options.sessionStore;
-  const useNextFrontend = options.useNextFrontend === true;
   const app = express();
   const isProduction = process.env.NODE_ENV === "production";
   let nextRequestHandler = null;
@@ -96,50 +95,14 @@ function createApp(options = {}) {
   app.use("/api/audio", audioRoutes);
   app.use("/leaderboard", leaderboardRoutes);
 
-  // Serve the new Next frontend when enabled, otherwise keep the legacy landing page.
-  if (useNextFrontend) {
-    app.get("/", nextProxy);
-    app.get("/signup", nextProxy);
-    app.get("/login", nextProxy);
-    app.get("/dashboard", nextProxy);
-    app.get("/navigate", nextProxy);
-    app.get("/local", nextProxy);
-    app.get("/online", nextProxy);
-    app.get("/ui-lab", nextProxy);
-  } else {
-    app.get("/", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "index.html"));
-    });
-
-    app.get("/signup", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "signup.html"));
-    });
-
-    app.get("/login", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "login.html"));
-    });
-
-    app.get("/dashboard", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "dashboard.html"));
-    });
-
-    app.get("/navigate", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "index.html"));
-    });
-
-    app.get("/leaderboard-page", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "leaderboard.html"));
-    });
-
-    // ── Game routes ──
-    app.get("/local", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "game-local.html"));
-    });
-
-    app.get("/online", (req, res) => {
-      res.sendFile(path.join(__dirname, "views", "game-remote.html"));
-    });
-  }
+  app.get("/", nextProxy);
+  app.get("/signup", nextProxy);
+  app.get("/login", nextProxy);
+  app.get("/dashboard", nextProxy);
+  app.get("/navigate", nextProxy);
+  app.get("/local", nextProxy);
+  app.get("/online", nextProxy);
+  app.get("/ui-lab", nextProxy);
 
   app.get("/api/auth/session", (req, res) => {
     if (!req.session?.user) {
@@ -149,10 +112,8 @@ function createApp(options = {}) {
     return res.json({ authenticated: true, user: req.session.user });
   });
 
-  if (useNextFrontend) {
-    // Let Next see the full URL so asset paths like /_next/static stay intact.
-    app.use(nextProxy);
-  }
+  // Let Next see the full URL so asset paths like /_next/static stay intact.
+  app.use(nextProxy);
 
   // Helpful fallback for unknown routes.
   app.use((req, res) => {
@@ -230,7 +191,6 @@ function registerShutdownHandlers({ server, io, nextApp }) {
 }
 
 async function startServer() {
-  const useNextFrontend = process.env.NEXT_FRONTEND !== "false";
   let sessionStore = null;
 
   if (MONGODB_URI) {
@@ -250,28 +210,26 @@ async function startServer() {
     console.warn("MongoDB not connected: add MONGODB_URI to your .env file to enable signup/login.");
   }
 
-  const { app, server, io } = createServer({ useNextFrontend, sessionStore });
+  const { app, server, io } = createServer({ sessionStore });
   let nextApp = null;
 
   registerShutdownHandlers({ server, io, nextApp });
 
-  if (useNextFrontend) {
-    const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
-    if (process.env.NODE_ENV === "production" && !fs.existsSync(buildIdPath)) {
-      console.error("Missing Next production build. Run `npm run build` before `npm start`, or set Render Start Command to `npm run render-start`.");
-      process.exitCode = 1;
-      return;
-    }
-
-    nextApp = next({
-      dev: process.env.NODE_ENV !== "production",
-      dir: __dirname,
-      webpack: true
-    });
-
-    await nextApp.prepare();
-    app.setNextRequestHandler(nextApp.getRequestHandler());
+  const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
+  if (process.env.NODE_ENV === "production" && !fs.existsSync(buildIdPath)) {
+    console.error("Missing Next production build. Run `npm run build` before `npm start`, or set Render Start Command to `npm run render-start`.");
+    process.exitCode = 1;
+    return;
   }
+
+  nextApp = next({
+    dev: process.env.NODE_ENV !== "production",
+    dir: __dirname,
+    webpack: true
+  });
+
+  await nextApp.prepare();
+  app.setNextRequestHandler(nextApp.getRequestHandler());
 
   server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
