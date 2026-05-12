@@ -72,8 +72,6 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
   }, [localPlayerThemeShades, mode]);
 
   useEffect(() => {
-    if (mode !== "local") return;
-
     let tunnelTimeout: number | null = null;
     let clearTimeoutId: number | null = null;
     const handleTransition = (event: Event) => {
@@ -103,7 +101,7 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
       if (tunnelTimeout) window.clearTimeout(tunnelTimeout);
       if (clearTimeoutId) window.clearTimeout(clearTimeoutId);
     };
-  }, [mode]);
+  }, []);
 
   return (
     <>
@@ -111,10 +109,10 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
       <div data-wait-for-legacy-ready="true" className="flex min-h-0 w-full flex-1">
         {showAccountMenu ? <div id="account-menu-root" className="account-menu-root" suppressHydrationWarning /> : null}
         <div id="game-root" suppressHydrationWarning />
-        {mode === "local" && localTransition?.phase === "tunnel" ? (
+        {localTransition?.phase === "tunnel" ? (
           <LocalGameTransition className="local-game-transition-overlay" durationMs={localTransition.duration} />
         ) : null}
-        {mode === "local" && localTransition?.phase === "splash" ? (
+        {localTransition?.phase === "splash" ? (
           <LocalPlayerSplash className="local-player-splash-overlay" players={localTransition.players} durationMs={localTransition.splashDuration} />
         ) : null}
       </div>

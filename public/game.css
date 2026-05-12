@@ -2474,42 +2474,32 @@ body {
   pointer-events: none;
 }
 
-#game-root .online-match-stack {
-  display: grid;
-  justify-items: center;
-  gap: clamp(0.85rem, 1.8cqh, 1.4rem);
-  width: min(100%, 44rem);
-  pointer-events: auto;
-}
-
-#game-root .online-state .chat-panel.chat-panel--terminal {
-  position: static;
-  z-index: auto;
-  width: min(100%, 44rem);
-  max-height: clamp(10rem, 24cqh, 18rem);
-}
-
 #game-root .online-state__center > * {
   pointer-events: auto;
 }
 
 #game-root .online-state--match .arena-solo {
-  width: min(100%, 44rem);
-  min-height: auto;
+  width: min(88cqw, 78rem);
+  min-height: min(62cqh, 44rem);
 }
 
 #game-root .online-state--match .player-panel-solo {
-  width: min(100%, 44rem);
-  min-height: clamp(15rem, 30cqh, 26rem);
+  width: 100%;
+  min-height: min(58cqh, 40rem);
 }
 
 #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
-  width: min(100%, 44rem);
-  min-height: clamp(15rem, 30cqh, 26rem);
+  width: 100%;
+  min-height: min(58cqh, 40rem);
 }
 
 #game-root .online-state--match .arena-solo--countdown .panel-light {
-  transform: translateY(clamp(1rem, 4cqh, 2rem));
+  transform: translateY(clamp(2rem, 8cqh, 4.5rem));
+}
+
+#game-root .online-state--match .light-circle {
+  width: clamp(120px, 17cqw, 260px);
+  height: clamp(120px, 17cqw, 260px);
 }
 
 #game-root .online-match-host-controls {
@@ -2517,8 +2507,8 @@ body {
   left: clamp(1rem, 2cqw, 1.5rem);
   top: clamp(7rem, 12cqh, 9.5rem);
   z-index: 58;
-  width: clamp(14rem, 18cqw, 21rem);
-  max-height: min(42cqh, 22rem);
+  width: clamp(17rem, 19cqw, 24rem);
+  max-height: min(42cqh, 24rem);
   grid-template-columns: 1fr;
   align-items: stretch;
   overflow: auto;
@@ -2697,15 +2687,10 @@ body {
     min-width: 0;
   }
 
-  #game-root .online-match-stack,
-  #game-root .online-state .chat-panel.chat-panel--terminal {
-    width: min(100%, 48rem);
-  }
-
   #game-root .online-state--match .arena-solo,
   #game-root .online-state--match .player-panel-solo,
   #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
-    width: min(100%, 48rem);
+    width: min(86cqw, 84rem);
   }
 }
 
@@ -2871,43 +2856,19 @@ body {
     padding: 0;
   }
 
-  #game-root .online-match-stack {
-    gap: clamp(0.55rem, 1.1cqh, 0.9rem);
-    width: min(100%, 38rem);
-  }
-
-  #game-root .online-state--match .arena-solo,
-  #game-root .online-state--match .player-panel-solo,
-  #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
-    width: min(100%, 38rem);
+  #game-root .online-state--match .arena-solo {
+    width: min(82cqw, 70rem);
+    min-height: min(58cqh, 34rem);
   }
 
   #game-root .online-state--match .player-panel-solo,
   #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
-    min-height: clamp(12rem, 27cqh, 19rem);
-  }
-
-  #game-root .online-state .chat-panel.chat-panel--terminal {
-    width: min(100%, 38rem);
-    max-height: min(27cqh, 13rem);
-  }
-
-  #game-root .online-state .chat-messages {
-    min-height: clamp(4rem, 10cqh, 7rem);
-  }
-
-  #game-root .online-state .chat-terminal-bar {
-    padding: 0.32rem 0.45rem;
-  }
-
-  #game-root .online-state .chat-command-row {
-    gap: 0.35rem;
-    padding: 0.42rem;
+    min-height: min(52cqh, 30rem);
   }
 
   #game-root .online-match-host-controls {
     top: clamp(6.5rem, 11cqh, 8rem);
-    width: clamp(12rem, 17cqw, 18rem);
+    width: clamp(15rem, 18cqw, 21rem);
     max-height: min(38cqh, 18rem);
     padding: clamp(8px, 1cqh, 11px) clamp(10px, 1.15cqw, 14px);
   }
@@ -2947,15 +2908,6 @@ body {
     bottom: 1.25rem;
     width: auto;
     max-height: 32cqh;
-  }
-
-  #game-root .online-state .chat-panel.chat-panel--terminal {
-    position: static;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    width: 100%;
-    max-height: 30cqh;
   }
 
   #game-root .online-match-host-controls {

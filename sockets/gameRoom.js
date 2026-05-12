@@ -12,6 +12,8 @@ const { THEME_COMMAND_COLORS, isAllowedThemeColor, normalizeThemeCommand } = req
 
 const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
 const STALE_SLOT_MS = 60_000;
+const MATCH_TRANSITION_DURATION_MS = 3000;
+const MATCH_PLAYER_SPLASH_DURATION_MS = 2800;
 
 const ROOM_STATUS = Object.freeze({
   WAITING_FOR_PLAYERS: "waiting_for_players",
@@ -692,6 +694,16 @@ function applyPreferredPlayerOptions(room, socketId, { preferredKey, preferredTh
   return unavailable;
 }
 
+function getTransitionPlayers(room) {
+  return room.getRoster().map((player) => ({
+    id: player.id,
+    name: player.name,
+    color: player.color,
+    themeCommand: player.themeCommand,
+    key: player.keyBinding
+  }));
+}
+
 function startNextRound(io, room) {
   room.currentRound += 1;
 
@@ -984,7 +996,16 @@ function initGameSockets(io) {
       }
 
       emitRoomState(io, room);
-      startNextRound(io, room);
+      io.to(room.roomCode).emit("matchStarting", {
+        players: getTransitionPlayers(room),
+        duration: MATCH_TRANSITION_DURATION_MS,
+        splashDuration: MATCH_PLAYER_SPLASH_DURATION_MS
+      });
+      room._schedule(setTimeout(() => {
+        if (room.status === ROOM_STATUS.STARTING) {
+          startNextRound(io, room);
+        }
+      }, MATCH_TRANSITION_DURATION_MS + MATCH_PLAYER_SPLASH_DURATION_MS));
     });
 
     socket.on("playerInput", () => {
