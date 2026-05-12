@@ -634,7 +634,7 @@ body {
 
 .arena--countdown .player-panel::after,
 .arena-solo--countdown .player-panel-solo::after {
-  content: attr(data-signal) "..";
+  content: attr(data-signal);
   position: absolute;
   left: 50%;
   top: clamp(5.1rem, 17%, 8.2rem);
@@ -2478,23 +2478,37 @@ body {
   pointer-events: auto;
 }
 
+#game-root .online-state--match .online-state__center {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
 #game-root .online-state--match .arena-solo {
-  width: min(88cqw, 78rem);
-  min-height: min(62cqh, 44rem);
+  width: min(76cqw, 74rem);
+  height: min(72cqh, 44rem);
+  min-height: 0;
+  max-height: calc(100cqh - clamp(2rem, 4cqh, 4rem));
+  gap: clamp(0.8rem, 2cqh, 1.4rem);
 }
 
 #game-root .online-state--match .player-panel-solo {
   width: 100%;
-  min-height: min(58cqh, 40rem);
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
 }
 
 #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
   width: 100%;
-  min-height: min(58cqh, 40rem);
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
 }
 
 #game-root .online-state--match .arena-solo--countdown .panel-light {
-  transform: translateY(clamp(2rem, 8cqh, 4.5rem));
+  transform: translateY(clamp(1rem, 5cqh, 3rem));
 }
 
 #game-root .online-state--match .light-circle {
@@ -2857,13 +2871,17 @@ body {
   }
 
   #game-root .online-state--match .arena-solo {
-    width: min(82cqw, 70rem);
-    min-height: min(58cqh, 34rem);
+    width: min(76cqw, 68rem);
+    height: min(68cqh, 36rem);
+    min-height: 0;
+    max-height: calc(100cqh - 2rem);
   }
 
   #game-root .online-state--match .player-panel-solo,
   #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
-    min-height: min(52cqh, 30rem);
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
   }
 
   #game-root .online-match-host-controls {
