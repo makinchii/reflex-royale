@@ -415,7 +415,6 @@ function renderLobby(state) {
           <aside class="online-host-terminal" aria-label="Host terminal">
             ${hostRoundControls}
             <button id="startGameBtn" class="btn btn-primary btn-go" ${state.canStart ? "" : "disabled"}>Start Game</button>
-            <div id="hostRosterControls" class="game-over-actions"></div>
           </aside>
         ` : ""}
 
@@ -476,7 +475,6 @@ function renderLobby(state) {
   if (closeBtn) closeBtn.addEventListener("click", () => socket.emit("closeRoom"));
 
   renderRoster(state.players);
-  renderHostControls(state.players);
   renderChat(state.chatMessages || []);
 }
 
