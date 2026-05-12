@@ -551,6 +551,45 @@ test("lobby join, chat, kick, blacklist, and host transfer work", async () => {
   }
 });
 
+test("lobby disconnect removes players and transfers host without ghost slots", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-1", io);
+    io.connect(host);
+    host.trigger("createRoom", { name: "Host" });
+    const roomCode = lastEvent(host, "roomCreated").payload.room.room;
+
+    const player = new FakeSocket("player-1", io);
+    io.connect(player);
+    player.trigger("joinRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
+    assert.equal(lastEvent(host, "roomState").payload.players.length, 2);
+
+    player.trigger("disconnect");
+    const afterPlayerDisconnect = lastEvent(host, "roomState").payload;
+    assert.deepEqual(afterPlayerDisconnect.players.map((entry) => entry.id), ["host-1"]);
+    assert.equal(afterPlayerDisconnect.hostId, "host-1");
+
+    const nextHost = new FakeSocket("player-2", io);
+    io.connect(nextHost);
+    nextHost.trigger("joinRoom", { name: "NextHost", room: roomCode, verifier: "ver-next-host" });
+
+    host.trigger("disconnect");
+    const afterHostDisconnect = lastEvent(nextHost, "roomState").payload;
+    assert.deepEqual(afterHostDisconnect.players.map((entry) => entry.id), ["player-2"]);
+    assert.equal(afterHostDisconnect.hostId, "player-2");
+    assert.equal(afterHostDisconnect.players[0].isHost, true);
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
 test("online lobbies auto-select preferred keys by join precedence", async () => {
   const restoreTimers = patchNoopTimers();
   delete require.cache[gameRoomPath];

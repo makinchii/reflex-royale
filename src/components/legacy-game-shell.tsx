@@ -36,6 +36,7 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
   const [notificationsReady, setNotificationsReady] = useState(mode === "local");
   const [accountMenuReady, setAccountMenuReady] = useState(!showAccountMenu);
   const [socketReady, setSocketReady] = useState(mode === "local");
+  const [legacyScriptVersion, setLegacyScriptVersion] = useState("");
   const [localTransition, setLocalTransition] = useState<LocalTransitionDetail | null>(null);
   const moduleVersion = useId().replace(/:/g, "");
 
@@ -47,6 +48,7 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
       window.__reflexRoyaleLocalThemeShades = undefined;
     }
     delete document.documentElement.dataset.pageReady;
+    setLegacyScriptVersion(`${moduleVersion}-${Date.now()}`);
 
     const handleLegacyReady = () => {
       window.requestAnimationFrame(() => {
@@ -69,7 +71,7 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
       window.__reflexRoyaleLegacyReady = false;
       window.__reflexRoyaleLocalThemeShades = undefined;
     };
-  }, [localPlayerThemeShades, mode]);
+  }, [localPlayerThemeShades, mode, moduleVersion]);
 
   useEffect(() => {
     let tunnelTimeout: number | null = null;
@@ -131,8 +133,8 @@ export function LegacyGameShell({ mode, showAccountMenu = true, localPlayerTheme
       {mode === "remote" ? (
         <Script src={`/socket.io/socket.io.js?v=${moduleVersion}`} strategy="afterInteractive" onLoad={() => setSocketReady(true)} />
       ) : null}
-      {notificationsReady && accountMenuReady && socketReady ? (
-        <Script src={`/js/${mode}.js?v=${moduleVersion}`} strategy="afterInteractive" type="module" />
+      {notificationsReady && accountMenuReady && socketReady && legacyScriptVersion ? (
+        <Script src={`/js/${mode}.js?v=${legacyScriptVersion}`} strategy="afterInteractive" type="module" />
       ) : null}
     </>
   );

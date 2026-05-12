@@ -123,6 +123,10 @@ function renderReconnectPrompt() {
   });
 }
 
+function dismissReconnectPrompt() {
+  document.getElementById("reconnectPromptDialog")?.remove();
+}
+
 function renderJoinScreen(message = "") {
   announceMatchState(false);
   roomState = null;
@@ -775,14 +779,15 @@ function renderPostMatchScreen(state) {
   renderHostControls(state.players);
 }
 
-socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier }) => {
+socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier, hostReclaimToken: createdHostReclaimToken }) => {
   pendingJoinSource = null;
+  dismissReconnectPrompt();
   myPlayerId = playerId;
   isHost = true;
   verifier = createdVerifier || verifier;
   localStorage.setItem(VERIFIER_KEY, verifier);
-  if (room.hostReclaimToken) {
-    hostReclaimToken = room.hostReclaimToken;
+  if (createdHostReclaimToken) {
+    hostReclaimToken = createdHostReclaimToken;
     localStorage.setItem(HOST_RECLAIM_KEY, hostReclaimToken);
   }
   localStorage.setItem(ROOM_CODE_KEY, room.room);
@@ -793,16 +798,17 @@ socket.on("roomCreated", ({ room, playerId, verifier: createdVerifier }) => {
   renderChat(room.chatMessages || []);
 });
 
-socket.on("roomJoined", ({ room, playerId }) => {
+socket.on("roomJoined", ({ room, playerId, hostReclaimToken: joinedHostReclaimToken }) => {
   pendingJoinSource = null;
+  dismissReconnectPrompt();
   myPlayerId = playerId;
   isHost = room.hostId === playerId;
   savedRoomCode = room.room;
   savedPlayerName = room.players.find((player) => player.id === playerId)?.name || savedPlayerName;
   localStorage.setItem(ROOM_CODE_KEY, room.room);
   if (savedPlayerName) localStorage.setItem(PLAYER_NAME_KEY, savedPlayerName);
-  if (room.hostReclaimToken) {
-    hostReclaimToken = room.hostReclaimToken;
+  if (joinedHostReclaimToken) {
+    hostReclaimToken = joinedHostReclaimToken;
     localStorage.setItem(HOST_RECLAIM_KEY, hostReclaimToken);
   }
   selectedKey = null;
@@ -1054,6 +1060,7 @@ function recordOnlineRecentMatch(standings) {
 
 socket.on("roomClosed", ({ reason }) => {
   announceMatchState(false);
+  dismissReconnectPrompt();
   myPlayerId = null;
   isHost = false;
   roomState = null;
@@ -1062,6 +1069,8 @@ socket.on("roomClosed", ({ reason }) => {
     clearSavedRoom();
     localStorage.removeItem(PLAYER_NAME_KEY);
     savedPlayerName = "";
+  } else if (reason === "empty") {
+    clearSavedRoom();
   }
   renderJoinScreen();
 });
@@ -1204,6 +1213,7 @@ document.addEventListener("touchstart", handleTouchStart);
 const cleanupRemoteGame = () => {
   document.removeEventListener("keydown", handleKeyDown);
   document.removeEventListener("touchstart", handleTouchStart);
+  dismissReconnectPrompt();
   cleanupThemePickerDisclosure();
   socket.removeAllListeners();
   socket.disconnect();
