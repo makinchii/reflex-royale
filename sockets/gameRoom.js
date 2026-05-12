@@ -129,10 +129,6 @@ class RoomGame {
     existing.lastSeenAt = Date.now();
     this.players.set(socketId, existing);
 
-    if (existing.originalHost) {
-      this.hostId = socketId;
-    }
-
     if (!this.hostId) {
       this.hostId = socketId;
     }
@@ -159,7 +155,9 @@ class RoomGame {
     existing.lastSeenAt = Date.now();
     this.players.set(socketId, existing);
 
-    this.hostId = socketId;
+    if (!this.hostId) {
+      this.hostId = socketId;
+    }
     this._syncHostFlags();
     this._refreshLobbyStatus();
     return { ok: true, player: existing, reclaimed: true, hostReclaimToken: this.hostReclaimToken };
@@ -356,6 +354,28 @@ class RoomGame {
     return { ok: true, message };
   }
 
+  addSystemChatMessage(player, content) {
+    if (!player) return null;
+
+    const message = {
+      id: crypto.randomUUID(),
+      lobbyId: this.roomCode,
+      senderPlayerId: player.id,
+      senderName: player.name,
+      senderColor: player.color,
+      content,
+      system: true,
+      createdAt: Date.now()
+    };
+
+    this.chatMessages.push(message);
+    if (this.chatMessages.length > 50) {
+      this.chatMessages = this.chatMessages.slice(-50);
+    }
+
+    return message;
+  }
+
   canStart() {
     const activePlayers = this._connectedPlayers();
     return activePlayers.length >= 2 && activePlayers.every((player) => player.isReady);
@@ -410,7 +430,7 @@ class RoomGame {
     }
 
     if (!this.players.has(this.hostId)) {
-      this.hostId = this._connectedPlayers()[0]?.id || this.players.values().next().value?.id || null;
+      this.hostId = this._connectedPlayers()[0]?.id || null;
     }
 
     this._syncHostFlags();
@@ -626,7 +646,7 @@ class RoomGame {
   }
 
   _reassignHost() {
-    const nextHost = this._connectedPlayers().sort((a, b) => a.joinedAt - b.joinedAt)[0] || [...this.players.values()].sort((a, b) => a.joinedAt - b.joinedAt)[0] || null;
+    const nextHost = this._connectedPlayers().sort((a, b) => a.joinedAt - b.joinedAt)[0] || null;
     this.hostId = nextHost ? nextHost.id : null;
     this._syncHostFlags();
   }
@@ -677,6 +697,13 @@ function generateRoomCode() {
 function emitRoomState(io, room) {
   io.to(room.roomCode).emit("roomState", room.getRoomState());
   io.to(room.roomCode).emit("playerList", { players: room.getRoster() });
+}
+
+function emitChatMessages(io, room, message = null) {
+  io.to(room.roomCode).emit("chatMessage", {
+    message,
+    messages: room.chatMessages
+  });
 }
 
 function closeRoom(io, room, reason = "closed") {
@@ -1085,6 +1112,8 @@ function initGameSockets(io) {
     socket.on("leaveRoom", () => {
       const room = currentRoom ? rooms.get(currentRoom) : null;
       if (!room) return;
+      const player = room.players.get(socket.id) || null;
+      const leaveMessage = player ? room.addSystemChatMessage(player, "left the room.") : null;
 
       room.removePlayer(socket.id);
       socket.leave(room.roomCode);
@@ -1097,6 +1126,7 @@ function initGameSockets(io) {
       }
 
       emitRoomState(io, room);
+      if (leaveMessage) emitChatMessages(io, room, leaveMessage);
       io.to(room.roomCode).emit("lobbyStatus", {
         waitingFor: room.getWaitingList()
       });
@@ -1122,6 +1152,9 @@ function initGameSockets(io) {
 
       const room = rooms.get(currentRoom);
       if (!room) return;
+      const player = room.players.get(socket.id) || null;
+      const shouldAnnounceLeave = Boolean(player?.connected);
+      const leaveMessage = shouldAnnounceLeave ? room.addSystemChatMessage(player, "left the room.") : null;
 
       const result = room.markDisconnected(socket.id);
 
@@ -1136,6 +1169,7 @@ function initGameSockets(io) {
       }
 
       if (result.endMatch) {
+        if (leaveMessage) emitChatMessages(io, room, leaveMessage);
         endGame(io, room);
         return;
       }
@@ -1143,6 +1177,7 @@ function initGameSockets(io) {
       if (room.status !== ROOM_STATUS.CLOSED) {
         room.setLobbyView(socket.id, false);
         emitRoomState(io, room);
+        if (leaveMessage) emitChatMessages(io, room, leaveMessage);
       }
     });
   });
