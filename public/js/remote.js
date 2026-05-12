@@ -486,15 +486,33 @@ function renderRoster(players) {
 
   if (container.classList.contains("player-slots--grid") || container.classList.contains("player-slots--docked")) {
     container.innerHTML = renderDockedRoster(players);
+    wireRosterRemoveButtons(container);
     return;
   }
 
   container.innerHTML = players.map((player) => `
+    ${renderRosterSlot(player)}
+  `).join("");
+  wireRosterRemoveButtons(container);
+}
+
+function renderRosterSlot(player) {
+  const canRemove = isHost && player.id !== myPlayerId;
+  return `
     <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
       <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
       <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
+      ${canRemove ? `<button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${esc(player.name)}" data-remove-id="${player.id}">&times;</button>` : ""}
     </div>
-  `).join("");
+  `;
+}
+
+function wireRosterRemoveButtons(container) {
+  container.querySelectorAll("[data-remove-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      socket.emit("removePlayer", { playerId: button.dataset.removeId });
+    });
+  });
 }
 
 function renderDockedRoster(players) {
@@ -510,10 +528,7 @@ function renderDockedRoster(players) {
 
     return `
       <div class="player-slot-dock player-slot-dock--${position}">
-        <div class="player-slot ${player.isReady ? "player-slot--ready" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
-          <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
-          <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
-        </div>
+        ${renderRosterSlot(player)}
       </div>
     `;
   });
@@ -603,15 +618,22 @@ function focusChatInputFromShortcut() {
 }
 
 function renderMatchScreen(message, lightClass) {
+  const isGreen = lightClass.includes("green");
+  const isRed = lightClass.includes("red");
+  const isFlash = lightClass.includes("flash");
+  const isCountdown = !isGreen && !isRed;
+  const arenaClass = isGreen ? "arena-solo arena-solo--react" : isRed ? "arena-solo arena-solo--waiting" : "arena-solo arena-solo--countdown";
+  const signalAttr = isCountdown ? ` data-signal="${esc(message)}"` : "";
+  const feedback = isFlash ? `<span class="false-start">${message}</span>` : "";
+
   root.innerHTML = `
-    <div class="arena-solo">
-      <div class="center-overlay visible">
-        <span class="${lightClass.includes("green") ? "go-text" : "wait-text"}">${message}</span>
+    <div class="${arenaClass}">
+      <div class="player-panel-solo"${signalAttr}>
+        <div class="panel-light">
+          <div class="light-circle ${lightClass}"></div>
+        </div>
       </div>
-      <div class="player-panel-solo">
-        <div class="light-circle ${lightClass}"></div>
-      </div>
-      <div class="solo-feedback"></div>
+      <div class="solo-feedback">${feedback}</div>
     </div>
   `;
 }

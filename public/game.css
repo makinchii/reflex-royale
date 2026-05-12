@@ -430,16 +430,54 @@ body {
   gap: 20px;
   position: relative;
   border-top: 4px solid var(--player-color);
+  --panel-header-offset-x: clamp(0.85rem, 1.1vw, 1.35rem);
+  --panel-header-offset-y: clamp(0.7rem, 1vw, 1.15rem);
+  border: 1px solid color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 44%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    radial-gradient(circle at 50% 16%, color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 16%, transparent), transparent 54%),
+    rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 24px color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 16%, transparent),
+    inset 0 0 30px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px) saturate(125%);
+}
+
+.player-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 5px),
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--player-color, var(--primary, #68e8ff)) 12%, transparent), transparent);
+  opacity: 0.22;
+  z-index: 0;
 }
 
 .panel-header {
-  display: flex;
+  position: absolute;
+  top: var(--panel-header-offset-y);
+  left: var(--panel-header-offset-x);
+  right: var(--panel-header-offset-x);
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  column-gap: clamp(0.75rem, 1vw, 1.2rem);
   font-size: 1.1rem;
+  z-index: 5;
 }
 
-.panel-name { font-weight: 700; color: var(--player-color); }
+.panel-name {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--player-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
 
 .panel-key {
   background: var(--surface-alt);
@@ -449,12 +487,18 @@ body {
   font-size: 1.4rem;
   border: 2px solid var(--player-color);
   font-weight: bold;
+  justify-self: end;
 }
 
 .panel-score {
+  position: absolute;
+  right: var(--panel-header-offset-x);
+  bottom: var(--panel-header-offset-y);
+  z-index: 5;
   font-size: 1rem;
   color: var(--text-muted);
   font-weight: 600;
+  text-transform: uppercase;
 }
 
 /* ── Signal light ── */
@@ -534,6 +578,158 @@ body {
 }
 
 .center-overlay.visible { opacity: 1; }
+
+.center-overlay--countdown-card {
+  z-index: 95;
+}
+
+.countdown-card {
+  display: grid;
+  min-width: clamp(10rem, 18cqw, 18rem);
+  justify-items: center;
+  gap: clamp(0.45rem, 1.1cqh, 0.85rem);
+  border: 1px solid color-mix(in srgb, var(--yellow, #f1c40f) 72%, transparent);
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--yellow, #f1c40f) 22%, transparent), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.018)),
+    rgba(2, 4, 10, 0.94);
+  box-shadow:
+    0 0 42px color-mix(in srgb, var(--yellow, #f1c40f) 32%, transparent),
+    inset 0 0 28px color-mix(in srgb, var(--yellow, #f1c40f) 12%, transparent);
+  padding: clamp(1rem, 2.2cqh, 1.8rem) clamp(1.25rem, 2.6cqw, 2.4rem);
+  text-transform: uppercase;
+}
+
+.countdown-card__label {
+  color: color-mix(in srgb, var(--yellow, #f1c40f) 74%, white 10%);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: clamp(0.65rem, 1.1cqw, 0.9rem);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+}
+
+.countdown-card .countdown-num {
+  line-height: 0.86;
+}
+
+.panel-light {
+  position: relative;
+  isolation: isolate;
+  z-index: 2;
+}
+
+.arena--countdown .player-panel,
+.arena-solo--countdown .player-panel-solo {
+  --countdown-signal-color: var(--yellow, #f1c40f);
+}
+
+.arena--countdown .player-panel::before,
+.arena-solo--countdown .player-panel-solo::before {
+  content: none;
+}
+
+.arena--countdown .player-panel::after,
+.arena-solo--countdown .player-panel-solo::after {
+  content: attr(data-signal) "..";
+  position: absolute;
+  left: 50%;
+  top: clamp(5.1rem, 17%, 8.2rem);
+  z-index: 2;
+  color: var(--countdown-signal-color);
+  font-family: var(--font-orbitron), system-ui, sans-serif;
+  font-size: clamp(3.4rem, 9.2cqw, 7.2rem);
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  line-height: 0.9;
+  pointer-events: none;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--countdown-signal-color) 70%, transparent);
+  transform: translateX(-50%);
+  animation: signal-countdown-pop 800ms ease-in-out infinite;
+}
+
+.arena--countdown .panel-light,
+.arena-solo--countdown .panel-light {
+  transform: translateY(clamp(2rem, 8cqh, 4.5rem));
+}
+
+.arena-solo--countdown .player-panel-solo {
+  position: relative;
+  align-items: center;
+  width: min(86cqw, 38rem);
+  min-height: min(58cqh, 28rem);
+}
+
+.arena-solo--countdown .player-panel-solo::before {
+  top: clamp(2.2rem, 13%, 4.2rem);
+}
+
+.arena-solo--countdown .player-panel-solo::after {
+  top: clamp(4rem, 22%, 6.8rem);
+  font-size: clamp(5rem, 14.2cqw, 9.7rem);
+}
+
+@keyframes signal-countdown-pop {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.08); }
+}
+
+.arena--waiting .panel-light::before,
+.arena-solo--waiting .panel-light::before,
+.arena--react .panel-light::before,
+.arena-solo--react .panel-light::before {
+  content: "";
+  position: absolute;
+  inset: clamp(-18px, -1.8cqw, -10px);
+  z-index: -1;
+  border: 2px solid var(--signal-ring-color, var(--red, #e74c3c));
+  border-radius: 999px;
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--signal-ring-color, var(--red, #e74c3c)) 58%, transparent),
+    inset 0 0 20px color-mix(in srgb, var(--signal-ring-color, var(--red, #e74c3c)) 22%, transparent);
+  pointer-events: none;
+  animation: signal-ring-pulse 900ms ease-in-out infinite;
+}
+
+.arena--waiting .panel-light::after,
+.arena-solo--waiting .panel-light::after,
+.arena--react .panel-light::after,
+.arena-solo--react .panel-light::after {
+  content: var(--signal-ring-label, "WAIT FOR IT");
+  position: absolute;
+  left: 50%;
+  top: calc(100% + clamp(0.55rem, 1.2cqh, 0.9rem));
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, var(--signal-ring-color, var(--red, #e74c3c)) 62%, transparent);
+  background: rgba(3, 5, 10, 0.78);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--signal-ring-color, var(--red, #e74c3c)) 28%, transparent);
+  color: color-mix(in srgb, var(--signal-ring-color, var(--red, #e74c3c)) 82%, white 10%);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: clamp(0.58rem, 0.95cqw, 0.78rem);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  padding: 0.28rem 0.55rem;
+  pointer-events: none;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.arena--waiting,
+.arena-solo--waiting {
+  --signal-ring-color: var(--red, #e74c3c);
+  --signal-ring-label: "WAIT FOR IT";
+}
+
+.arena--react,
+.arena-solo--react {
+  --signal-ring-color: var(--green, #2ecc71);
+  --signal-ring-label: "GO";
+}
+
+@keyframes signal-ring-pulse {
+  0%, 100% { opacity: 0.62; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
 
 .center-overlay.results-overlay {
   pointer-events: auto;
@@ -2047,18 +2243,24 @@ body {
   right: 10px;
   top: 50%;
   z-index: 2;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 2px solid var(--red, #ff1744);
   background: color-mix(in srgb, var(--red, #ff1744) 16%, transparent);
   color: var(--red, #ff1744);
-  font-size: 1.2rem;
-  line-height: 1;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  line-height: 0;
+  font-weight: 900;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-50%);
-  transition: opacity 160ms ease, background-color 160ms ease, color 160ms ease;
+  transform: translateY(-50%) scale(0.94);
+  box-shadow:
+    0 0 0 color-mix(in srgb, var(--red, #ff1744) 0%, transparent),
+    inset 0 0 0 color-mix(in srgb, var(--red, #ff1744) 0%, transparent);
+  transition: opacity 160ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 #game-root .player-slot:hover,
@@ -2078,12 +2280,23 @@ body {
 #game-root .player-slot:focus-within .player-slot__remove {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+  background: color-mix(in srgb, var(--red, #ff1744) 100%, black 4%);
+  color: #05070b;
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--red, #ff1744) 72%, transparent),
+    0 0 42px color-mix(in srgb, var(--red, #ff1744) 42%, transparent),
+    inset 0 0 14px color-mix(in srgb, #ffffff 32%, transparent);
 }
 
 #game-root .player-slot__remove:hover,
 #game-root .player-slot__remove:focus-visible {
   background: var(--red, #ff1744);
   color: #000;
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--red, #ff1744) 82%, transparent),
+    0 0 56px color-mix(in srgb, var(--red, #ff1744) 54%, transparent),
+    inset 0 0 18px color-mix(in srgb, #ffffff 36%, transparent);
 }
 
 #game-root .player-slot kbd,
@@ -2114,15 +2327,41 @@ body {
   overflow: hidden;
   border: 1px solid color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 42%, transparent);
   background:
-    radial-gradient(circle at 50% 34%, color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 14%, transparent), transparent 44%),
-    color-mix(in oklch, var(--card, #111827) 64%, transparent);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.042), rgba(255, 255, 255, 0.01)),
+    radial-gradient(circle at 50% 18%, color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 15%, transparent), transparent 52%),
+    rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 20px color-mix(in oklch, var(--player-color, var(--primary, #68e8ff)) 14%, transparent),
+    inset 0 0 28px rgba(255, 255, 255, 0.026);
+  backdrop-filter: blur(8px) saturate(122%);
 }
 
 #game-root .panel-header {
-  flex-wrap: wrap;
-  justify-content: center;
+  top: var(--panel-header-offset-y);
+  left: var(--panel-header-offset-x);
+  right: var(--panel-header-offset-x);
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-content: initial;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   text-transform: uppercase;
+}
+
+#game-root .panel-name {
+  font-size: clamp(1.05rem, 1.45vw, 1.45rem);
+  letter-spacing: 0.06em;
+}
+
+#game-root .panel-key {
+  min-width: clamp(2.5rem, 3.1vw, 3.3rem);
+  text-align: center;
+}
+
+#game-root .panel-score {
+  right: var(--panel-header-offset-x);
+  bottom: var(--panel-header-offset-y);
+  font-size: clamp(0.82rem, 1.05vw, 1.05rem);
+  letter-spacing: 0.08em;
+  opacity: 0.86;
 }
 
 #game-root .light-circle {

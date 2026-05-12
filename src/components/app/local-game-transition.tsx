@@ -232,19 +232,26 @@ export function LocalPlayerSplash({
   players: LocalTransitionPlayer[];
   durationMs?: number;
 }) {
+  const maxNameLength = Math.max(...players.map((player) => (player.name || "").trim().length), 1);
+  const splashCountClass = `local-player-splash--players-${Math.min(Math.max(players.length, 1), 4)}`;
+
   const style = {
     "--local-player-splash-duration": `${durationMs}ms`,
     "--local-player-count": players.length,
+    "--local-player-max-name-length": maxNameLength,
   } as React.CSSProperties;
 
   return (
-    <div className={className} style={style} aria-hidden="true">
+    <div className={[className, splashCountClass].filter(Boolean).join(" ")} style={style} aria-hidden="true">
       <div className="local-player-splash__blackout" />
       <div className="local-player-splash__grid">
         {players.map((player, index) => {
+          const nameLength = (player.name || "").trim().length || 1;
+          const resolvedKey = player.key?.toUpperCase() || "-";
           const sliceStyle = {
             "--player-color": player.color,
             "--slice-index": index,
+            "--player-name-length": nameLength,
           } as React.CSSProperties;
 
           return (
@@ -254,7 +261,7 @@ export function LocalPlayerSplash({
                 <span className="local-player-splash__number">P{index + 1}</span>
                 <strong className="local-player-splash__name">{player.name}</strong>
                 <span className="local-player-splash__theme">{player.themeLabel || player.themeCommand || "Custom"}</span>
-                {player.key ? <kbd className="local-player-splash__key">{player.key.toUpperCase()}</kbd> : null}
+                <kbd className="local-player-splash__key">{resolvedKey}</kbd>
               </div>
             </section>
           );
