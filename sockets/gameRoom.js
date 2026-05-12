@@ -485,11 +485,15 @@ class RoomGame {
 
     const activePlayers = this._connectedPlayers();
     const shouldEndMatch = [ROOM_STATUS.STARTING, ROOM_STATUS.COUNTDOWN, ROOM_STATUS.WAITING, ROOM_STATUS.REACT].includes(this.status) && activePlayers.length < 2;
+    if (shouldEndMatch) {
+      this._returnConnectedPlayersToLobby();
+    }
 
     return {
       changed: true,
       closed: false,
-      endMatch: shouldEndMatch
+      endMatch: false,
+      returnToLobby: shouldEndMatch
     };
   }
 
@@ -654,6 +658,34 @@ class RoomGame {
       clearInterval(timer);
     }
     this._timers = [];
+  }
+
+  _returnConnectedPlayersToLobby() {
+    this._clearTimers();
+
+    for (const [id, player] of this.players.entries()) {
+      if (!player.connected) {
+        this.players.delete(id);
+        continue;
+      }
+
+      player.isReady = false;
+      player.isInLobbyView = true;
+      player._pressed = false;
+      player._reactionTime = null;
+      player._falseStart = false;
+      player._disconnected = false;
+      player.lastSeenAt = Date.now();
+    }
+
+    if (!this.players.has(this.hostId)) {
+      this._reassignHost();
+    } else {
+      this._syncHostFlags();
+    }
+
+    this.status = ROOM_STATUS.WAITING_FOR_PLAYERS;
+    this._refreshLobbyStatus();
   }
 
   _clearStaleSweep() {
@@ -1171,6 +1203,13 @@ function initGameSockets(io) {
       if (result.endMatch) {
         if (leaveMessage || hostTransferMessage) emitChatMessages(io, room, hostTransferMessage || leaveMessage);
         endGame(io, room);
+        return;
+      }
+
+      if (result.returnToLobby) {
+        emitRoomState(io, room);
+        if (leaveMessage || hostTransferMessage) emitChatMessages(io, room, hostTransferMessage || leaveMessage);
+        io.to(room.roomCode).emit("lobbyStatus", { waitingFor: room.getWaitingList() });
         return;
       }
 

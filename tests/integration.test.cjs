@@ -226,14 +226,20 @@ async function invokeRoute(handler, { body = {}, session = null } = {}) {
 function patchNoopTimers() {
   const originalSetInterval = global.setInterval;
   const originalClearInterval = global.clearInterval;
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
   let nextId = 1;
 
   global.setInterval = () => nextId++;
   global.clearInterval = () => {};
+  global.setTimeout = () => nextId++;
+  global.clearTimeout = () => {};
 
   return () => {
     global.setInterval = originalSetInterval;
     global.clearInterval = originalClearInterval;
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
   };
 }
 
@@ -587,6 +593,86 @@ test("lobby disconnect removes players and transfers host without ghost slots", 
     const hostTransferChat = lastEvent(nextHost, "chatMessage").payload.messages.at(-1);
     assert.equal(hostTransferChat.senderName, "NextHost");
     assert.equal(hostTransferChat.content, "is now the host.");
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
+test("active match host disconnect transfers host when enough players remain", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-1", io);
+    const playerOne = new FakeSocket("player-1", io);
+    const playerTwo = new FakeSocket("player-2", io);
+    io.connect(host);
+    io.connect(playerOne);
+    io.connect(playerTwo);
+
+    host.trigger("createRoom", { name: "Host" });
+    const roomCode = lastEvent(host, "roomCreated").payload.room.room;
+    playerOne.trigger("joinRoom", { name: "PlayerOne", room: roomCode, verifier: "ver-player-1" });
+    playerTwo.trigger("joinRoom", { name: "PlayerTwo", room: roomCode, verifier: "ver-player-2" });
+
+    host.trigger("bindKey", { key: "1" });
+    playerOne.trigger("bindKey", { key: "2" });
+    playerTwo.trigger("bindKey", { key: "3" });
+    host.trigger("toggleReady");
+    playerOne.trigger("toggleReady");
+    playerTwo.trigger("toggleReady");
+    host.trigger("startGame");
+
+    host.trigger("disconnect");
+    const state = lastEvent(playerOne, "roomState").payload;
+    assert.equal(state.status, "starting");
+    assert.equal(state.hostId, "player-1");
+    assert.equal(state.players.find((entry) => entry.id === "player-1")?.isHost, true);
+    const hostTransferChat = lastEvent(playerOne, "chatMessage").payload.messages.at(-1);
+    assert.equal(hostTransferChat.senderName, "PlayerOne");
+    assert.equal(hostTransferChat.content, "is now the host.");
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
+test("active match returns lone remaining player to lobby after host disconnect", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-1", io);
+    const player = new FakeSocket("player-1", io);
+    io.connect(host);
+    io.connect(player);
+
+    host.trigger("createRoom", { name: "Host" });
+    const roomCode = lastEvent(host, "roomCreated").payload.room.room;
+    player.trigger("joinRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
+
+    host.trigger("bindKey", { key: "1" });
+    player.trigger("bindKey", { key: "2" });
+    host.trigger("toggleReady");
+    player.trigger("toggleReady");
+    host.trigger("startGame");
+
+    host.trigger("disconnect");
+    const state = lastEvent(player, "roomState").payload;
+    assert.equal(state.status, "waiting_for_players");
+    assert.deepEqual(state.players.map((entry) => entry.id), ["player-1"]);
+    assert.equal(state.hostId, "player-1");
+    assert.equal(state.players[0].isHost, true);
+    assert.equal(state.players[0].isInLobbyView, true);
   } finally {
     restoreTimers();
     delete require.cache[gameRoomPath];
