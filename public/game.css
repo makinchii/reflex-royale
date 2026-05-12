@@ -2460,7 +2460,7 @@ body {
   height: 100%;
   min-height: 0;
   place-items: center;
-  padding: clamp(1rem, 2.1cqh, 2rem) clamp(1rem, 2.4cqw, 2rem) clamp(14rem, 28cqh, 20rem);
+  padding: clamp(1rem, 2.1cqh, 2rem) clamp(1rem, 2.4cqw, 2rem);
 }
 
 #game-root .online-state__center {
@@ -2474,13 +2474,64 @@ body {
   pointer-events: none;
 }
 
+#game-root .online-match-stack {
+  display: grid;
+  justify-items: center;
+  gap: clamp(0.85rem, 1.8cqh, 1.4rem);
+  width: min(100%, 44rem);
+  pointer-events: auto;
+}
+
+#game-root .online-state .chat-panel.chat-panel--terminal {
+  position: static;
+  z-index: auto;
+  width: min(100%, 44rem);
+  max-height: clamp(10rem, 24cqh, 18rem);
+}
+
 #game-root .online-state__center > * {
   pointer-events: auto;
 }
 
 #game-root .online-state--match .arena-solo {
+  width: min(100%, 44rem);
+  min-height: auto;
+}
+
+#game-root .online-state--match .player-panel-solo {
+  width: min(100%, 44rem);
+  min-height: clamp(15rem, 30cqh, 26rem);
+}
+
+#game-root .online-state--match .arena-solo--countdown .player-panel-solo {
+  width: min(100%, 44rem);
+  min-height: clamp(15rem, 30cqh, 26rem);
+}
+
+#game-root .online-state--match .arena-solo--countdown .panel-light {
+  transform: translateY(clamp(1rem, 4cqh, 2rem));
+}
+
+#game-root .online-match-host-controls {
+  position: fixed;
+  left: clamp(1rem, 2cqw, 1.5rem);
+  top: clamp(7rem, 12cqh, 9.5rem);
+  z-index: 58;
+  width: clamp(14rem, 18cqw, 21rem);
+  max-height: min(42cqh, 22rem);
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  overflow: auto;
+}
+
+#game-root .online-match-host-controls #hostRosterControls {
+  display: grid;
+  gap: 0.45rem;
+}
+
+#game-root .online-match-host-controls .btn {
   width: 100%;
-  min-height: min(56cqh, 34rem);
+  min-height: 2.2rem;
 }
 
 #game-root .online-state--round-end .round-results,
@@ -2645,6 +2696,17 @@ body {
   #game-root .lobby--online-room .chat-command-row input {
     min-width: 0;
   }
+
+  #game-root .online-match-stack,
+  #game-root .online-state .chat-panel.chat-panel--terminal {
+    width: min(100%, 48rem);
+  }
+
+  #game-root .online-state--match .arena-solo,
+  #game-root .online-state--match .player-panel-solo,
+  #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
+    width: min(100%, 48rem);
+  }
 }
 
 @container (max-height: 980px) and (min-width: 900px) {
@@ -2799,6 +2861,56 @@ body {
     grid-column: auto;
     font-size: 0.54rem;
   }
+
+  #game-root .online-state {
+    padding: clamp(0.6rem, 1.2cqh, 1rem) clamp(1rem, 2cqw, 1.5rem);
+  }
+
+  #game-root .online-state__center {
+    min-height: 0;
+    padding: 0;
+  }
+
+  #game-root .online-match-stack {
+    gap: clamp(0.55rem, 1.1cqh, 0.9rem);
+    width: min(100%, 38rem);
+  }
+
+  #game-root .online-state--match .arena-solo,
+  #game-root .online-state--match .player-panel-solo,
+  #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
+    width: min(100%, 38rem);
+  }
+
+  #game-root .online-state--match .player-panel-solo,
+  #game-root .online-state--match .arena-solo--countdown .player-panel-solo {
+    min-height: clamp(12rem, 27cqh, 19rem);
+  }
+
+  #game-root .online-state .chat-panel.chat-panel--terminal {
+    width: min(100%, 38rem);
+    max-height: min(27cqh, 13rem);
+  }
+
+  #game-root .online-state .chat-messages {
+    min-height: clamp(4rem, 10cqh, 7rem);
+  }
+
+  #game-root .online-state .chat-terminal-bar {
+    padding: 0.32rem 0.45rem;
+  }
+
+  #game-root .online-state .chat-command-row {
+    gap: 0.35rem;
+    padding: 0.42rem;
+  }
+
+  #game-root .online-match-host-controls {
+    top: clamp(6.5rem, 11cqh, 8rem);
+    width: clamp(12rem, 17cqw, 18rem);
+    max-height: min(38cqh, 18rem);
+    padding: clamp(8px, 1cqh, 11px) clamp(10px, 1.15cqw, 14px);
+  }
 }
 
 @media (max-width: 760px) {
@@ -2835,6 +2947,22 @@ body {
     bottom: 1.25rem;
     width: auto;
     max-height: 32cqh;
+  }
+
+  #game-root .online-state .chat-panel.chat-panel--terminal {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    max-height: 30cqh;
+  }
+
+  #game-root .online-match-host-controls {
+    position: static;
+    width: 100%;
+    max-height: none;
+    margin-bottom: 0.75rem;
   }
 
   #game-root .input-row {
