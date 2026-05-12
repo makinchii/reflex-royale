@@ -750,6 +750,25 @@ function applyPreferredPlayerOptions(room, socketId, { preferredKey, preferredTh
   return unavailable;
 }
 
+function getSavedRoomValidation(room, name, verifier) {
+  if (!room) return { valid: false, reason: "not_found" };
+  if ([ROOM_STATUS.STARTING, ROOM_STATUS.COUNTDOWN, ROOM_STATUS.WAITING, ROOM_STATUS.REACT, ROOM_STATUS.GAME_OVER, ROOM_STATUS.CLOSED].includes(room.status)) {
+    return { valid: false, reason: "not_accepting" };
+  }
+
+  const normalizedName = String(name || "").trim();
+  const normalizedVerifier = String(verifier || "").trim();
+  if (!normalizedName || !normalizedVerifier) return { valid: false, reason: "missing_identity" };
+  if (room.isBlacklisted(normalizedName, normalizedVerifier)) return { valid: false, reason: "blocked" };
+
+  const matchingPlayer = room.findMatchingPlayer(normalizedName, normalizedVerifier);
+  if (matchingPlayer) return { valid: true };
+  if (room.hasPlayerName(normalizedName)) return { valid: false, reason: "name_conflict" };
+  if (room.players.size >= 4) return { valid: false, reason: "full" };
+
+  return { valid: true };
+}
+
 function getTransitionPlayers(room) {
   return room.getRoster().map((player) => ({
     id: player.id,
@@ -915,6 +934,15 @@ function initGameSockets(io) {
       socket.emit("roomCreated", { room: room.getRoomState(), playerId: socket.id, verifier, hostReclaimToken: room.getHostReclaimToken() });
       if (unavailable.length) socket.emit("preferenceConflict", { unavailable });
       emitRoomState(io, room);
+    });
+
+    socket.on("checkSavedRoom", ({ name, room: code, verifier }) => {
+      const normalizedCode = String(code || "").trim().toUpperCase();
+      const room = normalizedCode ? rooms.get(normalizedCode) : null;
+      socket.emit("savedRoomChecked", {
+        room: normalizedCode,
+        ...getSavedRoomValidation(room, name, verifier)
+      });
     });
 
     socket.on("joinRoom", ({ name, room: code, verifier, hostReclaimToken, preferredKey, preferredThemeCommand, preferredThemeColor }) => {

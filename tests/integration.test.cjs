@@ -557,6 +557,50 @@ test("lobby join, chat, kick, blacklist, and host transfer work", async () => {
   }
 });
 
+test("saved room validation only approves joinable rooms", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-1", io);
+    io.connect(host);
+    host.trigger("createRoom", { name: "Host" });
+    const roomCode = lastEvent(host, "roomCreated").payload.room.room;
+
+    const probe = new FakeSocket("probe-1", io);
+    io.connect(probe);
+    probe.trigger("checkSavedRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
+    assert.equal(lastEvent(probe, "savedRoomChecked").payload.valid, true);
+
+    probe.trigger("checkSavedRoom", { name: "Player", room: "MISSING", verifier: "ver-player" });
+    assert.equal(lastEvent(probe, "savedRoomChecked").payload.valid, false);
+    assert.equal(lastEvent(probe, "savedRoomChecked").payload.reason, "not_found");
+
+    const player = new FakeSocket("player-1", io);
+    io.connect(player);
+    player.trigger("joinRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
+    probe.trigger("checkSavedRoom", { name: "Player", room: roomCode, verifier: "other-verifier" });
+    assert.equal(lastEvent(probe, "savedRoomChecked").payload.valid, false);
+    assert.equal(lastEvent(probe, "savedRoomChecked").payload.reason, "name_conflict");
+
+    host.trigger("bindKey", { key: "1" });
+    player.trigger("bindKey", { key: "2" });
+    host.trigger("toggleReady");
+    player.trigger("toggleReady");
+    host.trigger("startGame");
+    probe.trigger("checkSavedRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
+    assert.equal(lastEvent(probe, "savedRoomChecked").payload.valid, false);
+    assert.equal(lastEvent(probe, "savedRoomChecked").payload.reason, "not_accepting");
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
 test("lobby disconnect removes players and transfers host without ghost slots", async () => {
   const restoreTimers = patchNoopTimers();
   delete require.cache[gameRoomPath];

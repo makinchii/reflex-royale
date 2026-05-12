@@ -69,11 +69,30 @@ window.dispatchEvent(new Event("reflex-royale-legacy-ready"));
 
 function attemptAutoReconnect() {
   if (autoReconnectEnabled && savedRoomCode && savedPlayerName) {
-    renderReconnectPrompt();
+    renderSavedRoomCheck();
+    socket.emit("checkSavedRoom", {
+      name: savedPlayerName,
+      room: savedRoomCode,
+      verifier
+    });
     return;
   }
 
   renderJoinScreen();
+}
+
+function renderSavedRoomCheck() {
+  announceMatchState(false);
+  roomState = null;
+  root.innerHTML = `
+    <div class="lobby lobby--reconnect">
+      <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
+      <p class="subtitle">Online Mode — Checking Saved Room</p>
+      <div class="lobby-form">
+        <p class="hint">Checking whether room <strong>${esc(savedRoomCode)}</strong> is still available...</p>
+      </div>
+    </div>
+  `;
 }
 
 function joinSavedRoom() {
@@ -813,6 +832,18 @@ socket.on("roomJoined", ({ room, playerId, hostReclaimToken: joinedHostReclaimTo
   autoReconnectEnabled = true;
   renderLobby(room);
   renderChat(room.chatMessages || []);
+});
+
+socket.on("savedRoomChecked", ({ room, valid }) => {
+  if (!autoReconnectEnabled || room !== savedRoomCode) return;
+
+  if (valid) {
+    renderReconnectPrompt();
+    return;
+  }
+
+  clearSavedRoom();
+  renderJoinScreen();
 });
 
 socket.on("roomState", (state) => {
