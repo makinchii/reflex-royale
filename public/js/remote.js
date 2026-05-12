@@ -304,27 +304,34 @@ function cleanupThemePickerDisclosure() {
   closeThemePickerOnOutsideClick = null;
 }
 
-function renderRoundSlider(value, label = "Round count", modifier = "") {
+function renderRoundSlider(value, label = "Round count", modifier = "", inputId = "roundCountInput") {
+  const valueId = `${inputId}Value`;
   return `
     <div data-slot="tron-slider" class="round-slider ${modifier}" aria-label="Round count slider">
       <div class="round-slider__header">
         <span class="round-control">${label}</span>
-        <span id="roundCountInputValue" class="round-slider__value">${value}</span>
+        <span id="${valueId}" class="round-slider__value">${value}</span>
       </div>
       <div class="round-slider__track-wrap">
         <div data-slot="slider-track" class="round-slider__track"></div>
         <div data-slot="slider-range" class="round-slider__range" style="width: 0%"></div>
         <div data-slot="slider-thumb" class="round-slider__thumb" style="left: 0%"></div>
-        <input id="roundCountInput" class="round-slider__input" type="range" min="1" max="20" step="1" value="${value}" />
+        <input id="${inputId}" class="round-slider__input" type="range" min="1" max="20" step="1" value="${value}" />
       </div>
     </div>
   `;
 }
 
-function wireRoundSlider(onChange) {
-  const roundCountInput = document.getElementById("roundCountInput");
-  const roundCountInputValue = document.getElementById("roundCountInputValue");
+function wireRoundSlider(inputId = "roundCountInput", onChange) {
+  if (typeof inputId === "function") {
+    onChange = inputId;
+    inputId = "roundCountInput";
+  }
+
+  const roundCountInput = document.getElementById(inputId);
   if (!roundCountInput) return;
+  const slider = roundCountInput.closest('[data-slot="tron-slider"]');
+  const roundCountInputValue = slider?.querySelector(".round-slider__value");
 
   const updateRoundSlider = () => {
     const min = Number(roundCountInput.min || 1);
@@ -333,8 +340,8 @@ function wireRoundSlider(onChange) {
     const percent = ((current - min) / (max - min)) * 100;
 
     if (roundCountInputValue) roundCountInputValue.textContent = String(current);
-    const range = document.querySelector('[data-slot="slider-range"]');
-    const thumb = document.querySelector('[data-slot="slider-thumb"]');
+    const range = slider?.querySelector('[data-slot="slider-range"]');
+    const thumb = slider?.querySelector('[data-slot="slider-thumb"]');
     if (range) range.style.width = `${percent}%`;
     if (thumb) thumb.style.left = `${percent}%`;
     if (onChange) onChange(current);
@@ -380,7 +387,7 @@ function renderLobby(state) {
   const hostRoundControls = isHost ? `
     <section class="online-host-controls" aria-label="Host controls">
       <div class="host-control host-control--rounds">
-        ${renderRoundSlider(state.totalRounds, "Round count", "round-slider--host")}
+        ${renderRoundSlider(state.totalRounds, "Round count", "round-slider--host", "hostRoundCountInput")}
       </div>
       <button id="applyRoundCountBtn" class="btn btn-secondary">Update Rounds</button>
       <button id="closeRoomBtn" class="btn btn-secondary">Close Room</button>
@@ -464,12 +471,16 @@ function renderLobby(state) {
   const applyRoundCountBtn = document.getElementById("applyRoundCountBtn");
   if (applyRoundCountBtn) {
     applyRoundCountBtn.addEventListener("click", () => {
-      const input = document.getElementById("roundCountInput");
-      socket.emit("setRoundCount", { totalRounds: input.value });
+      const input = document.getElementById("hostRoundCountInput");
+      const totalRounds = Number.parseInt(input?.value || "", 10);
+      if (!Number.isFinite(totalRounds) || totalRounds < 1 || totalRounds > 20) {
+        return showPageNotification("Round count must be between 1 and 20.", "error");
+      }
+      socket.emit("setRoundCount", { totalRounds });
     });
   }
 
-  wireRoundSlider();
+  wireRoundSlider("hostRoundCountInput");
 
   const closeBtn = document.getElementById("closeRoomBtn");
   if (closeBtn) closeBtn.addEventListener("click", () => socket.emit("closeRoom"));

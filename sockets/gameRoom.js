@@ -283,29 +283,6 @@ class RoomGame {
     return { ok: true, themeCommand, color: player.color };
   }
 
-  setRoundCount(socketId, value) {
-    if (!this._isLobbyState()) {
-      return { ok: false, message: "Round count can only be changed in the lobby." };
-    }
-
-    if (socketId !== this.hostId) {
-      return { ok: false, message: "Only the host can change round count." };
-    }
-
-    const roundCount = Number.parseInt(value, 10);
-    if (!Number.isFinite(roundCount) || roundCount < 1 || roundCount > 20) {
-      return { ok: false, message: "Round count must be between 1 and 20." };
-    }
-
-    this.totalRounds = roundCount;
-    const player = this.players.get(socketId);
-    if (player) {
-      player.lastSeenAt = Date.now();
-    }
-    this._refreshLobbyStatus();
-    return { ok: true, totalRounds: this.totalRounds };
-  }
-
   removePlayer(socketId) {
     const player = this.players.get(socketId);
     if (!player) return { ok: false };
@@ -619,16 +596,25 @@ class RoomGame {
 
   setRoundCount(socketId, value) {
     if (socketId !== this.hostId) {
-      return false;
+      return { ok: false, message: "Only the host can change round count." };
+    }
+
+    if (!this._isLobbyState()) {
+      return { ok: false, message: "Round count can only be changed in the lobby." };
     }
 
     const roundCount = Number.parseInt(value, 10);
     if (!Number.isFinite(roundCount) || roundCount < 1 || roundCount > 20) {
-      return false;
+      return { ok: false, message: "Round count must be between 1 and 20." };
     }
 
     this.totalRounds = roundCount;
-    return true;
+    const player = this.players.get(socketId);
+    if (player) {
+      player.lastSeenAt = Date.now();
+    }
+    this._refreshLobbyStatus();
+    return { ok: true, totalRounds: this.totalRounds };
   }
 
   _syncHostFlags() {
@@ -965,9 +951,9 @@ function initGameSockets(io) {
       const room = currentRoom ? rooms.get(currentRoom) : null;
       if (!room) return;
 
-      const ok = room.setRoundCount(socket.id, totalRounds);
-      if (!ok) {
-        return socket.emit("error", { message: "Only the host can change round count, and it must be between 1 and 20." });
+      const result = room.setRoundCount(socket.id, totalRounds);
+      if (!result.ok) {
+        return socket.emit("error", { message: result.message });
       }
 
       emitRoomState(io, room);
