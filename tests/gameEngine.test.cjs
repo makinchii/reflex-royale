@@ -1,9 +1,11 @@
 const assert = require("assert/strict");
-const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
 const { performance } = require("perf_hooks");
 const test = require("node:test");
+const ts = require("typescript");
+
+const gameEnginePath = path.join(__dirname, "..", "src", "lib", "game", "game-engine.ts");
+const gameKeysPath = path.join(__dirname, "..", "src", "lib", "game", "keys.ts");
 
 class FakeClock {
   constructor() {
@@ -68,35 +70,54 @@ class FakeClock {
 }
 
 function loadGameEngine(clock = new FakeClock()) {
-  const sourcePath = path.join(__dirname, "..", "public", "js", "GameEngine.js");
-  let source = fs.readFileSync(sourcePath, "utf8");
+  const originalRandom = Math.random;
+  const originalPerformanceNow = performance.now;
+  const originalGlobalPerformance = global.performance;
+  const originalSetTimeout = global.setTimeout;
+  const originalSetInterval = global.setInterval;
+  const originalClearTimeout = global.clearTimeout;
+  const originalClearInterval = global.clearInterval;
+  const originalTsExtension = require.extensions[".ts"];
 
-  source = source.replace(/import \{ normalizeGameKey \} from "\.\/keyMap\.js";\r?\n/, "const { normalizeGameKey } = globalThis.__gameKeys;\n");
-  source = source.replace("export const GameState = Object.freeze({", "const GameState = Object.freeze({");
-  source = source.replace("export class GameEngine {", "class GameEngine {");
-  source += "\nmodule.exports = { GameState, GameEngine };";
-
-  const math = Object.create(Math);
-  math.random = () => 0;
-
-  const sandbox = {
-    module: { exports: {} },
-    exports: {},
-    console,
-    Map,
-    Math: math,
-    performance: { now: () => clock.now },
-    setTimeout: clock.setTimeout.bind(clock),
-    setInterval: clock.setInterval.bind(clock),
-    clearTimeout: clock.clearTimeout.bind(clock),
-    clearInterval: clock.clearInterval.bind(clock),
-    __gameKeys: require("../lib/gameKeys.cjs")
+  require.extensions[".ts"] = (module, filename) => {
+    const source = require("fs").readFileSync(filename, "utf8");
+    const output = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        esModuleInterop: true,
+      },
+      fileName: filename,
+    }).outputText;
+    module._compile(output, filename);
   };
 
-  sandbox.globalThis = sandbox;
+  Math.random = () => 0;
+  performance.now = () => clock.now;
+  global.performance = { now: () => clock.now };
+  global.setTimeout = clock.setTimeout.bind(clock);
+  global.setInterval = clock.setInterval.bind(clock);
+  global.clearTimeout = clock.clearTimeout.bind(clock);
+  global.clearInterval = clock.clearInterval.bind(clock);
 
-  vm.runInNewContext(source, sandbox, { filename: sourcePath });
-  return { ...sandbox.module.exports, clock };
+  delete require.cache[gameEnginePath];
+  delete require.cache[gameKeysPath];
+  const exports = require(gameEnginePath);
+
+  Math.random = originalRandom;
+  performance.now = originalPerformanceNow;
+  global.performance = originalGlobalPerformance;
+  global.setTimeout = originalSetTimeout;
+  global.setInterval = originalSetInterval;
+  global.clearTimeout = originalClearTimeout;
+  global.clearInterval = originalClearInterval;
+  if (originalTsExtension) {
+    require.extensions[".ts"] = originalTsExtension;
+  } else {
+    delete require.extensions[".ts"];
+  }
+
+  return { ...exports, clock };
 }
 
 function createReadyEngine() {
@@ -244,4 +265,40 @@ test("round scoring smoke test stays fast", () => {
 
   const elapsed = performance.now() - start;
   assert.ok(elapsed < 500, `Expected smoke test to finish under 500ms, took ${elapsed}ms`);
+});
+
+test("clears pending timers when resetting during delayed match start", () => {
+  const { engine, GameState, clock } = createReadyEngine();
+  const events = [];
+  engine.on("countdown", (payload) => events.push(payload));
+
+  assert.equal(engine.startGame({ countdownDelayMs: 500 }), true);
+  assert.equal(engine.state, GameState.COUNTDOWN);
+
+  engine.resetToLobby();
+  clock.tick(500);
+
+  assert.equal(engine.state, GameState.LOBBY);
+  assert.deepEqual(events, []);
+});
+
+test("standings tie-break by score wins best time then name", () => {
+  const { GameEngine } = loadGameEngine();
+  const engine = new GameEngine();
+
+  engine.addPlayer("p1", "Cal", "c");
+  engine.addPlayer("p2", "Ada", "a");
+  engine.addPlayer("p3", "Bea", "b");
+
+  engine.getPlayer("p1").totalScore = 3;
+  engine.getPlayer("p1").wins = 1;
+  engine.getPlayer("p1").bestTime = 90;
+  engine.getPlayer("p2").totalScore = 3;
+  engine.getPlayer("p2").wins = 1;
+  engine.getPlayer("p2").bestTime = 80;
+  engine.getPlayer("p3").totalScore = 3;
+  engine.getPlayer("p3").wins = 0;
+  engine.getPlayer("p3").bestTime = 40;
+
+  assert.deepEqual(engine.getStandings().map((player) => player.id), ["p2", "p1", "p3"]);
 });
