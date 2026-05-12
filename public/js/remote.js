@@ -69,7 +69,6 @@ window.dispatchEvent(new Event("reflex-royale-legacy-ready"));
 
 function attemptAutoReconnect() {
   if (autoReconnectEnabled && savedRoomCode && savedPlayerName) {
-    renderJoinScreen();
     renderReconnectPrompt();
     return;
   }
@@ -97,28 +96,27 @@ function declineSavedRoom() {
 }
 
 function renderReconnectPrompt() {
-  const existing = document.getElementById("reconnectPromptDialog");
-  if (existing) existing.remove();
-
-  document.body.insertAdjacentHTML("beforeend", `
-    <div id="reconnectPromptDialog" class="preference-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="reconnectPromptTitle">
-      <div class="preference-conflict-dialog__panel">
-        <h2 id="reconnectPromptTitle">Rejoin Room?</h2>
-        <p>Reconnect to room ${esc(savedRoomCode)} as ${esc(savedPlayerName)}?</p>
+  announceMatchState(false);
+  roomState = null;
+  root.innerHTML = `
+    <div class="lobby lobby--reconnect">
+      <h1 class="game-title"><a href="/">Reflex Royale</a></h1>
+      <p class="subtitle">Online Mode — Saved Room Found</p>
+      <div id="reconnectPromptDialog" class="lobby-form" role="dialog" aria-modal="true" aria-labelledby="reconnectPromptTitle">
+        <h2 id="reconnectPromptTitle" class="round-control">Rejoin Room?</h2>
+        <p class="hint">Reconnect to room <strong>${esc(savedRoomCode)}</strong> as <strong>${esc(savedPlayerName)}</strong>, or clear the saved room to join another lobby.</p>
         <div class="game-over-actions">
           <button id="reconnectPromptYes" type="button" class="btn btn-primary">Rejoin</button>
-          <button id="reconnectPromptNo" type="button" class="btn btn-secondary">No Thanks</button>
+          <button id="reconnectPromptNo" type="button" class="btn btn-secondary">Join Different Room</button>
         </div>
       </div>
     </div>
-  `);
+  `;
 
   document.getElementById("reconnectPromptYes")?.addEventListener("click", () => {
-    document.getElementById("reconnectPromptDialog")?.remove();
     joinSavedRoom();
   });
   document.getElementById("reconnectPromptNo")?.addEventListener("click", () => {
-    document.getElementById("reconnectPromptDialog")?.remove();
     declineSavedRoom();
   });
 }
