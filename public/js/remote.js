@@ -70,18 +70,57 @@ window.dispatchEvent(new Event("reflex-royale-legacy-ready"));
 function attemptAutoReconnect() {
   if (autoReconnectEnabled && savedRoomCode && savedPlayerName) {
     renderJoinScreen();
-    pendingJoinSource = "auto";
-    socket.emit("joinRoom", {
-      name: savedPlayerName,
-      room: savedRoomCode,
-      verifier,
-      hostReclaimToken,
-      ...getPreferredPlayerOptions()
-    });
+    renderReconnectPrompt();
     return;
   }
 
   renderJoinScreen();
+}
+
+function joinSavedRoom() {
+  if (!savedRoomCode || !savedPlayerName) return renderJoinScreen();
+  pendingJoinSource = "auto";
+  socket.emit("joinRoom", {
+    name: savedPlayerName,
+    room: savedRoomCode,
+    verifier,
+    hostReclaimToken,
+    ...getPreferredPlayerOptions()
+  });
+}
+
+function declineSavedRoom() {
+  autoReconnectEnabled = false;
+  pendingJoinSource = null;
+  clearSavedRoom();
+  renderJoinScreen();
+}
+
+function renderReconnectPrompt() {
+  const existing = document.getElementById("reconnectPromptDialog");
+  if (existing) existing.remove();
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div id="reconnectPromptDialog" class="preference-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="reconnectPromptTitle">
+      <div class="preference-conflict-dialog__panel">
+        <h2 id="reconnectPromptTitle">Rejoin Room?</h2>
+        <p>Reconnect to room ${esc(savedRoomCode)} as ${esc(savedPlayerName)}?</p>
+        <div class="game-over-actions">
+          <button id="reconnectPromptYes" type="button" class="btn btn-primary">Rejoin</button>
+          <button id="reconnectPromptNo" type="button" class="btn btn-secondary">No Thanks</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("reconnectPromptYes")?.addEventListener("click", () => {
+    document.getElementById("reconnectPromptDialog")?.remove();
+    joinSavedRoom();
+  });
+  document.getElementById("reconnectPromptNo")?.addEventListener("click", () => {
+    document.getElementById("reconnectPromptDialog")?.remove();
+    declineSavedRoom();
+  });
 }
 
 function renderJoinScreen(message = "") {
@@ -495,14 +534,15 @@ function renderLobby(state) {
 function renderRoster(players) {
   const container = document.getElementById("remotePlayerSlots");
   if (!container) return;
+  const visiblePlayers = players.filter((player) => player.connected !== false);
 
   if (container.classList.contains("player-slots--grid") || container.classList.contains("player-slots--docked")) {
-    container.innerHTML = renderDockedRoster(players);
+    container.innerHTML = renderDockedRoster(visiblePlayers);
     wireRosterRemoveButtons(container);
     return;
   }
 
-  container.innerHTML = players.map((player) => `
+  container.innerHTML = visiblePlayers.map((player) => `
     ${renderRosterSlot(player)}
   `).join("");
   wireRosterRemoveButtons(container);
@@ -511,7 +551,7 @@ function renderRoster(players) {
 function renderRosterSlot(player) {
   const canRemove = isHost && player.id !== myPlayerId;
   return `
-    <div class="player-slot ${player.isReady ? "player-slot--ready" : ""} ${canRemove ? "player-slot--removable" : ""}" style="--player-color:${player.color}; border-color:${player.color}; opacity:${player.connected ? 1 : 0.55}">
+    <div class="player-slot ${player.isReady ? "player-slot--ready" : ""} ${canRemove ? "player-slot--removable" : ""}" style="--player-color:${player.color}; border-color:${player.color}">
       <span class="player-slot-name" style="color:${player.color}">${esc(player.name)}</span>
       <span class="player-slot__protocol">${esc(themePalette.find((protocol) => protocol.id === player.themeCommand)?.label || "Custom")}</span>
       ${canRemove ? `<button class="btn-remove player-slot__remove" type="button" aria-label="Remove ${esc(player.name)}" data-remove-id="${player.id}"></button>` : ""}
@@ -561,7 +601,7 @@ function renderHostControls(players, actionLabel = "Remove") {
   const container = document.getElementById("hostRosterControls");
   if (!container || !isHost) return;
 
-  const removable = players.filter((player) => player.id !== myPlayerId);
+  const removable = players.filter((player) => player.connected !== false && player.id !== myPlayerId);
   container.innerHTML = removable.length ? removable.map((player) => `
     <button class="btn btn-secondary" data-remove-id="${player.id}">${actionLabel} ${esc(player.name)}</button>
   `).join("") : `<p class="hint">No players to remove.</p>`;

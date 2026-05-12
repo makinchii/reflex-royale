@@ -486,7 +486,7 @@ test("record match stores the five most recent matches", async () => {
   }
 });
 
-test("lobby join, chat, kick, blacklist, and host reclaim work", async () => {
+test("lobby join, chat, kick, blacklist, and host transfer work", async () => {
   const restoreTimers = patchNoopTimers();
   delete require.cache[gameRoomPath];
   const { initGameSockets } = require(gameRoomPath);
@@ -503,6 +503,7 @@ test("lobby join, chat, kick, blacklist, and host reclaim work", async () => {
     assert.ok(created);
     assert.equal(created.payload.room.totalRounds, 7);
     const roomCode = created.payload.room.room;
+    const hostVerifier = created.payload.verifier;
     const hostToken = created.payload.hostReclaimToken;
 
     const player = new FakeSocket("player-1", io);
@@ -531,13 +532,19 @@ test("lobby join, chat, kick, blacklist, and host reclaim work", async () => {
     const blocked = lastEvent(player, "error");
     assert.equal(blocked.payload.message, "You were kicked from this lobby and cannot rejoin it.");
 
+    const nextHost = new FakeSocket("player-2", io);
+    io.connect(nextHost);
+    nextHost.trigger("joinRoom", { name: "NextHost", room: roomCode, verifier: "ver-next-host" });
+    assert.ok(lastEvent(nextHost, "roomJoined"));
+
     const hostReload = new FakeSocket("host-2", io);
     io.connect(hostReload);
     host.trigger("disconnect");
-    hostReload.trigger("joinRoom", { name: "Host", room: roomCode, verifier: "wrong-verifier", hostReclaimToken: hostToken });
+    hostReload.trigger("joinRoom", { name: "Host", room: roomCode, verifier: hostVerifier, hostReclaimToken: hostToken });
     const reclaimed = lastEvent(hostReload, "roomJoined");
     assert.ok(reclaimed);
-    assert.equal(reclaimed.payload.room.hostId, "host-2");
+    assert.equal(reclaimed.payload.room.hostId, "player-2");
+    assert.equal(reclaimed.payload.room.players.find((entry) => entry.id === "host-2")?.isHost, false);
   } finally {
     restoreTimers();
     delete require.cache[gameRoomPath];

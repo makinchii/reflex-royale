@@ -461,11 +461,8 @@ class RoomGame {
       return { changed: false, closed: false, endMatch: false };
     }
 
-    if (this._isLobbyState()) {
-      player.connected = false;
-      player.isReady = false;
-      player.isInLobbyView = false;
-      player.lastSeenAt = Date.now();
+    if (this._isLobbyState() || this.status === ROOM_STATUS.POST_MATCH || this.status === ROOM_STATUS.ROUND_END || this.status === ROOM_STATUS.GAME_OVER) {
+      this.players.delete(socketId);
       if (this.hostId === socketId) {
         this._reassignHost();
       }
@@ -473,7 +470,7 @@ class RoomGame {
 
       return {
         changed: true,
-        closed: false,
+        closed: this.players.size === 0,
         endMatch: false
       };
     }
@@ -914,7 +911,7 @@ function initGameSockets(io) {
       }
 
       if (!result) {
-        if (normalizedHostReclaimToken) {
+        if (normalizedHostReclaimToken && !room.hostId) {
           result = room.reclaimHost(socket.id, normalizedHostReclaimToken);
         }
 
@@ -1158,7 +1155,7 @@ function initGameSockets(io) {
 
       const result = room.markDisconnected(socket.id);
 
-      // Keep room and slot alive for reclaim while the stale timeout runs.
+      // Notify lobby clients after roster removal or host transfer.
       if (room.status === ROOM_STATUS.WAITING_FOR_PLAYERS || room.status === ROOM_STATUS.READY_CHECK || room.status === ROOM_STATUS.POST_MATCH) {
         io.to(room.roomCode).emit("lobbyStatus", { waitingFor: room.getWaitingList() });
       }
