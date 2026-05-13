@@ -1,13 +1,44 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, ChevronLeft, Gamepad2, Gauge, Music2, Navigation, Paintbrush, Play, Power, RadioTower, Search, SlidersHorizontal, UserRound, Zap } from "lucide-react";
+import { BarChart3, ChevronLeft, Gamepad2, Music2, Navigation, Paintbrush, Power, RadioTower, UserRound, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthMenu, performLogout } from "@/components/app/auth-menu";
+import { DashboardPersonalizationSection } from "@/components/app/dashboard-personalization-section";
+import { SidebarButton } from "@/components/app/dashboard-controls";
+import { DashboardSoundSection } from "@/components/app/dashboard-sound-section";
+import { DashboardVisualsSection } from "@/components/app/dashboard-visuals-section";
 import { WireframeDottedGlobe } from "@/components/app/wireframe-dotted-globe";
-import { KEYBOARD_ROWS, SHIFTED_KEY_MAP } from "@/lib/game/keys";
+import {
+  ATMOSPHERE_KEY,
+  applyPersonalizationTheme,
+  clampPercent,
+  COOKIE_MAX_AGE,
+  formatDuration,
+  getThemeCommand,
+  INTENSITY_KEY,
+  INTENSITY_OPTIONS,
+  normalizeCustomThemeColor,
+  normalizePersonalizationKey,
+  PREFERRED_KEY_KEY,
+  rankColor,
+  resolveTheme,
+  saveThemePreferenceWithShades,
+  THEME_COMMAND_KEY,
+  THEME_COMMANDS,
+  THEME_KEY,
+  VISUAL_ANIMATIONS_KEY,
+  VISUAL_PREFERENCES_CHANGED_EVENT,
+  VISUAL_PRESETS,
+  type AudioCategoryFilter,
+  type LeaderboardEntry,
+  type PersonalizationTheme,
+  type RecentMatch,
+  type TabId,
+  type VisualPresetId,
+} from "@/components/app/dashboard-settings";
 import {
   AUDIO_MASTER_VOLUME_KEY,
   AUDIO_MIX_MODE_KEY,
@@ -28,7 +59,6 @@ import {
   writeAudioMixModePreference,
   writeAudioTogglePreference,
   writeAudioVolumePreference,
-  type AudioCategory,
   type AudioMixMode,
   type AudioTrack,
 } from "@/lib/audio";
@@ -36,25 +66,18 @@ import { Badge } from "@/components/thegridcn/badge";
 import { Button } from "@/components/thegridcn/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/thegridcn/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/thegridcn/dialog";
-import { Input } from "@/components/thegridcn/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/thegridcn/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/thegridcn/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/thegridcn/tooltip";
-import { HexColorPicker } from "@/components/thegridcn/hex-color-picker";
 import {
   DEFAULT_ATMOSPHERE,
   applyAtmospherePreset,
   normalizeAtmosphere,
   parseAtmosphere,
   serializeAtmosphere,
-  type AtmospherePreset,
   type AtmosphereState,
 } from "@/lib/visual-atmosphere";
 import type { AppAuthUser } from "@/lib/auth";
 import type { PlayerPerformanceStats } from "@/lib/recent-matches";
 import { parseIntensity, type Intensity } from "@/lib/ui-preferences";
 import {
-  THEME_COMMAND_COLORS,
   THEME_SHADE_COLORS,
   defaultThemeShades,
   getThemeOwnerForColor,
@@ -63,223 +86,11 @@ import {
   type ThemeCommandId,
 } from "@/lib/theme-preferences";
 
-type LeaderboardEntry = {
-  username: string;
-  bestScore: number;
-};
-
-type TabId = "play" | "analytics" | "visuals" | "sound" | "personalization";
-type PersonalizationTheme = "tron" | "ares" | "custom";
-
 type NavItem = {
   id: TabId;
   label: string;
   icon: ReactNode;
 };
-
-type RecentMatch = {
-  mode: "local" | "online";
-  playedAt: Date | string;
-  place: number;
-  averageReactionTime: number;
-};
-
-type AudioCategoryFilter = "all" | AudioCategory;
-type VisualPresetId = Exclude<AtmospherePreset, "custom">;
-
-const PREFERRED_KEY_KEY = "reflexRoyalePreferredKey";
-const THEME_KEY = "ui-lab-theme";
-const INTENSITY_KEY = "ui-lab-intensity";
-const ATMOSPHERE_KEY = "ui-lab-atmosphere";
-const VISUAL_ANIMATIONS_KEY = "reflexRoyaleVisualAnimationsEnabled";
-const VISUAL_PREFERENCES_CHANGED_EVENT = "reflexRoyaleVisualPreferencesChanged";
-const CUSTOM_THEME_COLOR_KEY = "reflexRoyaleCustomThemeColor";
-const THEME_COMMAND_KEY = "reflexRoyaleThemeCommand";
-const COOKIE_MAX_AGE = 31_536_000;
-const VISUAL_PRESETS: Array<{ id: VisualPresetId; label: string; description: string; intensity: Intensity }> = [
-  { id: "calm", label: "Calm", description: "Reduced motion with softer background traffic.", intensity: "light" },
-  { id: "balanced", label: "Balanced", description: "Default density for command-center readability.", intensity: "medium" },
-  { id: "electric", label: "Electric", description: "Maximum grid pressure, particles, and beams.", intensity: "heavy" },
-];
-const INTENSITY_OPTIONS: Array<{ value: Intensity; label: string; description: string }> = [
-  { value: "none", label: "Minimal", description: "Disable animated grid effects." },
-  { value: "light", label: "Light", description: "Low-glow dashboard baseline." },
-  { value: "medium", label: "Medium", description: "Balanced neon response." },
-  { value: "heavy", label: "Heavy", description: "High-output arcade glow." },
-];
-const THEME_COMMANDS: Array<{ id: ThemeCommandId; name: string; color: string; protocol: string; theme: PersonalizationTheme }> = [
-  { id: "ares", name: "ARES", color: THEME_COMMAND_COLORS.ares, protocol: "Red combat protocol", theme: "ares" },
-  { id: "vulcan", name: "VULCAN", color: THEME_COMMAND_COLORS.vulcan, protocol: "Orange forge protocol", theme: "custom" },
-  { id: "apollo", name: "APOLLO", color: THEME_COMMAND_COLORS.apollo, protocol: "Yellow solar protocol", theme: "custom" },
-  { id: "gaia", name: "GAIA", color: THEME_COMMAND_COLORS.gaia, protocol: "Green biosphere protocol", theme: "custom" },
-  { id: "tron", name: "TRON", color: THEME_COMMAND_COLORS.tron, protocol: "Blue grid protocol", theme: "tron" },
-  { id: "bacchus", name: "BACCHUS", color: THEME_COMMAND_COLORS.bacchus, protocol: "Purple pulse protocol", theme: "custom" },
-  { id: "aphrodite", name: "APHRODITE", color: THEME_COMMAND_COLORS.aphrodite, protocol: "Pink signal protocol", theme: "custom" },
-  { id: "olympus", name: "OLYMPUS", color: THEME_COMMAND_COLORS.olympus, protocol: "White ascendant protocol", theme: "custom" },
-];
-const PERSONALIZATION_KEYBOARD_ROWS = KEYBOARD_ROWS;
-const PERSONALIZATION_ALLOWED_KEYS = new Set(PERSONALIZATION_KEYBOARD_ROWS.flat());
-const PERSONALIZATION_SHIFTED_KEYS: Record<string, string> = SHIFTED_KEY_MAP;
-
-function normalizePersonalizationKey(value: string) {
-  if (value.length !== 1) return "";
-  const lower = value.toLowerCase();
-  const normalized = PERSONALIZATION_SHIFTED_KEYS[lower] || lower;
-  return PERSONALIZATION_ALLOWED_KEYS.has(normalized) ? normalized : "";
-}
-
-function normalizeCustomThemeColor(value: string | null) {
-  return value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : getThemeCommand("tron").color;
-}
-
-function getThemeCommand(id: ThemeCommandId) {
-  return THEME_COMMANDS.find((command) => command.id === id) ?? THEME_COMMANDS.find((command) => command.id === "tron")!;
-}
-
-function resolveTheme(command: { theme: PersonalizationTheme; color: string }, color: string): PersonalizationTheme {
-  return color.toLowerCase() === command.color.toLowerCase() ? command.theme : "custom";
-}
-
-function applyCustomThemeColor(color: string) {
-  [document.documentElement, document.body].forEach((node) => {
-    node.style.setProperty("--primary", color);
-    node.style.setProperty("--accent", color);
-    node.style.setProperty("--ring", color);
-    node.style.setProperty("--border", `color-mix(in oklch, ${color} 42%, black)`);
-    node.style.setProperty("--input", `color-mix(in oklch, ${color} 26%, black)`);
-    node.style.setProperty("--glow", color);
-    node.style.setProperty("--glow-muted", `color-mix(in oklch, ${color} 56%, black)`);
-    node.style.setProperty("--sidebar-primary", color);
-    node.style.setProperty("--sidebar-border", `color-mix(in oklch, ${color} 42%, black)`);
-    node.style.setProperty("--sidebar-ring", color);
-  });
-}
-
-function clearCustomThemeColor() {
-  [document.documentElement, document.body].forEach((node) => {
-    ["--primary", "--accent", "--ring", "--border", "--input", "--glow", "--glow-muted", "--sidebar-primary", "--sidebar-border", "--sidebar-ring"].forEach((property) => {
-      node.style.removeProperty(property);
-    });
-  });
-}
-
-function applyPersonalizationTheme(theme: PersonalizationTheme, customColor = getThemeCommand("tron").color, commandId: ThemeCommandId = "tron") {
-  window.localStorage.setItem(THEME_KEY, theme);
-  window.localStorage.setItem(THEME_COMMAND_KEY, commandId);
-  document.cookie = `${THEME_KEY}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
-  document.cookie = `${THEME_COMMAND_KEY}=${commandId}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
-  if (theme === "custom") {
-    window.localStorage.setItem(CUSTOM_THEME_COLOR_KEY, customColor);
-    document.cookie = `${CUSTOM_THEME_COLOR_KEY}=${customColor}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
-  } else {
-    window.localStorage.removeItem(CUSTOM_THEME_COLOR_KEY);
-    document.cookie = `${CUSTOM_THEME_COLOR_KEY}=; path=/; max-age=0; samesite=lax`;
-  }
-  document.documentElement.dataset.theme = theme;
-  document.body.dataset.theme = theme;
-  if (theme === "custom") applyCustomThemeColor(customColor);
-  else clearCustomThemeColor();
-  window.__reflexRoyaleSetFavicon?.();
-}
-
-function saveThemePreferenceWithShades(command: { id: ThemeCommandId; color: string }, shades: Record<ThemeCommandId, string>) {
-  void fetch("/api/auth/theme", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      preferredThemeCommand: command.id,
-      preferredThemeColor: command.color,
-      preferredThemeShades: shades,
-    }),
-  });
-}
-
-function rankColor(rank: number) {
-  if (rank === 1) return "#D4AF37";
-  if (rank === 2) return "#C0C0C0";
-  if (rank === 3) return "#CD7F32";
-  return undefined;
-}
-
-function formatDuration(totalSeconds: number) {
-  if (!totalSeconds) return "0m";
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${Math.max(1, minutes)}m`;
-}
-
-function formatAudioTrackDuration(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.max(0, Math.floor(totalSeconds % 60));
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
-function clampPercent(value: number) {
-  return Math.min(100, Math.max(0, Math.round(value)));
-}
-
-function valueToPercent(value: number, min: number, max: number) {
-  return clampPercent(((value - min) / (max - min)) * 100);
-}
-
-function percentToValue(percent: number, min: number, max: number) {
-  return min + (clampPercent(percent) / 100) * (max - min);
-}
-
-function SidebarButton({ active, collapsed, icon, label, onClick }: { active: boolean; collapsed: boolean; icon: ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-selected={active}
-      title={label}
-      className={`group relative grid h-10 w-full grid-cols-[5rem_minmax(0,1fr)] items-center overflow-hidden text-left transition-[background-color,color,border-color,transform,box-shadow] duration-500 active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-        active
-          ? "bg-primary/10 text-primary shadow-[inset_4px_0_0_var(--primary),0_0_26px_color-mix(in_oklch,var(--primary)_22%,transparent)]"
-          : "text-muted-foreground hover:bg-primary/5 hover:text-primary"
-      }`}
-    >
-      <span className={`flex h-full w-20 items-center justify-center ${active ? "text-primary drop-shadow-[0_0_10px_var(--primary)]" : "text-muted-foreground group-hover:text-primary"}`}>{icon}</span>
-      <span className={`truncate text-left font-mono text-sm font-semibold tracking-[0.04em] transition-all duration-300 ${collapsed ? "translate-x-2 opacity-0" : "translate-x-0 opacity-100"}`}>{label}</span>
-    </button>
-  );
-}
-
-function SettingsRoundSlider({ label, value, onChange }: { label: string; value: number; onChange?: (value: number) => void }) {
-  return (
-    <div data-slot="tron-slider" className="round-slider dashboard-round-slider" aria-label={`${label} slider`}>
-      <div className="round-slider__header">
-        <span className="dashboard-settings-label">{label}</span>
-        <span className="round-slider__value">{value}%</span>
-      </div>
-      <div className="round-slider__track-wrap">
-        <div data-slot="slider-track" className="round-slider__track" />
-        <div data-slot="slider-range" className="round-slider__range" style={{ width: `${value}%` }} />
-        <div data-slot="slider-thumb" className="round-slider__thumb" style={{ left: `${value}%` }} />
-        <input
-          className="round-slider__input"
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          value={value}
-          onChange={(event) => onChange?.(Number(event.currentTarget.value))}
-          aria-label={label}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AudioSettingsToggle({ label, enabled, onToggle }: { label: string; enabled: boolean; onToggle: () => void }) {
-  return (
-    <button type="button" className={`dashboard-settings-toggle ${enabled ? "dashboard-settings-toggle--active" : ""}`} aria-pressed={enabled} onClick={onToggle}>
-      <span>{label}</span>
-      <strong>{enabled ? "Enabled" : "Muted"}</strong>
-    </button>
-  );
-}
 
 export function DashboardTabs({
   user,
@@ -832,345 +643,68 @@ export function DashboardTabs({
           </div>
         </section>
 
-        <section
-          ref={(el) => {
+        <DashboardVisualsSection
+          activeVisualPreset={activeVisualPreset}
+          changeVisualIntensity={changeVisualIntensity}
+          chooseVisualPreset={chooseVisualPreset}
+          setSectionRef={(el) => {
             sectionRefs.current.visuals = el;
           }}
-          data-section-id="visuals"
-          className="dashboard-settings-section scroll-mt-12 rounded border border-primary/20 bg-card/10 p-4"
-        >
-          <div className="mb-4 border-b border-primary/20 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Visuals</div>
-          <div className="dashboard-settings-grid grid gap-5">
-            <div className="dashboard-visuals-grid">
-              <Card className="dashboard-panel-card dashboard-visual-general-card border-primary/25 bg-card/15 backdrop-blur-xl">
-                <CardHeader className="dashboard-panel-card-header">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">General Settings</CardTitle>
-                      <CardDescription>Choose a fast visual profile for the whole command shell.</CardDescription>
-                    </div>
-                    <Gauge className="h-5 w-5 text-primary" />
-                  </div>
-                </CardHeader>
-                <CardContent className="dashboard-panel-card-content dashboard-visual-general-content">
-                  <div className="dashboard-visual-preset-card">
-                    <div className="dashboard-visual-card-heading">
-                      <span>Visual Presets</span>
-                      <strong>{activeVisualPreset === "custom" ? "Custom" : activeVisualPreset}</strong>
-                    </div>
-                    <div className="dashboard-visual-preset-grid" role="group" aria-label="Visual Presets">
-                      {VISUAL_PRESETS.map((preset) => {
-                        const presetAtmosphere = applyAtmospherePreset(preset.id);
-                        return (
-                          <button key={preset.id} type="button" className={visualAtmosphere.preset === preset.id ? "is-active" : undefined} onClick={() => chooseVisualPreset(preset.id)}>
-                            <span>{preset.label}</span>
-                            <small>{preset.description}</small>
-                            <div className="dashboard-visual-preset-metrics" aria-hidden="true">
-                              <em>{preset.intensity}</em>
-                              <em>{presetAtmosphere.particleCount} particles</em>
-                              <em>{Math.round(presetAtmosphere.beamOpacity * 100)}% beams</em>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="dashboard-visual-intensity-field">
-                      <span className="dashboard-settings-label">Glow Intensity</span>
-                      <Select value={visualIntensity} onValueChange={(value) => changeVisualIntensity(value as Intensity)}>
-                        <SelectTrigger className="dashboard-settings-select" aria-label="Glow intensity">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {INTENSITY_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="dashboard-visual-summary-grid">
-                      <div>
-                        <span>Intensity</span>
-                        <strong>{visualIntensityLabel}</strong>
-                      </div>
-                      <div>
-                        <span>Particles</span>
-                        <strong>{visualIntensity === "none" ? "Off" : visualAtmosphere.particleCount}</strong>
-                      </div>
-                    </div>
-                    <button type="button" className={`dashboard-visual-animation-toggle ${!visualAnimationsEnabled ? "is-active" : ""}`} aria-pressed={!visualAnimationsEnabled} onClick={toggleVisualAnimations}>
-                      <span>Disable Animations</span>
-                      <strong>{visualAnimationsEnabled ? "Off" : "On"}</strong>
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
+          toggleVisualAnimations={toggleVisualAnimations}
+          updateVisualAtmosphere={updateVisualAtmosphere}
+          visualAnimationsEnabled={visualAnimationsEnabled}
+          visualAtmosphere={visualAtmosphere}
+          visualIntensity={visualIntensity}
+          visualIntensityLabel={visualIntensityLabel}
+        />
 
-              <Card className="dashboard-panel-card dashboard-visual-advanced-card border-primary/25 bg-card/15 backdrop-blur-xl">
-                <CardHeader className="dashboard-panel-card-header">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">Advanced Settings</CardTitle>
-                      <CardDescription>Tweak the grid, motion, particles, and beam renderer.</CardDescription>
-                    </div>
-                    <SlidersHorizontal className="h-5 w-5 text-primary" />
-                  </div>
-                </CardHeader>
-                <CardContent className="dashboard-panel-card-content dashboard-settings-controls dashboard-visual-advanced-content">
-                  <div className="dashboard-settings-control-group dashboard-visual-advanced-group">
-                    <SettingsRoundSlider label="Grid Visibility" value={valueToPercent(visualAtmosphere.visibility, 0.2, 1.5)} onChange={(value) => updateVisualAtmosphere({ visibility: percentToValue(value, 0.2, 1.5) })} />
-                    <SettingsRoundSlider label="Scene Sway" value={valueToPercent(visualAtmosphere.sway, 0, 1)} onChange={(value) => updateVisualAtmosphere({ sway: value / 100 })} />
-                    <SettingsRoundSlider label="Drift Speed" value={valueToPercent(visualAtmosphere.swaySpeed, 0, 1)} onChange={(value) => updateVisualAtmosphere({ swaySpeed: value / 100 })} />
-                    <SettingsRoundSlider label="Particle Density" value={valueToPercent(visualAtmosphere.particleCount, 0, 500)} onChange={(value) => updateVisualAtmosphere({ particleCount: Math.round((value / 100) * 500) })} />
-                    <SettingsRoundSlider label="Particle Glow" value={valueToPercent(visualAtmosphere.particleOpacity, 0, 1)} onChange={(value) => updateVisualAtmosphere({ particleOpacity: value / 100 })} />
-                    <SettingsRoundSlider label="Beam Glow" value={valueToPercent(visualAtmosphere.beamOpacity, 0, 1)} onChange={(value) => updateVisualAtmosphere({ beamOpacity: value / 100 })} />
-                    <SettingsRoundSlider label="Beam Width" value={valueToPercent(visualAtmosphere.beamThickness, 0.02, 0.08)} onChange={(value) => updateVisualAtmosphere({ beamThickness: percentToValue(value, 0.02, 0.08) })} />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        <section
-          ref={(el) => {
+        <DashboardSoundSection
+          audioCategoryFilter={audioCategoryFilter}
+          audioMixMode={audioMixMode}
+          audioSearch={audioSearch}
+          customAudioTrackId={customAudioTrackId}
+          filteredAudioPlaylist={filteredAudioPlaylist}
+          masterVolume={masterVolume}
+          musicVolume={musicVolume}
+          onAudioCategoryFilterChange={(category) => {
+            playUiClick();
+            setAudioCategoryFilter(category);
+          }}
+          onAudioMixModeChange={changeAudioMixMode}
+          onAudioSearchChange={setAudioSearch}
+          onMasterVolumeChange={(value) => changeAudioVolume(AUDIO_MASTER_VOLUME_KEY, setMasterVolume, value)}
+          onMusicVolumeChange={(value) => changeAudioVolume(AUDIO_MUSIC_VOLUME_KEY, setMusicVolume, value)}
+          onRoundAlertsToggle={() => toggleAudioSetting(AUDIO_ROUND_ALERTS_KEY, roundAlertsEnabled, setRoundAlertsEnabled)}
+          onSelectAudioTrack={selectAudioTrack}
+          onSfxVolumeChange={(value) => changeAudioVolume(AUDIO_SFX_VOLUME_KEY, setSfxVolume, value)}
+          onVictoryPulseToggle={() => toggleAudioSetting(AUDIO_VICTORY_PULSE_KEY, victoryPulseEnabled, setVictoryPulseEnabled)}
+          roundAlertsEnabled={roundAlertsEnabled}
+          setSectionRef={(el) => {
             sectionRefs.current.sound = el;
           }}
-          data-section-id="sound"
-          className="dashboard-settings-section scroll-mt-12 rounded border border-primary/20 bg-card/10 p-4"
-        >
-          <div className="mb-4 border-b border-primary/20 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Sound</div>
-          <div className="dashboard-settings-grid grid gap-5">
-            <div className="dashboard-settings-category">
-              <div className="dashboard-settings-category__heading">
-                <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-primary">Sound</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Control the music player and game audio mix.</p>
-                </div>
-                <Badge variant="outline" className="border-primary/30 text-primary">Live audio</Badge>
-              </div>
+          sfxVolume={sfxVolume}
+          victoryPulseEnabled={victoryPulseEnabled}
+        />
 
-              <div className="dashboard-sound-grid grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_minmax(360px,0.82fr)]">
-                <Card className="dashboard-panel-card dashboard-sound-player-card border-primary/25 bg-card/15 backdrop-blur-xl">
-                  <CardHeader className="dashboard-panel-card-header">
-                    <div>
-                      <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">Music Player</CardTitle>
-                      <CardDescription>Shared grid soundtrack and waveform monitor.</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="dashboard-panel-card-content dashboard-sound-player-content">
-                    <div className="dashboard-sound-player-slot" />
-                    <div className="dashboard-settings-control-group dashboard-audio-settings-group dashboard-audio-settings-group--player">
-                      <SettingsRoundSlider label="Master Volume" value={masterVolume} onChange={(value) => changeAudioVolume(AUDIO_MASTER_VOLUME_KEY, setMasterVolume, value)} />
-                      <SettingsRoundSlider label="SFX Volume" value={sfxVolume} onChange={(value) => changeAudioVolume(AUDIO_SFX_VOLUME_KEY, setSfxVolume, value)} />
-                      <SettingsRoundSlider label="Music Volume" value={musicVolume} onChange={(value) => changeAudioVolume(AUDIO_MUSIC_VOLUME_KEY, setMusicVolume, value)} />
-
-                      <div className="dashboard-settings-toggle-list">
-                        <AudioSettingsToggle label="Round Alerts" enabled={roundAlertsEnabled} onToggle={() => toggleAudioSetting(AUDIO_ROUND_ALERTS_KEY, roundAlertsEnabled, setRoundAlertsEnabled)} />
-                        <AudioSettingsToggle label="Victory Pulse" enabled={victoryPulseEnabled} onToggle={() => toggleAudioSetting(AUDIO_VICTORY_PULSE_KEY, victoryPulseEnabled, setVictoryPulseEnabled)} />
-                      </div>
-
-                      <div className="dashboard-audio-mix-field">
-                        <span className="dashboard-settings-label">Mix</span>
-                        <Select value={audioMixMode} onValueChange={(value) => changeAudioMixMode(value as AudioMixMode)}>
-                          <SelectTrigger className="dashboard-settings-select" aria-label="Audio mix mode">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="custom">Custom</SelectItem>
-                            <SelectItem value="lobby">Lobby</SelectItem>
-                            <SelectItem value="battle">Battle</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="dashboard-panel-card dashboard-audio-settings-card border-primary/25 bg-card/15 backdrop-blur-xl">
-                  <CardHeader className="dashboard-panel-card-header">
-                    <div>
-                      <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">Audio Catalog</CardTitle>
-                      <CardDescription>Search the grid library and select a custom soundtrack.</CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="dashboard-panel-card-content dashboard-audio-settings-content">
-                    <div className="dashboard-audio-catalog" aria-label="Audio Catalog">
-                        <div className="dashboard-audio-catalog__header">
-                          <span>Audio Catalog</span>
-                          <strong>{filteredAudioPlaylist.length} tracks</strong>
-                        </div>
-                        <div className="dashboard-audio-catalog-search">
-                          <Search className="h-4 w-4" aria-hidden="true" />
-                          <Input value={audioSearch} onChange={(event) => setAudioSearch(event.currentTarget.value)} placeholder="Search songs or artists" aria-label="Search audio catalog" />
-                        </div>
-                        <div className="dashboard-audio-catalog-filters" role="group" aria-label="Filter music category">
-                          {(["all", "lobby", "battle"] as AudioCategoryFilter[]).map((category) => (
-                            <button key={category} type="button" className={audioCategoryFilter === category ? "is-active" : undefined} onClick={() => { playUiClick(); setAudioCategoryFilter(category); }}>
-                              {category === "all" ? "All" : category}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="dashboard-audio-catalog-list" role="list">
-                          {filteredAudioPlaylist.map((track) => {
-                            const selected = customAudioTrackId === track.trackId && audioMixMode === "custom";
-                            return (
-                              <button key={track.trackId} type="button" className={`dashboard-audio-catalog-row ${selected ? "is-active" : ""}`} onClick={() => selectAudioTrack(track.trackId)} role="listitem">
-                                <span className="dashboard-audio-catalog-row__thumb">
-                                  {track.thumbnailImage || track.coverImage ? <img src={track.thumbnailImage || track.coverImage} alt="" /> : <Music2 className="h-4 w-4" />}
-                                </span>
-                                <span className="dashboard-audio-catalog-row__meta">
-                                  <strong>{track.title}</strong>
-                                  <small>{track.artist}</small>
-                                </span>
-                                <Badge variant="outline" className="dashboard-audio-catalog-row__category">{track.category}</Badge>
-                                <span className="dashboard-audio-catalog-row__action">
-                                  <span className="dashboard-audio-catalog-row__duration">{formatAudioTrackDuration(track.durationSeconds)}</span>
-                                  <span className="dashboard-audio-catalog-row__play"><Play className="h-3.5 w-3.5" /></span>
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        <section
-          ref={(el) => {
+        <DashboardPersonalizationSection
+          activeThemeCommand={activeThemeCommand}
+          activeThemeShadeColors={activeThemeShadeColors}
+          choosePreferredKey={choosePreferredKey}
+          chooseThemeColor={chooseThemeColor}
+          chooseThemeCommand={chooseThemeCommand}
+          chooseThemeFromBlockedColor={chooseThemeFromBlockedColor}
+          customThemeColor={customThemeColor}
+          getColorOwner={getThemeOwnerForColor}
+          hoveredThemeCommand={hoveredThemeCommand}
+          onThemeColorHover={(owner) => setHoveredThemeCommand(owner ? normalizeThemeCommand(owner) : null)}
+          preferredKey={preferredKey}
+          resetThemeShade={resetThemeShade}
+          setSectionRef={(el) => {
             sectionRefs.current.personalization = el;
           }}
-          data-section-id="personalization"
-          className="dashboard-personalization-section scroll-mt-12 rounded border border-primary/20 bg-card/10 p-4"
-        >
-          <div className="mb-4 border-b border-primary/20 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Personalization</div>
-          <div className="dashboard-personalization-grid grid gap-5 xl:grid-cols-[minmax(340px,0.78fr)_minmax(0,1.22fr)]">
-            <Card className="dashboard-panel-card dashboard-personalization-key-panel border-primary/25 bg-card/15 backdrop-blur-xl">
-              <CardHeader className="dashboard-panel-card-header">
-                <CardTitle className="dashboard-card-glow-title uppercase tracking-[0.08em]">Preferred Key</CardTitle>
-                <CardDescription>Your online lobby default. Auto-selects in online lobbies if available.</CardDescription>
-              </CardHeader>
-              <CardContent className="dashboard-panel-card-content dashboard-personalization-key-card">
-                <div className="dashboard-personalization-readout">
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Default Online Key</p>
-                    <p className="mt-2 font-display text-5xl uppercase tracking-[0.2em] text-primary">{preferredKey ? preferredKey.toUpperCase() : "--"}</p>
-                  </div>
-                </div>
-
-                <section className="dashboard-preferred-keyboard" aria-label="Preferred online key picker">
-                  <div className="dashboard-preferred-keyboard__header">
-                    <span>Preferred Buzzer Matrix</span>
-                    <span>{preferredKey ? `${preferredKey.toUpperCase()} armed` : "Select one key"}</span>
-                  </div>
-                  <div className="dashboard-preferred-keyboard__keys" role="group" aria-label="Allowed character keys">
-                    {PERSONALIZATION_KEYBOARD_ROWS.map((row, rowIndex) => (
-                      <div key={`personalization-key-row-${rowIndex}`} className="dashboard-preferred-keyboard__row">
-                        {row.map((key) => (
-                          <button
-                            key={key}
-                            type="button"
-                            className={`dashboard-preferred-key ${preferredKey === key ? "dashboard-preferred-key--active" : ""}`}
-                            onClick={() => choosePreferredKey(key)}
-                            aria-pressed={preferredKey === key}
-                          >
-                            {key}
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </CardContent>
-            </Card>
-
-            <Card className="dashboard-panel-card dashboard-theme-picker-panel border-primary/25 bg-card/15 backdrop-blur-xl">
-              <CardHeader className="dashboard-panel-card-header">
-                <div className="dashboard-theme-header-row">
-                  <div>
-                    <CardTitle className="dashboard-card-glow-title dashboard-theme-command-title uppercase tracking-[0.08em]">THEME: COMMAND {activeThemeCommand.name}</CardTitle>
-                    <CardDescription>Choose your command deck identity.</CardDescription>
-                  </div>
-                  <Button type="button" size="sm" variant="outline" className="dashboard-theme-reset-button" onClick={resetThemeShade}>
-                    Reset to Default
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="dashboard-panel-card-content dashboard-theme-picker-card">
-                <div className="dashboard-theme-indicators" aria-label="Selected theme indicators">
-                  {THEME_COMMANDS.map((command) => {
-                    const shadeColor = themeShadeSelections[command.id] || command.color;
-                    return (
-                      <Tooltip key={`theme-indicator-${command.id}`} className="dashboard-theme-tooltip">
-                        <TooltipTrigger>
-                          <button
-                            type="button"
-                            className={`dashboard-theme-indicator ${themeCommand === command.id ? "dashboard-theme-indicator--active" : ""}`}
-                            style={{ "--dashboard-theme-option-color": shadeColor } as CSSProperties}
-                            onClick={() => chooseThemeCommand(command.id)}
-                            aria-label={`Select ${command.name} theme`}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent className="dashboard-theme-tooltip__content">{command.name}</TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-                <Tabs className="dashboard-theme-tabs">
-                  <TabsList className="dashboard-theme-tabs__list" aria-label="Theme command tabs">
-                    {THEME_COMMANDS.map((command) => {
-                      const shadeColor = themeShadeSelections[command.id] || command.color;
-                      return (
-                        <TabsTrigger
-                          key={`theme-tab-${command.id}`}
-                          type="button"
-                          active={themeCommand === command.id}
-                          className={`dashboard-theme-tab ${hoveredThemeCommand === command.id && themeCommand !== command.id ? "dashboard-theme-tab--preview" : ""}`}
-                          style={{ "--dashboard-theme-option-color": shadeColor } as CSSProperties}
-                          onClick={() => chooseThemeCommand(command.id)}
-                        >
-                          {command.name}
-                        </TabsTrigger>
-                      );
-                    })}
-                  </TabsList>
-
-                  {THEME_COMMANDS.map((command) => {
-                    const color = themeCommand === command.id ? customThemeColor : command.color;
-                    return (
-                      <TabsContent key={`theme-panel-${command.id}`} active={themeCommand === command.id}>
-                        <div className={`dashboard-theme-option dashboard-theme-option--${command.id} dashboard-theme-option--active`} style={{ "--dashboard-theme-option-color": color } as CSSProperties}>
-                          <div>
-                            <span>{command.name}</span>
-                            <small>{command.protocol}</small>
-                          </div>
-                          <strong className="dashboard-theme-option__hex">{color}</strong>
-                        </div>
-                        <HexColorPicker
-                          activeOwner={themeCommand}
-                          allowedColors={activeThemeShadeColors}
-                          ariaLabel={`${command.name} hex color picker`}
-                          className="dashboard-theme-color-picker"
-                          getColorOwner={getThemeOwnerForColor}
-                          onColorHover={(owner) => setHoveredThemeCommand(owner ? normalizeThemeCommand(owner) : null)}
-                          onUnavailableColorSelect={chooseThemeFromBlockedColor}
-                          replacementColors={THEME_COMMANDS.map((themeCommandOption) => themeCommandOption.color)}
-                          value={customThemeColor}
-                          onChange={chooseThemeColor}
-                        />
-                      </TabsContent>
-                    );
-                  })}
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+          themeCommand={themeCommand}
+          themeShadeSelections={themeShadeSelections}
+        />
       </div>
     </div>
   );
