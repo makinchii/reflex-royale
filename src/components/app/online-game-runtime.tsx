@@ -312,6 +312,29 @@ function ConnectionLostDialog({ message, onDecline, onRejoin, savedRoom }: { mes
   );
 }
 
+function OnlineToastNotifications({ notification }: { notification: OnlineClientState["notification"] }) {
+  const [dismissedMessage, setDismissedMessage] = useState("");
+  if (!notification || dismissedMessage === notification.message) return null;
+  const title = notification.kind === "error" ? "Transmission Error" : "Transmission";
+  return (
+    <div className="page-notifications online-runtime-toasts" role="presentation">
+      <div className={`page-toast page-toast-${notification.kind}`} role="alert">
+        <span className="page-toast-scanline" aria-hidden="true" />
+        <span className="page-toast-corner page-toast-corner--top" aria-hidden="true" />
+        <span className="page-toast-corner page-toast-corner--bottom" aria-hidden="true" />
+        <div className="page-toast-content">
+          <span className="page-toast-dot" aria-hidden="true" />
+          <span className="page-toast-copy">
+            <span className="page-toast-title">{title}</span>
+            <span className="page-toast-message">{notification.message}</span>
+          </span>
+          <button className="page-toast-close" type="button" aria-label="Dismiss notification" onClick={() => setDismissedMessage(notification.message)}>x</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PreferenceConflictDialog({ unavailable }: { unavailable: string[] }) {
   const [dismissedSignature, setDismissedSignature] = useState("");
   const signature = unavailable.join(",");
@@ -590,7 +613,7 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
   const joinSavedRoom = () => { dispatch({ type: "joinSavedRoomRequested" }); emit("joinRoom", { name: state.savedRoom.playerName, room: state.savedRoom.roomCode, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
   const declineSavedRoom = () => dispatch({ type: "savedRoomDeclined" });
   const connectionLostMessage = state.notification?.message.startsWith("Connection lost") || state.notification?.message.startsWith("Room stopped responding") ? state.notification.message : "";
-  const inlineNotification = connectionLostMessage ? null : state.notification;
+  const toastNotification = connectionLostMessage ? null : state.notification;
 
   const claimedThemeCommands = useMemo(() => new Set((state.roomState?.players || []).map((player) => player.themeCommand).filter(Boolean) as string[]), [state.roomState?.players]);
 
@@ -621,8 +644,8 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
       <div data-wait-for-game-ready="true" className="flex min-h-0 w-full flex-1">
         <div id="game-root" suppressHydrationWarning>
           {content}
-          {inlineNotification ? <p className="hint online-runtime-notification" role="alert">{inlineNotification.message}</p> : null}
         </div>
+        <OnlineToastNotifications notification={toastNotification} />
         <PreferenceConflictDialog unavailable={state.preferenceConflict} />
         {connectionLostMessage ? <ConnectionLostDialog message={connectionLostMessage} onRejoin={joinSavedRoom} onDecline={declineSavedRoom} savedRoom={state.savedRoom} /> : null}
         {transition?.phase === "tunnel" ? <LocalGameTransition className="local-game-transition-overlay" durationMs={transition.duration} /> : null}

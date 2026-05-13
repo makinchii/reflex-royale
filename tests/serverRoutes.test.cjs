@@ -579,6 +579,9 @@ test("game routes render inside the modern game shell", () => {
   assert.match(onlineRuntimeSource, /function Roster/);
   assert.match(onlineRuntimeSource, /id="startGameBtn"/);
   assert.match(onlineRuntimeSource, /btn-go/);
+  assert.match(onlineRuntimeSource, /function OnlineToastNotifications/);
+  assert.match(onlineRuntimeSource, /className="page-notifications online-runtime-toasts"/);
+  assert.doesNotMatch(onlineRuntimeSource, /online-runtime-notification/);
   assert.match(onlineRuntimeSource, /announceMatchState\(state\.matchInProgress\)/);
   assert.match(onlineRuntimeSource, /announceMatchState\(false\)/);
   assert.match(audioSource, /play-command-banner__audio-slot/);
