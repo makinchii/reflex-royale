@@ -1246,7 +1246,7 @@ function initGameSockets(io) {
       const room = currentRoom ? rooms.get(currentRoom) : null;
       if (!room) return;
       const player = room.players.get(socket.id) || null;
-      const leaveMessage = player ? room.addSystemChatMessage(player, "left the room.") : null;
+      if (player) room.addSystemChatMessage(player, "left the room.");
 
       room.removePlayer(socket.id);
       socket.leave(room.roomCode);
@@ -1259,7 +1259,6 @@ function initGameSockets(io) {
       }
 
       emitRoomState(io, room);
-      if (leaveMessage) emitChatMessages(io, room, leaveMessage);
       io.to(room.roomCode).emit("lobbyStatus", {
         waitingFor: room.getWaitingList()
       });
@@ -1287,12 +1286,12 @@ function initGameSockets(io) {
       if (!room) return;
       const player = room.players.get(socket.id) || null;
       const shouldAnnounceLeave = Boolean(player?.connected);
-      const leaveMessage = shouldAnnounceLeave ? room.addSystemChatMessage(player, "left the room.") : null;
+      if (shouldAnnounceLeave) room.addSystemChatMessage(player, "left the room.");
       const wasHost = room.hostId === socket.id;
 
       const result = room.markDisconnected(socket.id);
       const newHost = wasHost && room.hostId ? room.players.get(room.hostId) : null;
-      const hostTransferMessage = newHost ? room.addSystemChatMessage(newHost, "is now the host.") : null;
+      if (newHost) room.addSystemChatMessage(newHost, "is now the host.");
 
       // Notify lobby clients after roster removal or host transfer.
       if (room.status === ROOM_STATUS.WAITING_FOR_PLAYERS || room.status === ROOM_STATUS.READY_CHECK || room.status === ROOM_STATUS.POST_MATCH) {
@@ -1305,14 +1304,12 @@ function initGameSockets(io) {
       }
 
       if (result.endMatch) {
-        if (leaveMessage || hostTransferMessage) emitChatMessages(io, room, hostTransferMessage || leaveMessage);
         endGame(io, room);
         return;
       }
 
       if (result.returnToLobby) {
         emitRoomState(io, room);
-        if (leaveMessage || hostTransferMessage) emitChatMessages(io, room, hostTransferMessage || leaveMessage);
         io.to(room.roomCode).emit("lobbyStatus", { waitingFor: room.getWaitingList() });
         return;
       }
@@ -1320,7 +1317,6 @@ function initGameSockets(io) {
       if (room.status !== ROOM_STATUS.CLOSED) {
         room.setLobbyView(socket.id, false);
         emitRoomState(io, room);
-        if (leaveMessage || hostTransferMessage) emitChatMessages(io, room, hostTransferMessage || leaveMessage);
       }
     });
   });

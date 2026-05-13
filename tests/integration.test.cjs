@@ -766,9 +766,10 @@ test("lobby disconnect removes players and transfers host without ghost slots", 
     const afterPlayerDisconnect = lastEvent(host, "roomState").payload;
     assert.deepEqual(afterPlayerDisconnect.players.map((entry) => entry.id), ["host-1"]);
     assert.equal(afterPlayerDisconnect.hostId, "host-1");
-    const playerLeaveChat = lastEvent(host, "chatMessage").payload.messages.at(-1);
+    const playerLeaveChat = afterPlayerDisconnect.chatMessages.at(-1);
     assert.equal(playerLeaveChat.senderName, "Player");
     assert.equal(playerLeaveChat.content, "left the room.");
+    assert.equal(lastEvent(host, "chatMessage"), null);
     assert.deepEqual(lastEvent(host, "roomState").payload.players.map((entry) => entry.id), ["host-1"]);
 
     const nextHost = new FakeSocket("player-2", io);
@@ -780,7 +781,7 @@ test("lobby disconnect removes players and transfers host without ghost slots", 
     assert.deepEqual(afterHostDisconnect.players.map((entry) => entry.id), ["player-2"]);
     assert.equal(afterHostDisconnect.hostId, "player-2");
     assert.equal(afterHostDisconnect.players[0].isHost, true);
-    const hostTransferChat = lastEvent(nextHost, "chatMessage").payload.messages.at(-1);
+    const hostTransferChat = afterHostDisconnect.chatMessages.at(-1);
     assert.equal(hostTransferChat.senderName, "NextHost");
     assert.equal(hostTransferChat.content, "is now the host.");
   } finally {
@@ -823,7 +824,7 @@ test("active match host disconnect transfers host when enough players remain", a
     assert.equal(state.status, "starting");
     assert.equal(state.hostId, "player-1");
     assert.equal(state.players.find((entry) => entry.id === "player-1")?.isHost, true);
-    const hostTransferChat = lastEvent(playerOne, "chatMessage").payload.messages.at(-1);
+    const hostTransferChat = state.chatMessages.at(-1);
     assert.equal(hostTransferChat.senderName, "PlayerOne");
     assert.equal(hostTransferChat.content, "is now the host.");
   } finally {
@@ -904,7 +905,7 @@ test("round-end host disconnect transfers controls when enough players remain", 
     assert.equal(state.status, "roundEnd");
     assert.equal(state.hostId, "player-1");
     assert.equal(state.players.find((entry) => entry.id === "player-1")?.isHost, true);
-    assert.equal(lastEvent(playerOne, "chatMessage").payload.messages.at(-1).senderName, "PlayerOne");
+    assert.equal(state.chatMessages.at(-1).senderName, "PlayerOne");
   } finally {
     restoreTimers();
     delete require.cache[gameRoomPath];
