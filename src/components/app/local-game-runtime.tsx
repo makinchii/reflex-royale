@@ -468,7 +468,7 @@ function LocalLobby({
   );
 }
 
-function LocalArena({ engine, feedback, players, refresh, roundData, state, themePalette }: { engine: GameEngine; feedback: ArenaFeedback; players: PlayerData[]; refresh: () => void; roundData: RoundData | null; state: string; themePalette: ThemeProtocol[] }) {
+function LocalArena({ countdownRemaining, engine, feedback, players, refresh, roundData, state, themePalette }: { countdownRemaining: number | null; engine: GameEngine; feedback: ArenaFeedback; players: PlayerData[]; refresh: () => void; roundData: RoundData | null; state: string; themePalette: ThemeProtocol[] }) {
   const gridClass = `grid-${players.length}`;
   const isRoundEnd = state === GameState.ROUND_END && roundData;
   const isLast = roundData ? roundData.roundNum >= engine.totalRounds || players.some((player) => player.totalScore >= engine.targetScore) : false;
@@ -481,7 +481,7 @@ function LocalArena({ engine, feedback, players, refresh, roundData, state, them
           const lightClass = state === GameState.WAITING ? "red" : state === GameState.REACT ? "green" : "off";
           const playerFeedback = feedback[player.id];
           return (
-            <div className="player-panel" id={`panel-${player.id}`} style={{ "--player-color": player.color } as React.CSSProperties} data-signal={state === GameState.COUNTDOWN ? String(engine.countdownSeconds) : undefined} key={player.id}>
+            <div className="player-panel" id={`panel-${player.id}`} style={{ "--player-color": player.color } as React.CSSProperties} data-signal={state === GameState.COUNTDOWN ? String(countdownRemaining ?? engine.countdownSeconds) : undefined} key={player.id}>
               <div className="panel-header">
                 <span className="panel-name">{player.name}</span>
                 <kbd className="panel-key">{player.key?.toUpperCase()}</kbd>
@@ -559,6 +559,7 @@ export function LocalGameRuntime({ localPlayerThemeShades = null }: LocalGameRun
   const [roundData, setRoundData] = useState<RoundData | null>(null);
   const [standings, setStandings] = useState<Standing[] | null>(null);
   const [feedback, setFeedback] = useState<ArenaFeedback>({});
+  const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
   const [activeKey, setActiveKey] = useState("");
   const activeKeyTimeout = useRef<number | null>(null);
   const themePalette = useMemo(() => getThemePalette(localPlayerThemeShades), [localPlayerThemeShades]);
@@ -588,14 +589,20 @@ export function LocalGameRuntime({ localPlayerThemeShades = null }: LocalGameRun
     const refreshFromEngine = () => refresh();
     const onGameStarted = () => {
       announceMatchState(true);
+      setCountdownRemaining(null);
       setRoundData(null);
       setStandings(null);
       setFeedback({});
       refresh();
     };
-    const onCountdown = () => {
+    const onCountdown = ({ remaining }: { remaining: number }) => {
+      setCountdownRemaining(remaining);
       setFeedback({});
       setRoundData(null);
+      refresh();
+    };
+    const onWaiting = () => {
+      setCountdownRemaining(null);
       refresh();
     };
     const onFalseStart = ({ id }: { id: string }) => {
@@ -607,17 +614,20 @@ export function LocalGameRuntime({ localPlayerThemeShades = null }: LocalGameRun
       refresh();
     };
     const onRoundEnd = (data: RoundData) => {
+      setCountdownRemaining(null);
       setRoundData(data);
       refresh();
     };
     const onGameOver = ({ standings: nextStandings }: { standings: Standing[] }) => {
       announceMatchState(false);
+      setCountdownRemaining(null);
       setRoundData(null);
       setStandings(nextStandings);
       refresh();
     };
     const onReset = () => {
       announceMatchState(false);
+      setCountdownRemaining(null);
       setRoundData(null);
       setStandings(null);
       setFeedback({});
@@ -632,7 +642,7 @@ export function LocalGameRuntime({ localPlayerThemeShades = null }: LocalGameRun
     engine.on("allPlayersReady", refreshFromEngine);
     engine.on("gameStarted", onGameStarted);
     engine.on("countdown", onCountdown);
-    engine.on("waiting", refreshFromEngine);
+    engine.on("waiting", onWaiting);
     engine.on("react", refreshFromEngine);
     engine.on("falseStart", onFalseStart);
     engine.on("playerReacted", onPlayerReacted);
@@ -650,7 +660,7 @@ export function LocalGameRuntime({ localPlayerThemeShades = null }: LocalGameRun
       engine.off("allPlayersReady", refreshFromEngine);
       engine.off("gameStarted", onGameStarted);
       engine.off("countdown", onCountdown);
-      engine.off("waiting", refreshFromEngine);
+      engine.off("waiting", onWaiting);
       engine.off("react", refreshFromEngine);
       engine.off("falseStart", onFalseStart);
       engine.off("playerReacted", onPlayerReacted);
@@ -708,7 +718,7 @@ export function LocalGameRuntime({ localPlayerThemeShades = null }: LocalGameRun
           ) : standings ? (
             <LocalGameOver engine={engine} refresh={refresh} roundHistory={snapshot.roundHistory} standings={standings} />
           ) : (
-            <LocalArena engine={engine} feedback={feedback} players={players} refresh={refresh} roundData={roundData} state={state} themePalette={themePalette} />
+            <LocalArena countdownRemaining={countdownRemaining} engine={engine} feedback={feedback} players={players} refresh={refresh} roundData={roundData} state={state} themePalette={themePalette} />
           )}
         </div>
         {localTransition?.phase === "tunnel" ? <LocalGameTransition className="local-game-transition-overlay" durationMs={localTransition.duration} /> : null}

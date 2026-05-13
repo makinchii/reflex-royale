@@ -590,6 +590,9 @@ test("game routes render inside the modern game shell", () => {
   assert.match(gameCssSource, /\.preference-conflict-dialog__panel \.btn:hover:not\(:disabled\)/);
   assert.match(onlineRuntimeSource, /announceMatchState\(state\.matchInProgress\)/);
   assert.match(onlineRuntimeSource, /announceMatchState\(false\)/);
+  assert.match(localRuntimeSource, /countdownRemaining/);
+  assert.doesNotMatch(localRuntimeSource, /data-signal=\{state === GameState\.COUNTDOWN \? String\(engine\.countdownSeconds\)/);
+  assert.match(onlineRuntimeSource, /countdownRemaining \?\? ""/);
   assert.match(audioSource, /play-command-banner__audio-slot/);
   assert.match(audioLibSource, /AUDIO_PLAYLIST/);
   assert.match(audioLibSource, /category: "lobby"/);

@@ -282,6 +282,31 @@ test("clears pending timers when resetting during delayed match start", () => {
   assert.deepEqual(events, []);
 });
 
+test("emits each local countdown tick before waiting", () => {
+  const { GameEngine, GameState, clock } = loadGameEngine();
+  const engine = new GameEngine({ countdownSeconds: 3, minDelay: 100, maxDelay: 100 });
+  const events = [];
+
+  engine.addPlayer("p1", "Ada", "a");
+  engine.addPlayer("p2", "Bea", "b");
+  engine.confirmPlayerByKey("a");
+  engine.confirmPlayerByKey("b");
+  engine.on("countdown", (payload) => events.push(payload.remaining));
+
+  assert.equal(engine.startGame(), true);
+  assert.equal(engine.state, GameState.COUNTDOWN);
+  assert.deepEqual(events, [3]);
+
+  clock.tick(1000);
+  assert.deepEqual(events, [3, 2]);
+
+  clock.tick(1000);
+  assert.deepEqual(events, [3, 2, 1]);
+
+  clock.tick(1000);
+  assert.equal(engine.state, GameState.WAITING);
+});
+
 test("standings tie-break by score wins best time then name", () => {
   const { GameEngine } = loadGameEngine();
   const engine = new GameEngine();
