@@ -409,7 +409,8 @@ test("game routes render inside the modern game shell", () => {
   assert.match(gameCssSource, /player-slot-dock--top-left/);
   assert.match(gameCssSource, /player-slot-dock--bottom-right/);
   assert.doesNotMatch(audioSource, /Play Again/);
-  assert.match(localRuntimeSource, /THEME_PROTOCOLS/);
+  assert.match(localRuntimeSource, /@\/lib\/theme-protocols/);
+  assert.match(localRuntimeSource, /getThemePalette/);
   assert.match(localRuntimeSource, /reflexRoyaleThemeCommand/);
   assert.match(localRuntimeSource, /ui-lab-theme/);
   assert.match(localRuntimeSource, /readCurrentThemeCommand/);

@@ -6,19 +6,13 @@ import { flushSync } from "react-dom";
 import { LocalGameTransition, LocalPlayerSplash, type LocalTransitionPlayer } from "@/components/app/local-game-transition";
 import { GameEngine, GameState, type PlayerData, type RoundData, type RoundResult, type Standing } from "@/lib/game/game-engine";
 import { KEYBOARD_ROWS, normalizeGameKey, type GameKey } from "@/lib/game/keys";
+import { getThemePalette, normalizeChromaThemeCommand, type ResolvedThemeProtocol } from "@/lib/theme-protocols";
 
 const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
 const LOCAL_TRANSITION_DURATION_MS = 3000;
 const LOCAL_PLAYER_SPLASH_DURATION_MS = 2800;
 const THEME_STORAGE_KEY = "reflexRoyaleThemeCommand";
 const UI_LAB_THEME_STORAGE_KEY = "ui-lab-theme";
-
-type ThemeProtocol = {
-  id: string;
-  label: string;
-  fallbackColor: string;
-  color: string;
-};
 
 type LocalTransitionState = {
   duration: number;
@@ -33,40 +27,13 @@ type LocalGameRuntimeProps = {
 
 type ArenaFeedback = Record<string, { kind: "falseStart" | "reaction"; text: string }>;
 
-const THEME_PROTOCOLS = [
-  { id: "ares", label: "Ares", fallbackColor: "#ff003c" },
-  { id: "vulcan", label: "Vulcan", fallbackColor: "#ff7a00" },
-  { id: "apollo", label: "Apollo", fallbackColor: "#ffd400" },
-  { id: "gaia", label: "Gaia", fallbackColor: "#24f07a" },
-  { id: "tron", label: "Tron", fallbackColor: "#00d4ff" },
-  { id: "bacchus", label: "Bacchus", fallbackColor: "#8a2bff" },
-  { id: "aphrodite", label: "Aphrodite", fallbackColor: "#ff2ebd" },
-  { id: "olympus", label: "Olympus", fallbackColor: "#FFFFFF" },
-] as const;
-
 function announceMatchState(inProgress: boolean) {
   window.dispatchEvent(new CustomEvent(AUDIO_MATCH_STATE_EVENT, { detail: { inProgress } }));
 }
 
-function isHexColor(value: unknown): value is string {
-  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
-}
-
-function normalizeThemeCommand(value: unknown) {
-  return THEME_PROTOCOLS.some((protocol) => protocol.id === value) ? String(value) : "tron";
-}
-
 function readCurrentThemeCommand() {
   if (typeof window === "undefined") return "tron";
-  return normalizeThemeCommand(window.localStorage.getItem(THEME_STORAGE_KEY) || window.localStorage.getItem(UI_LAB_THEME_STORAGE_KEY));
-}
-
-function getThemePalette(localPlayerThemeShades: Record<string, string> | null | undefined): ThemeProtocol[] {
-  const accountShades = localPlayerThemeShades || {};
-  return THEME_PROTOCOLS.map((protocol) => ({
-    ...protocol,
-    color: isHexColor(accountShades[protocol.id]) ? accountShades[protocol.id] : protocol.fallbackColor,
-  }));
+  return normalizeChromaThemeCommand(window.localStorage.getItem(THEME_STORAGE_KEY) || window.localStorage.getItem(UI_LAB_THEME_STORAGE_KEY));
 }
 
 function isTypingInLobby() {
@@ -100,7 +67,7 @@ function ThemePicker({
   claimedThemeCommands: Set<string>;
   selectedThemeCommand: string;
   setSelectedThemeCommand: (value: string) => void;
-  themePalette: ThemeProtocol[];
+  themePalette: ResolvedThemeProtocol[];
 }) {
   const [open, setOpen] = useState(false);
   const selected = themePalette.find((protocol) => protocol.id === selectedThemeCommand) || themePalette[0] || null;
@@ -272,7 +239,7 @@ function HolographicKeyboard({
   );
 }
 
-function PlayerSlots({ engine, players, refresh, themePalette }: { engine: GameEngine; players: PlayerData[]; refresh: () => void; themePalette: ThemeProtocol[] }) {
+function PlayerSlots({ engine, players, refresh, themePalette }: { engine: GameEngine; players: PlayerData[]; refresh: () => void; themePalette: ResolvedThemeProtocol[] }) {
   const positions = ["top-left", "top-right", "bottom-left", "bottom-right"];
   const cards = positions.map((position, index) => {
     const player = players[index];
@@ -330,7 +297,7 @@ function LocalLobby({
   setActiveKey: (key: string) => void;
   setLocalTransition: (transition: LocalTransitionState | null) => void;
   setSelectedThemeCommand: (value: string) => void;
-  themePalette: ThemeProtocol[];
+  themePalette: ResolvedThemeProtocol[];
 }) {
   const [name, setName] = useState("");
   const [keyValue, setKeyValue] = useState("");
@@ -468,7 +435,7 @@ function LocalLobby({
   );
 }
 
-function LocalArena({ countdownRemaining, engine, feedback, players, refresh, roundData, state, themePalette }: { countdownRemaining: number | null; engine: GameEngine; feedback: ArenaFeedback; players: PlayerData[]; refresh: () => void; roundData: RoundData | null; state: string; themePalette: ThemeProtocol[] }) {
+function LocalArena({ countdownRemaining, engine, feedback, players, refresh, roundData, state, themePalette }: { countdownRemaining: number | null; engine: GameEngine; feedback: ArenaFeedback; players: PlayerData[]; refresh: () => void; roundData: RoundData | null; state: string; themePalette: ResolvedThemeProtocol[] }) {
   const gridClass = `grid-${players.length}`;
   const isRoundEnd = state === GameState.ROUND_END && roundData;
   const isLast = roundData ? roundData.roundNum >= engine.totalRounds || players.some((player) => player.totalScore >= engine.targetScore) : false;

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthMenu, performLogout } from "@/components/app/auth-menu";
 import { WireframeDottedGlobe } from "@/components/app/wireframe-dotted-globe";
+import { KEYBOARD_ROWS, SHIFTED_KEY_MAP } from "@/lib/game/keys";
 import {
   AUDIO_MASTER_VOLUME_KEY,
   AUDIO_MIX_MODE_KEY,
@@ -116,36 +117,9 @@ const THEME_COMMANDS: Array<{ id: ThemeCommandId; name: string; color: string; p
   { id: "aphrodite", name: "APHRODITE", color: THEME_COMMAND_COLORS.aphrodite, protocol: "Pink signal protocol", theme: "custom" },
   { id: "olympus", name: "OLYMPUS", color: THEME_COMMAND_COLORS.olympus, protocol: "White ascendant protocol", theme: "custom" },
 ];
-const PERSONALIZATION_KEYBOARD_ROWS = Object.freeze([
-  Object.freeze(["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="]),
-  Object.freeze(["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\"]),
-  Object.freeze(["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'"]),
-  Object.freeze(["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"]),
-]);
+const PERSONALIZATION_KEYBOARD_ROWS = KEYBOARD_ROWS;
 const PERSONALIZATION_ALLOWED_KEYS = new Set(PERSONALIZATION_KEYBOARD_ROWS.flat());
-const PERSONALIZATION_SHIFTED_KEYS: Record<string, string> = {
-  "~": "`",
-  "!": "1",
-  "@": "2",
-  "#": "3",
-  "$": "4",
-  "%": "5",
-  "^": "6",
-  "&": "7",
-  "*": "8",
-  "(": "9",
-  ")": "0",
-  _: "-",
-  "+": "=",
-  "{": "[",
-  "}": "]",
-  "|": "\\",
-  ":": ";",
-  "\"": "'",
-  "<": ",",
-  ">": ".",
-  "?": "/",
-};
+const PERSONALIZATION_SHIFTED_KEYS: Record<string, string> = SHIFTED_KEY_MAP;
 
 function normalizePersonalizationKey(value: string) {
   if (value.length !== 1) return "";
