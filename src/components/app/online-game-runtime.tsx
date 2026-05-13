@@ -14,6 +14,7 @@ const MATCH_TRANSITION_DURATION_MS = 3000;
 const MATCH_PLAYER_SPLASH_DURATION_MS = 2800;
 const ROOM_VALIDATION_INTERVAL_MS = 3_000;
 const ROOM_VALIDATION_TIMEOUT_MS = 10_000;
+const SAVED_ROOM_CHECK_TIMEOUT_MS = 6_000;
 const CHAT_LIMIT = 250;
 const THEME_STORAGE_KEY = "reflexRoyaleThemeCommand";
 const UI_LAB_THEME_STORAGE_KEY = "ui-lab-theme";
@@ -474,6 +475,7 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
   const stateRef = useRef(state);
   const activeKeyTimeout = useRef<number | null>(null);
   const pendingRoomValidationAt = useRef<number | null>(null);
+  const savedRoomCheckTimeout = useRef<number | null>(null);
   const matchStartedAt = useRef(0);
   const matchRecorded = useRef(false);
   const themePalette = useMemo(() => getThemePalette(localPlayerThemeShades), [localPlayerThemeShades]);
@@ -487,6 +489,28 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
   const selectedTheme = themePalette.find((protocol) => protocol.id === selectedThemeCommand) || themePalette[0] || null;
   const preferredOptions = useCallback(() => ({ preferredKey: normalizeGameKey(window.localStorage.getItem(ONLINE_STORAGE_KEYS.preferredKey) || ""), preferredThemeCommand: selectedTheme?.id || "tron", preferredThemeColor: selectedTheme?.color || "#00d4ff" }), [selectedTheme]);
   const emit = useCallback((event: string, payload?: any) => socketRef.current?.emit(event, payload), []);
+  const clearSavedRoomCheckTimeout = useCallback(() => {
+    if (!savedRoomCheckTimeout.current) return;
+    window.clearTimeout(savedRoomCheckTimeout.current);
+    savedRoomCheckTimeout.current = null;
+  }, []);
+  const scheduleSavedRoomCheckTimeout = useCallback(() => {
+    clearSavedRoomCheckTimeout();
+    savedRoomCheckTimeout.current = window.setTimeout(() => {
+      savedRoomCheckTimeout.current = null;
+      dispatch({ type: "savedRoomCheckTimedOut" });
+    }, SAVED_ROOM_CHECK_TIMEOUT_MS);
+  }, [clearSavedRoomCheckTimeout]);
+  const emitSavedRoomCheck = useCallback((socket: SocketLike | null, currentState: OnlineClientState) => {
+    if (!socket || !currentState.autoReconnectEnabled || !currentState.savedRoom.roomCode || !currentState.savedRoom.playerName) return;
+    dispatch({ type: "savedRoomCheckStarted" });
+    scheduleSavedRoomCheckTimeout();
+    socket.emit("checkSavedRoom", { name: currentState.savedRoom.playerName, room: currentState.savedRoom.roomCode, verifier: currentState.verifier });
+  }, [scheduleSavedRoomCheckTimeout]);
+  const emitSavedRoomJoin = useCallback((socket: SocketLike | null, currentState: OnlineClientState) => {
+    if (!socket || !currentState.savedRoom.roomCode || !currentState.savedRoom.playerName) return;
+    socket.emit("joinRoom", { name: currentState.savedRoom.playerName, room: currentState.savedRoom.roomCode, verifier: currentState.verifier, hostReclaimToken: currentState.savedRoom.hostReclaimToken, ...preferredOptions() });
+  }, [preferredOptions]);
 
   useEffect(() => { stateRef.current = state; }, [state]);
 
@@ -505,9 +529,14 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
     const socket = window.io();
     socketRef.current = socket;
 
-    socket.on("roomCreated", (payload: OnlineServerToClientEvents["roomCreated"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomCreated", payload }); });
-    socket.on("roomJoined", (payload: OnlineServerToClientEvents["roomJoined"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomJoined", payload }); });
-    socket.on("savedRoomChecked", (payload: OnlineServerToClientEvents["savedRoomChecked"]) => dispatch({ type: "savedRoomChecked", payload }));
+    socket.on("connect", () => {
+      const currentState = stateRef.current;
+      if (currentState.view === "checking_saved_room") emitSavedRoomCheck(socket, currentState);
+      else if (currentState.pendingJoinSource === "auto") emitSavedRoomJoin(socket, currentState);
+    });
+    socket.on("roomCreated", (payload: OnlineServerToClientEvents["roomCreated"]) => { clearSavedRoomCheckTimeout(); pendingRoomValidationAt.current = null; dispatch({ type: "roomCreated", payload }); });
+    socket.on("roomJoined", (payload: OnlineServerToClientEvents["roomJoined"]) => { clearSavedRoomCheckTimeout(); pendingRoomValidationAt.current = null; dispatch({ type: "roomJoined", payload }); });
+    socket.on("savedRoomChecked", (payload: OnlineServerToClientEvents["savedRoomChecked"]) => { clearSavedRoomCheckTimeout(); dispatch({ type: "savedRoomChecked", payload }); });
     socket.on("roomState", (payload: OnlineServerToClientEvents["roomState"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomState", payload }); });
     socket.on("keyBound", (payload: OnlineServerToClientEvents["keyBound"]) => dispatch({ type: "keyBound", payload }));
     socket.on("themeBound", (payload: OnlineServerToClientEvents["themeBound"]) => dispatch({ type: "themeBound", payload }));
@@ -543,32 +572,34 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
     socket.on("playerReacted", (payload: OnlineServerToClientEvents["playerReacted"]) => { if (payload.id === stateRef.current.myPlayerId) setReactionFeedback(<span className="reaction-time">{payload.time} ms</span>); });
     socket.on("roundEnd", (payload: OnlineServerToClientEvents["roundEnd"]) => dispatch({ type: "roundEnd", payload }));
     socket.on("gameOver", (payload: OnlineServerToClientEvents["gameOver"]) => { dispatch({ type: "gameOver", payload }); if (!matchRecorded.current) { matchRecorded.current = true; void recordOnlineRecentMatch(payload.standings || [], stateRef.current.myPlayerId, matchStartedAt.current); matchStartedAt.current = 0; } });
-    socket.on("roomClosed", (payload: OnlineServerToClientEvents["roomClosed"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomClosed", payload }); });
+    socket.on("roomClosed", (payload: OnlineServerToClientEvents["roomClosed"]) => { clearSavedRoomCheckTimeout(); pendingRoomValidationAt.current = null; dispatch({ type: "roomClosed", payload }); });
     socket.on("disconnect", () => {
+      clearSavedRoomCheckTimeout();
       setTransition(null);
       setReactionFeedback(null);
       matchStartedAt.current = 0;
       dispatch({ type: "socketDisconnected", payload: { message: "Connection lost. Reconnect to your saved room?" } });
     });
     socket.on("connect_error", () => {
+      clearSavedRoomCheckTimeout();
       setTransition(null);
       setReactionFeedback(null);
       dispatch({ type: "socketDisconnected", payload: { message: "Connection lost. Reconnect to your saved room?" } });
     });
-    socket.on("error", (payload: OnlineServerToClientEvents["error"]) => dispatch({ type: "error", payload }));
+    socket.on("error", (payload: OnlineServerToClientEvents["error"]) => { clearSavedRoomCheckTimeout(); dispatch({ type: "error", payload }); });
 
     const currentState = stateRef.current;
     if (currentState.view === "checking_saved_room") {
-      dispatch({ type: "savedRoomCheckStarted" });
-      socket.emit("checkSavedRoom", { name: currentState.savedRoom.playerName, room: currentState.savedRoom.roomCode, verifier: currentState.verifier });
+      emitSavedRoomCheck(socket, currentState);
     }
 
     return () => {
+      clearSavedRoomCheckTimeout();
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [socketReady, themePalette]);
+  }, [clearSavedRoomCheckTimeout, emitSavedRoomCheck, emitSavedRoomJoin, socketReady, themePalette]);
 
   useEffect(() => {
     if (!state.roomState || !state.myPlayerId) return;
@@ -607,12 +638,12 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [emit, pulseKey, state.roomState, state.selectedKey]);
 
-  useEffect(() => () => { if (activeKeyTimeout.current) window.clearTimeout(activeKeyTimeout.current); announceMatchState(false); }, []);
+  useEffect(() => () => { if (activeKeyTimeout.current) window.clearTimeout(activeKeyTimeout.current); clearSavedRoomCheckTimeout(); announceMatchState(false); }, [clearSavedRoomCheckTimeout]);
 
   const bindTheme = (protocol: ThemeProtocol) => { setSelectedThemeCommand(protocol.id); emit("bindTheme", { themeCommand: protocol.id, color: protocol.color }); };
   const createRoom = (name: string, totalRounds: number) => { if (!name) return dispatch({ type: "error", payload: { message: "Enter your name first." } }); window.localStorage.setItem(ONLINE_STORAGE_KEYS.playerName, name); emit("createRoom", { name, verifier: state.verifier, totalRounds, ...preferredOptions() }); };
   const joinRoom = (name: string, room: string) => { if (!name || !room) return dispatch({ type: "error", payload: { message: "Enter both name and room code." } }); window.localStorage.setItem(ONLINE_STORAGE_KEYS.playerName, name); window.localStorage.setItem(ONLINE_STORAGE_KEYS.roomCode, room); dispatch({ type: "manualJoinRequested", name, room }); emit("joinRoom", { name, room, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
-  const joinSavedRoom = () => { dispatch({ type: "joinSavedRoomRequested" }); emit("joinRoom", { name: state.savedRoom.playerName, room: state.savedRoom.roomCode, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
+  const joinSavedRoom = () => { dispatch({ type: "joinSavedRoomRequested" }); emitSavedRoomJoin(socketRef.current, state); };
   const declineSavedRoom = () => dispatch({ type: "savedRoomDeclined" });
   const showConnectionLostDialog = state.notification?.message.startsWith("Connection lost") || state.notification?.message.startsWith("Unable to rejoin room") || state.notification?.message.startsWith("Room stopped responding");
   const toastNotification = showConnectionLostDialog ? null : state.notification;

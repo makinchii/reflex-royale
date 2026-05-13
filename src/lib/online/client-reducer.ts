@@ -7,6 +7,7 @@ import type {
 
 const REJOIN_AVAILABLE_MESSAGE = "Connection lost. Attempt rejoin or join a different room?";
 const REJOIN_UNAVAILABLE_MESSAGE = "Unable to rejoin room. You must join a different room.";
+const SAVED_ROOM_TIMEOUT_MESSAGE = "Room check took too long. Try rejoining or join a different room.";
 
 export type OnlineView =
   | "join"
@@ -50,6 +51,7 @@ export interface OnlineClientState {
 
 export type OnlineClientAction =
   | { type: "savedRoomCheckStarted" }
+  | { type: "savedRoomCheckTimedOut" }
   | { type: "joinSavedRoomRequested" }
   | { type: "savedRoomDeclined" }
   | { type: "manualJoinRequested"; room: string; name: string }
@@ -110,6 +112,18 @@ export function onlineClientReducer(state: OnlineClientState, action: OnlineClie
     case "savedRoomCheckStarted":
       if (!state.autoReconnectEnabled || !state.savedRoom.roomCode || !state.savedRoom.playerName) return { ...state, view: "join" };
       return { ...state, view: "checking_saved_room", roomState: null, errorMessage: null, notification: null };
+
+    case "savedRoomCheckTimedOut":
+      if (state.view !== "checking_saved_room") return state;
+      if (!state.savedRoom.roomCode || !state.savedRoom.playerName) return { ...state, view: "join", pendingJoinSource: null };
+      return {
+        ...state,
+        view: "reconnect_prompt",
+        roomState: null,
+        pendingJoinSource: null,
+        errorMessage: SAVED_ROOM_TIMEOUT_MESSAGE,
+        notification: { kind: "info", message: SAVED_ROOM_TIMEOUT_MESSAGE },
+      };
 
     case "joinSavedRoomRequested":
       if (!state.savedRoom.roomCode || !state.savedRoom.playerName) return { ...state, view: "join", pendingJoinSource: null };

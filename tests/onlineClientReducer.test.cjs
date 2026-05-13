@@ -113,6 +113,20 @@ test("checks a saved room, prompts when valid, and clears stale saved rooms", ()
   assert.equal(state.savedRoom.playerName, "Ada");
 });
 
+test("saved room check timeout keeps room details and offers recovery", () => {
+  const { createInitialOnlineClientState, onlineClientReducer } = loadOnlineReducer();
+  let state = createInitialOnlineClientState({ roomCode: "ABCD12", playerName: "Ada", verifier: "v1", hostReclaimToken: "host-token" });
+
+  state = onlineClientReducer(state, { type: "savedRoomCheckStarted" });
+  state = onlineClientReducer(state, { type: "savedRoomCheckTimedOut" });
+
+  assert.equal(state.view, "reconnect_prompt");
+  assert.deepEqual(state.savedRoom, { roomCode: "ABCD12", playerName: "Ada", hostReclaimToken: "host-token" });
+  assert.equal(state.pendingJoinSource, null);
+  assert.equal(state.notification.kind, "info");
+  assert.match(state.notification.message, /try rejoining/i);
+});
+
 test("tracks create and join success like remote socket handlers", () => {
   const { createInitialOnlineClientState, onlineClientReducer } = loadOnlineReducer();
   const createdRoom = room({ players: [player({ id: "host", name: "Host", isHost: true })], hostId: "host" });
