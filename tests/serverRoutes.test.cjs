@@ -101,6 +101,7 @@ test("session endpoint exposes guest state and user state", async () => {
 test("visual system uses production routes without ui lab", () => {
   const homeSource = fs.readFileSync(require.resolve("../src/app/page.tsx"), "utf8");
   const dashboardSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-tabs.tsx"), "utf8");
+  const dashboardSettingsSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-settings.ts"), "utf8");
   const gridSource = fs.readFileSync(require.resolve("../src/components/grid.tsx"), "utf8");
   const atmosphereSource = fs.readFileSync(require.resolve("../src/lib/visual-atmosphere.ts"), "utf8");
   const selectSource = fs.readFileSync(require.resolve("../src/components/thegridcn/select.tsx"), "utf8");
@@ -110,7 +111,7 @@ test("visual system uses production routes without ui lab", () => {
 
   assert.match(homeSource, /@\/lib\/visual-atmosphere/);
   assert.match(dashboardSource, /@\/lib\/visual-atmosphere/);
-  assert.match(dashboardSource, /localStorage\.setItem\(THEME_KEY/);
+  assert.match(dashboardSettingsSource, /localStorage\.setItem\(THEME_KEY/);
   assert.match(dashboardSource, /localStorage\.setItem\(INTENSITY_KEY/);
   assert.match(dashboardSource, /ATMOSPHERE_KEY/);
   assert.match(dashboardSource, /Scene Sway/);
@@ -158,6 +159,7 @@ test("visual system uses production routes without ui lab", () => {
 test("dashboard page renders a command center layout", () => {
   const dashboardSource = fs.readFileSync(require.resolve("../src/app/dashboard/page.tsx"), "utf8");
   const tabsSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-tabs.tsx"), "utf8");
+  const settingsSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-settings.ts"), "utf8");
   const globalsSource = fs.readFileSync(require.resolve("../src/app/globals.css"), "utf8");
   const dashboardStylesSource = fs.readFileSync(require.resolve("../src/app/dashboard/dashboard.css"), "utf8");
 
@@ -206,32 +208,32 @@ test("dashboard page renders a command center layout", () => {
   assert.match(tabsSource, /VISUAL_ANIMATIONS_KEY/);
   assert.match(tabsSource, /dashboard-visual-preset-metrics/);
   assert.match(tabsSource, /Advanced Settings/);
-  assert.match(tabsSource, /Calm/);
-  assert.match(tabsSource, /Balanced/);
-  assert.match(tabsSource, /Electric/);
+  assert.match(settingsSource, /Calm/);
+  assert.match(settingsSource, /Balanced/);
+  assert.match(settingsSource, /Electric/);
   assert.match(tabsSource, /Scene Sway/);
   assert.match(tabsSource, /Particle Density/);
   assert.match(tabsSource, /Beam Width/);
-  assert.match(tabsSource, /ui-lab-atmosphere/);
+  assert.match(settingsSource, /ui-lab-atmosphere/);
   assert.match(tabsSource, /Music Player/);
   assert.match(tabsSource, /dashboard-sound-player-slot/);
-  assert.match(tabsSource, /reflexRoyalePreferredKey/);
-  assert.match(tabsSource, /reflexRoyaleCustomThemeColor/);
+  assert.match(settingsSource, /reflexRoyalePreferredKey/);
+  assert.match(settingsSource, /reflexRoyaleCustomThemeColor/);
   assert.doesNotMatch(tabsSource, /type="color"/);
   assert.match(tabsSource, /THEME: COMMAND/);
   assert.match(tabsSource, /THEME_COMMANDS/);
-  assert.match(tabsSource, /VULCAN/);
-  assert.match(tabsSource, /APOLLO/);
-  assert.match(tabsSource, /GAIA/);
+  assert.match(settingsSource, /VULCAN/);
+  assert.match(settingsSource, /APOLLO/);
+  assert.match(settingsSource, /GAIA/);
   assert.match(tabsSource, /TabsList/);
   assert.match(tabsSource, /TooltipContent/);
   assert.match(tabsSource, /dashboard-theme-indicator/);
   assert.doesNotMatch(tabsSource, /title=\{theme === "custom"/);
   assert.match(tabsSource, /Preferred Buzzer Matrix/);
   assert.match(tabsSource, /Theme/);
-  assert.match(tabsSource, /OLYMPUS/);
-  assert.doesNotMatch(tabsSource, /name: "CUSTOM"/);
-  assert.match(tabsSource, /ares/);
+  assert.match(settingsSource, /OLYMPUS/);
+  assert.doesNotMatch(settingsSource, /name: "CUSTOM"/);
+  assert.match(settingsSource, /ares/);
   assert.match(tabsSource, /Glow Intensity/);
   assert.match(tabsSource, /Master Volume/);
   assert.match(tabsSource, /Mix/);

@@ -6,8 +6,40 @@ import { BarChart3, ChevronLeft, Gamepad2, Gauge, Music2, Navigation, Paintbrush
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthMenu, performLogout } from "@/components/app/auth-menu";
+import { AudioSettingsToggle, SettingsRoundSlider, SidebarButton } from "@/components/app/dashboard-controls";
 import { WireframeDottedGlobe } from "@/components/app/wireframe-dotted-globe";
-import { KEYBOARD_ROWS, SHIFTED_KEY_MAP } from "@/lib/game/keys";
+import {
+  ATMOSPHERE_KEY,
+  applyPersonalizationTheme,
+  clampPercent,
+  COOKIE_MAX_AGE,
+  formatAudioTrackDuration,
+  formatDuration,
+  getThemeCommand,
+  INTENSITY_KEY,
+  INTENSITY_OPTIONS,
+  normalizeCustomThemeColor,
+  normalizePersonalizationKey,
+  percentToValue,
+  PERSONALIZATION_KEYBOARD_ROWS,
+  PREFERRED_KEY_KEY,
+  rankColor,
+  resolveTheme,
+  saveThemePreferenceWithShades,
+  THEME_COMMAND_KEY,
+  THEME_COMMANDS,
+  THEME_KEY,
+  valueToPercent,
+  VISUAL_ANIMATIONS_KEY,
+  VISUAL_PREFERENCES_CHANGED_EVENT,
+  VISUAL_PRESETS,
+  type AudioCategoryFilter,
+  type LeaderboardEntry,
+  type PersonalizationTheme,
+  type RecentMatch,
+  type TabId,
+  type VisualPresetId,
+} from "@/components/app/dashboard-settings";
 import {
   AUDIO_MASTER_VOLUME_KEY,
   AUDIO_MIX_MODE_KEY,
@@ -28,7 +60,6 @@ import {
   writeAudioMixModePreference,
   writeAudioTogglePreference,
   writeAudioVolumePreference,
-  type AudioCategory,
   type AudioMixMode,
   type AudioTrack,
 } from "@/lib/audio";
@@ -47,14 +78,12 @@ import {
   normalizeAtmosphere,
   parseAtmosphere,
   serializeAtmosphere,
-  type AtmospherePreset,
   type AtmosphereState,
 } from "@/lib/visual-atmosphere";
 import type { AppAuthUser } from "@/lib/auth";
 import type { PlayerPerformanceStats } from "@/lib/recent-matches";
 import { parseIntensity, type Intensity } from "@/lib/ui-preferences";
 import {
-  THEME_COMMAND_COLORS,
   THEME_SHADE_COLORS,
   defaultThemeShades,
   getThemeOwnerForColor,
@@ -63,223 +92,11 @@ import {
   type ThemeCommandId,
 } from "@/lib/theme-preferences";
 
-type LeaderboardEntry = {
-  username: string;
-  bestScore: number;
-};
-
-type TabId = "play" | "analytics" | "visuals" | "sound" | "personalization";
-type PersonalizationTheme = "tron" | "ares" | "custom";
-
 type NavItem = {
   id: TabId;
   label: string;
   icon: ReactNode;
 };
-
-type RecentMatch = {
-  mode: "local" | "online";
-  playedAt: Date | string;
-  place: number;
-  averageReactionTime: number;
-};
-
-type AudioCategoryFilter = "all" | AudioCategory;
-type VisualPresetId = Exclude<AtmospherePreset, "custom">;
-
-const PREFERRED_KEY_KEY = "reflexRoyalePreferredKey";
-const THEME_KEY = "ui-lab-theme";
-const INTENSITY_KEY = "ui-lab-intensity";
-const ATMOSPHERE_KEY = "ui-lab-atmosphere";
-const VISUAL_ANIMATIONS_KEY = "reflexRoyaleVisualAnimationsEnabled";
-const VISUAL_PREFERENCES_CHANGED_EVENT = "reflexRoyaleVisualPreferencesChanged";
-const CUSTOM_THEME_COLOR_KEY = "reflexRoyaleCustomThemeColor";
-const THEME_COMMAND_KEY = "reflexRoyaleThemeCommand";
-const COOKIE_MAX_AGE = 31_536_000;
-const VISUAL_PRESETS: Array<{ id: VisualPresetId; label: string; description: string; intensity: Intensity }> = [
-  { id: "calm", label: "Calm", description: "Reduced motion with softer background traffic.", intensity: "light" },
-  { id: "balanced", label: "Balanced", description: "Default density for command-center readability.", intensity: "medium" },
-  { id: "electric", label: "Electric", description: "Maximum grid pressure, particles, and beams.", intensity: "heavy" },
-];
-const INTENSITY_OPTIONS: Array<{ value: Intensity; label: string; description: string }> = [
-  { value: "none", label: "Minimal", description: "Disable animated grid effects." },
-  { value: "light", label: "Light", description: "Low-glow dashboard baseline." },
-  { value: "medium", label: "Medium", description: "Balanced neon response." },
-  { value: "heavy", label: "Heavy", description: "High-output arcade glow." },
-];
-const THEME_COMMANDS: Array<{ id: ThemeCommandId; name: string; color: string; protocol: string; theme: PersonalizationTheme }> = [
-  { id: "ares", name: "ARES", color: THEME_COMMAND_COLORS.ares, protocol: "Red combat protocol", theme: "ares" },
-  { id: "vulcan", name: "VULCAN", color: THEME_COMMAND_COLORS.vulcan, protocol: "Orange forge protocol", theme: "custom" },
-  { id: "apollo", name: "APOLLO", color: THEME_COMMAND_COLORS.apollo, protocol: "Yellow solar protocol", theme: "custom" },
-  { id: "gaia", name: "GAIA", color: THEME_COMMAND_COLORS.gaia, protocol: "Green biosphere protocol", theme: "custom" },
-  { id: "tron", name: "TRON", color: THEME_COMMAND_COLORS.tron, protocol: "Blue grid protocol", theme: "tron" },
-  { id: "bacchus", name: "BACCHUS", color: THEME_COMMAND_COLORS.bacchus, protocol: "Purple pulse protocol", theme: "custom" },
-  { id: "aphrodite", name: "APHRODITE", color: THEME_COMMAND_COLORS.aphrodite, protocol: "Pink signal protocol", theme: "custom" },
-  { id: "olympus", name: "OLYMPUS", color: THEME_COMMAND_COLORS.olympus, protocol: "White ascendant protocol", theme: "custom" },
-];
-const PERSONALIZATION_KEYBOARD_ROWS = KEYBOARD_ROWS;
-const PERSONALIZATION_ALLOWED_KEYS = new Set(PERSONALIZATION_KEYBOARD_ROWS.flat());
-const PERSONALIZATION_SHIFTED_KEYS: Record<string, string> = SHIFTED_KEY_MAP;
-
-function normalizePersonalizationKey(value: string) {
-  if (value.length !== 1) return "";
-  const lower = value.toLowerCase();
-  const normalized = PERSONALIZATION_SHIFTED_KEYS[lower] || lower;
-  return PERSONALIZATION_ALLOWED_KEYS.has(normalized) ? normalized : "";
-}
-
-function normalizeCustomThemeColor(value: string | null) {
-  return value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : getThemeCommand("tron").color;
-}
-
-function getThemeCommand(id: ThemeCommandId) {
-  return THEME_COMMANDS.find((command) => command.id === id) ?? THEME_COMMANDS.find((command) => command.id === "tron")!;
-}
-
-function resolveTheme(command: { theme: PersonalizationTheme; color: string }, color: string): PersonalizationTheme {
-  return color.toLowerCase() === command.color.toLowerCase() ? command.theme : "custom";
-}
-
-function applyCustomThemeColor(color: string) {
-  [document.documentElement, document.body].forEach((node) => {
-    node.style.setProperty("--primary", color);
-    node.style.setProperty("--accent", color);
-    node.style.setProperty("--ring", color);
-    node.style.setProperty("--border", `color-mix(in oklch, ${color} 42%, black)`);
-    node.style.setProperty("--input", `color-mix(in oklch, ${color} 26%, black)`);
-    node.style.setProperty("--glow", color);
-    node.style.setProperty("--glow-muted", `color-mix(in oklch, ${color} 56%, black)`);
-    node.style.setProperty("--sidebar-primary", color);
-    node.style.setProperty("--sidebar-border", `color-mix(in oklch, ${color} 42%, black)`);
-    node.style.setProperty("--sidebar-ring", color);
-  });
-}
-
-function clearCustomThemeColor() {
-  [document.documentElement, document.body].forEach((node) => {
-    ["--primary", "--accent", "--ring", "--border", "--input", "--glow", "--glow-muted", "--sidebar-primary", "--sidebar-border", "--sidebar-ring"].forEach((property) => {
-      node.style.removeProperty(property);
-    });
-  });
-}
-
-function applyPersonalizationTheme(theme: PersonalizationTheme, customColor = getThemeCommand("tron").color, commandId: ThemeCommandId = "tron") {
-  window.localStorage.setItem(THEME_KEY, theme);
-  window.localStorage.setItem(THEME_COMMAND_KEY, commandId);
-  document.cookie = `${THEME_KEY}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
-  document.cookie = `${THEME_COMMAND_KEY}=${commandId}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
-  if (theme === "custom") {
-    window.localStorage.setItem(CUSTOM_THEME_COLOR_KEY, customColor);
-    document.cookie = `${CUSTOM_THEME_COLOR_KEY}=${customColor}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
-  } else {
-    window.localStorage.removeItem(CUSTOM_THEME_COLOR_KEY);
-    document.cookie = `${CUSTOM_THEME_COLOR_KEY}=; path=/; max-age=0; samesite=lax`;
-  }
-  document.documentElement.dataset.theme = theme;
-  document.body.dataset.theme = theme;
-  if (theme === "custom") applyCustomThemeColor(customColor);
-  else clearCustomThemeColor();
-  window.__reflexRoyaleSetFavicon?.();
-}
-
-function saveThemePreferenceWithShades(command: { id: ThemeCommandId; color: string }, shades: Record<ThemeCommandId, string>) {
-  void fetch("/api/auth/theme", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      preferredThemeCommand: command.id,
-      preferredThemeColor: command.color,
-      preferredThemeShades: shades,
-    }),
-  });
-}
-
-function rankColor(rank: number) {
-  if (rank === 1) return "#D4AF37";
-  if (rank === 2) return "#C0C0C0";
-  if (rank === 3) return "#CD7F32";
-  return undefined;
-}
-
-function formatDuration(totalSeconds: number) {
-  if (!totalSeconds) return "0m";
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${Math.max(1, minutes)}m`;
-}
-
-function formatAudioTrackDuration(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.max(0, Math.floor(totalSeconds % 60));
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
-function clampPercent(value: number) {
-  return Math.min(100, Math.max(0, Math.round(value)));
-}
-
-function valueToPercent(value: number, min: number, max: number) {
-  return clampPercent(((value - min) / (max - min)) * 100);
-}
-
-function percentToValue(percent: number, min: number, max: number) {
-  return min + (clampPercent(percent) / 100) * (max - min);
-}
-
-function SidebarButton({ active, collapsed, icon, label, onClick }: { active: boolean; collapsed: boolean; icon: ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-selected={active}
-      title={label}
-      className={`group relative grid h-10 w-full grid-cols-[5rem_minmax(0,1fr)] items-center overflow-hidden text-left transition-[background-color,color,border-color,transform,box-shadow] duration-500 active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-        active
-          ? "bg-primary/10 text-primary shadow-[inset_4px_0_0_var(--primary),0_0_26px_color-mix(in_oklch,var(--primary)_22%,transparent)]"
-          : "text-muted-foreground hover:bg-primary/5 hover:text-primary"
-      }`}
-    >
-      <span className={`flex h-full w-20 items-center justify-center ${active ? "text-primary drop-shadow-[0_0_10px_var(--primary)]" : "text-muted-foreground group-hover:text-primary"}`}>{icon}</span>
-      <span className={`truncate text-left font-mono text-sm font-semibold tracking-[0.04em] transition-all duration-300 ${collapsed ? "translate-x-2 opacity-0" : "translate-x-0 opacity-100"}`}>{label}</span>
-    </button>
-  );
-}
-
-function SettingsRoundSlider({ label, value, onChange }: { label: string; value: number; onChange?: (value: number) => void }) {
-  return (
-    <div data-slot="tron-slider" className="round-slider dashboard-round-slider" aria-label={`${label} slider`}>
-      <div className="round-slider__header">
-        <span className="dashboard-settings-label">{label}</span>
-        <span className="round-slider__value">{value}%</span>
-      </div>
-      <div className="round-slider__track-wrap">
-        <div data-slot="slider-track" className="round-slider__track" />
-        <div data-slot="slider-range" className="round-slider__range" style={{ width: `${value}%` }} />
-        <div data-slot="slider-thumb" className="round-slider__thumb" style={{ left: `${value}%` }} />
-        <input
-          className="round-slider__input"
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          value={value}
-          onChange={(event) => onChange?.(Number(event.currentTarget.value))}
-          aria-label={label}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AudioSettingsToggle({ label, enabled, onToggle }: { label: string; enabled: boolean; onToggle: () => void }) {
-  return (
-    <button type="button" className={`dashboard-settings-toggle ${enabled ? "dashboard-settings-toggle--active" : ""}`} aria-pressed={enabled} onClick={onToggle}>
-      <span>{label}</span>
-      <strong>{enabled ? "Enabled" : "Muted"}</strong>
-    </button>
-  );
-}
 
 export function DashboardTabs({
   user,
