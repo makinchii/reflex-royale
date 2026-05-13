@@ -126,7 +126,10 @@ function createApp(options = {}) {
 function createServer(options = {}) {
   const app = createApp(options);
   const server = http.createServer(app);
-  const io = new Server(server);
+  const io = new Server(server, {
+    pingInterval: 5000,
+    pingTimeout: 5000
+  });
 
   // Initialise Socket.IO game rooms for separate-device mode
   initGameSockets(io);

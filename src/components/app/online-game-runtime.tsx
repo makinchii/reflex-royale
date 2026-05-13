@@ -12,8 +12,8 @@ import { createInitialOnlineClientState, onlineClientReducer, type OnlineClientS
 const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
 const MATCH_TRANSITION_DURATION_MS = 3000;
 const MATCH_PLAYER_SPLASH_DURATION_MS = 2800;
-const ROOM_VALIDATION_INTERVAL_MS = 10_000;
-const ROOM_VALIDATION_TIMEOUT_MS = 25_000;
+const ROOM_VALIDATION_INTERVAL_MS = 3_000;
+const ROOM_VALIDATION_TIMEOUT_MS = 10_000;
 const CHAT_LIMIT = 250;
 const THEME_STORAGE_KEY = "reflexRoyaleThemeCommand";
 const UI_LAB_THEME_STORAGE_KEY = "ui-lab-theme";
@@ -417,7 +417,7 @@ function OnlineLobby({ activeKey, isHost, myPlayerId, onBindKey, onCloseRoom, on
     <div className="lobby lobby--online-room">
       <div className="lobby-layout-top"><h1 className="game-title"><a href="/">Reflex Royale</a></h1><p className="subtitle">Room {roomState.room}</p><p id="roomHint" className="hint">{readyText} - Rounds: {displayedRoundCount}</p><p id="waitingHint" className="hint">{waitingText}</p></div>
       <div className="lobby-player-grid"><Roster isHost={isHost} myPlayerId={myPlayerId} onRemove={onRemove} players={roomState.players} roomState={roomState} themePalette={themePalette} /><div className="lobby-control-stack"><div className="lobby-form"><div className="input-row input-row--online-key-card"><input id="keyInput" type="text" placeholder="Pick your key" maxLength={1} autoComplete="off" value={keyValue} onChange={(event) => { const key = normalizeGameKey(event.target.value); setKeyValue(key.toUpperCase()); setActiveKey(key); }} onKeyDown={(event) => { event.preventDefault(); const key = normalizeGameKey(event.key); setKeyValue(key.toUpperCase()); setActiveKey(key); }} /><button id="bindKeyBtn" className="btn btn-secondary" type="button" onClick={bindCurrentKey}>Set Key</button><button id="readyBtn" className="btn btn-primary" type="button" disabled={!canToggleReady} onClick={onToggleReady}>{currentPlayer?.isReady ? "Unready" : canToggleReady ? "Ready Up" : "Set Key First"}</button></div><ThemePicker claimedThemeCommands={claimedThemeCommands} currentPlayerThemeCommand={currentPlayer?.themeCommand} selectedThemeCommand={selectedThemeCommand} themePalette={themePalette} onSelect={onThemeSelect} /><p className="hint">Click a holographic key or press a character key, claim a Chroma Sigil, then set it. Press your assigned key to toggle ready.</p></div></div></div>
-      {isHost ? <aside className="online-host-terminal" aria-label="Host terminal"><section className="online-host-controls" aria-label="Host controls"><div className="host-control host-control--rounds"><RoundSlider id="hostRoundCountInput" label="Round count" className="round-slider--host" value={hostRounds} onChange={setHostRounds} /></div><button id="applyRoundCountBtn" className="btn btn-secondary" type="button" onClick={applyRoundCount}>{pendingRoundCount === hostRounds ? "Updating..." : "Update Rounds"}</button><button id="closeRoomBtn" className="btn btn-secondary" type="button" onClick={onCloseRoom}>Close Room</button></section><button id="startGameBtn" className="btn btn-primary btn-go" type="button" disabled={!roomState.canStart} onClick={onStart}>Start Game</button></aside> : null}
+      {isHost ? <aside className="online-host-terminal" aria-label="Host terminal"><section className="online-host-controls" aria-label="Host controls"><div className="host-control host-control--rounds"><RoundSlider id="hostRoundCountInput" label="Round count" className="round-slider--host" value={hostRounds} onChange={setHostRounds} /></div><button id="applyRoundCountBtn" className="btn btn-secondary" type="button" onClick={applyRoundCount}>{pendingRoundCount === hostRounds ? "Updating..." : "Update Rounds"}</button><button id="closeRoomBtn" className="btn btn-secondary" type="button" onClick={onCloseRoom}>Close Room</button></section><button id="startGameBtn" className="btn btn-primary btn-go" type="button" disabled={!roomState.canStart || pendingRoundCount !== null} onClick={onStart}>Start Game</button></aside> : null}
       <div id="holoKeyboardMount" style={{ "--keyboard-accent": selectedTheme?.color || "var(--primary, #68e8ff)" } as React.CSSProperties}><HolographicKeyboard activeKey={activeKey} currentPlayerId={myPlayerId} draggable players={roomState.players} title="Room Buzzer Matrix" onKeyClick={(key) => { setKeyValue(key.toUpperCase()); setActiveKey(key); }} onDropPlayerKey={(key) => { setKeyValue(key.toUpperCase()); setActiveKey(key); onBindKey(key); }} /></div>
       <ChatPanel messages={roomState.chatMessages || []} onSend={onSendChat} players={roomState.players} />
     </div>
@@ -527,19 +527,13 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
       window.setTimeout(() => setTransition(null), duration + splashDuration);
     });
     socket.on("playerList", (payload: OnlineServerToClientEvents["playerList"]) => {
-      const currentState = stateRef.current;
-      if (!currentState.roomState) return;
-      dispatch({ type: "roomState", payload: { ...currentState.roomState, players: payload.players } });
+      dispatch({ type: "playerList", payload });
     });
     socket.on("chatMessage", (payload: OnlineServerToClientEvents["chatMessage"]) => {
-      const currentState = stateRef.current;
-      if (!currentState.roomState) return;
-      dispatch({ type: "roomState", payload: { ...currentState.roomState, chatMessages: payload.messages || [] } });
+      dispatch({ type: "chatMessage", payload });
     });
     socket.on("lobbyStatus", (payload: OnlineServerToClientEvents["lobbyStatus"]) => {
-      const currentState = stateRef.current;
-      if (!currentState.roomState) return;
-      dispatch({ type: "roomState", payload: { ...currentState.roomState, waitingFor: payload.waitingFor || [] } });
+      dispatch({ type: "lobbyStatus", payload });
     });
     socket.on("removedFromLobby", (payload: OnlineServerToClientEvents["removedFromLobby"]) => dispatch({ type: "removedFromLobby", payload }));
     socket.on("countdown", (payload: OnlineServerToClientEvents["countdown"]) => { setReactionFeedback(null); if (!matchStartedAt.current) { matchStartedAt.current = Date.now(); matchRecorded.current = false; } dispatch({ type: "countdown", payload }); });

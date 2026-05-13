@@ -282,6 +282,51 @@ test("moves between lobby and post-match views from roomState", () => {
   assert.equal(state.view, "lobby");
 });
 
+test("chat updates do not restore players removed by newer room state", () => {
+  const { createInitialOnlineClientState, onlineClientReducer } = loadOnlineReducer();
+  const host = player({ id: "host", name: "Host", isHost: true });
+  const guest = player({ id: "guest", name: "Guest", joinedAt: 2 });
+  let state = createInitialOnlineClientState();
+
+  state = onlineClientReducer(state, {
+    type: "roomCreated",
+    payload: { room: room({ players: [host, guest], hostId: "host" }), playerId: "host" },
+  });
+  assert.deepEqual(state.roomState.players.map((entry) => entry.id), ["host", "guest"]);
+
+  state = onlineClientReducer(state, {
+    type: "roomState",
+    payload: room({ players: [host], hostId: "host", chatMessages: [] }),
+  });
+  state = onlineClientReducer(state, {
+    type: "chatMessage",
+    payload: { messages: [{ id: "left", senderPlayerId: "guest", senderName: "Guest", content: "left the room.", createdAt: 2 }] },
+  });
+
+  assert.deepEqual(state.roomState.players.map((entry) => entry.id), ["host"]);
+  assert.equal(state.roomState.chatMessages.at(-1).content, "left the room.");
+});
+
+test("player list updates merge into the latest room state", () => {
+  const { createInitialOnlineClientState, onlineClientReducer } = loadOnlineReducer();
+  const host = player({ id: "host", name: "Host", isHost: true });
+  const guest = player({ id: "guest", name: "Guest", joinedAt: 2 });
+  let state = createInitialOnlineClientState();
+
+  state = onlineClientReducer(state, {
+    type: "roomCreated",
+    payload: { room: room({ players: [host, guest], hostId: "host" }), playerId: "host" },
+  });
+  state = onlineClientReducer(state, {
+    type: "playerList",
+    payload: { players: [host] },
+  });
+
+  assert.deepEqual(state.roomState.players.map((entry) => entry.id), ["host"]);
+  assert.equal(state.roomState.playerCount, 1);
+  assert.equal(state.isHost, true);
+});
+
 test("clears identity and saved room details when removed or closed", () => {
   const { createInitialOnlineClientState, onlineClientReducer } = loadOnlineReducer();
   let state = createInitialOnlineClientState({ roomCode: "ABCD12", playerName: "Ada", hostReclaimToken: "host-token" });

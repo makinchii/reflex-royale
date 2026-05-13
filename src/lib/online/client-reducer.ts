@@ -57,6 +57,9 @@ export type OnlineClientAction =
   | { type: "roomJoined"; payload: OnlineServerToClientEvents["roomJoined"] }
   | { type: "savedRoomChecked"; payload: OnlineServerToClientEvents["savedRoomChecked"] }
   | { type: "roomState"; payload: OnlineServerToClientEvents["roomState"] }
+  | { type: "playerList"; payload: OnlineServerToClientEvents["playerList"] }
+  | { type: "chatMessage"; payload: OnlineServerToClientEvents["chatMessage"] }
+  | { type: "lobbyStatus"; payload: OnlineServerToClientEvents["lobbyStatus"] }
   | { type: "keyBound"; payload: OnlineServerToClientEvents["keyBound"] }
   | { type: "themeBound"; payload: OnlineServerToClientEvents["themeBound"] }
   | { type: "preferenceConflict"; payload: OnlineServerToClientEvents["preferenceConflict"] }
@@ -175,6 +178,47 @@ export function onlineClientReducer(state: OnlineClientState, action: OnlineClie
         selectedKey: currentPlayer?.keyBinding || state.selectedKey || null,
         lastRoundEnd: action.payload.status === "waiting_for_players" || action.payload.status === "ready_check" || action.payload.status === "post_match" ? null : state.lastRoundEnd,
         matchInProgress: isMatchStatus(action.payload.status),
+      };
+
+    case "playerList": {
+      if (!state.roomState || !state.myPlayerId) return state;
+      const players = action.payload.players || [];
+      const hostId = players.find((player) => player.isHost)?.id || state.roomState.hostId;
+      const currentPlayer = players.find((player) => player.id === state.myPlayerId);
+      const roomState = {
+        ...state.roomState,
+        hostId,
+        playerCount: players.length,
+        readyCount: players.filter((player) => player.isReady && player.connected).length,
+        players,
+      };
+      return {
+        ...state,
+        roomState,
+        isHost: hostId === state.myPlayerId,
+        selectedKey: currentPlayer?.keyBinding || state.selectedKey || null,
+        view: getViewForRoomState(roomState, state.myPlayerId, state.lastRoundEnd),
+      };
+    }
+
+    case "chatMessage":
+      if (!state.roomState) return state;
+      return {
+        ...state,
+        roomState: {
+          ...state.roomState,
+          chatMessages: action.payload.messages || [],
+        },
+      };
+
+    case "lobbyStatus":
+      if (!state.roomState) return state;
+      return {
+        ...state,
+        roomState: {
+          ...state.roomState,
+          waitingFor: action.payload.waitingFor || [],
+        },
       };
 
     case "keyBound":

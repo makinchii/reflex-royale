@@ -766,6 +766,10 @@ test("lobby disconnect removes players and transfers host without ghost slots", 
     const afterPlayerDisconnect = lastEvent(host, "roomState").payload;
     assert.deepEqual(afterPlayerDisconnect.players.map((entry) => entry.id), ["host-1"]);
     assert.equal(afterPlayerDisconnect.hostId, "host-1");
+    const playerLeaveChat = lastEvent(host, "chatMessage").payload.messages.at(-1);
+    assert.equal(playerLeaveChat.senderName, "Player");
+    assert.equal(playerLeaveChat.content, "left the room.");
+    assert.deepEqual(lastEvent(host, "roomState").payload.players.map((entry) => entry.id), ["host-1"]);
 
     const nextHost = new FakeSocket("player-2", io);
     io.connect(nextHost);
