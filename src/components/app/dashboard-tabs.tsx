@@ -48,7 +48,7 @@ import {
   serializeAtmosphere,
   type AtmospherePreset,
   type AtmosphereState,
-} from "@/app/ui-lab/atmosphere";
+} from "@/lib/visual-atmosphere";
 import type { AppAuthUser } from "@/lib/auth";
 import type { PlayerPerformanceStats } from "@/lib/recent-matches";
 import { parseIntensity, type Intensity } from "@/lib/ui-preferences";

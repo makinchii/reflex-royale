@@ -102,7 +102,6 @@ function createApp(options = {}) {
   app.get("/navigate", nextProxy);
   app.get("/local", nextProxy);
   app.get("/online", nextProxy);
-  app.get("/ui-lab", nextProxy);
 
   app.get("/api/auth/session", (req, res) => {
     if (!req.session?.user) {

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { RadioTower, Shield, Users, Zap } from "lucide-react";
-import { parseAtmosphere } from "@/app/ui-lab/atmosphere";
+import { parseAtmosphere } from "@/lib/visual-atmosphere";
 import { GridBackground } from "@/components/app/grid-background";
 import type { AppAuthUser } from "@/lib/auth";
 import { parseIntensity, parseTheme, safeDecode } from "@/lib/ui-preferences";

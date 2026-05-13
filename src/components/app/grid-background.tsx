@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { ThemeProvider, type Theme } from "@/components/theme";
-import { normalizeAtmosphere, type AtmosphereState } from "@/app/ui-lab/atmosphere";
+import { normalizeAtmosphere, type AtmosphereState } from "@/lib/visual-atmosphere";
 
 const Grid3D = dynamic(() => import("@/components/grid").then((mod) => mod.Grid3D), { ssr: false });
 const THEME_KEY = "ui-lab-theme";
