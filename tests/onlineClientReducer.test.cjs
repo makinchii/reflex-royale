@@ -200,6 +200,12 @@ test("moves disconnected players out of stale room views and into reconnect", ()
   assert.equal(state.savedRoom.roomCode, "ABCD12");
   assert.equal(state.savedRoom.playerName, "Ada");
   assert.equal(state.notification.message, "Connection lost. Reconnect to your saved room?");
+
+  state = onlineClientReducer(state, { type: "savedRoomDeclined" });
+
+  assert.equal(state.view, "join");
+  assert.equal(state.notification, null);
+  assert.equal(state.errorMessage, null);
 });
 
 test("falls back to join screen on disconnect without a saved room", () => {

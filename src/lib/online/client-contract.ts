@@ -109,6 +109,7 @@ export interface OnlineClientToServerEvents {
   removePlayer: { playerId: string };
   sendChatMessage: { content: string };
   requestLobbyView: undefined;
+  validateCurrentRoom: undefined;
   leaveRoom: undefined;
   nextRound: undefined;
   playAgain: undefined;
@@ -135,7 +136,7 @@ export interface OnlineServerToClientEvents {
   playerReacted: { id: string; name?: string; time: number };
   roundEnd: OnlineRoundSummary;
   gameOver: { standings: OnlineStanding[]; roundHistory?: OnlineRoundSummary[] };
-  roomClosed: { room?: string; reason?: "left" | "host_closed" | "empty" | string };
+  roomClosed: { room?: string; reason?: "left" | "host_closed" | "empty" | "stale" | string; message?: string };
   error: { message: string };
 }
 

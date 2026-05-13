@@ -12,6 +12,8 @@ import { createInitialOnlineClientState, onlineClientReducer, type OnlineClientS
 const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
 const MATCH_TRANSITION_DURATION_MS = 3000;
 const MATCH_PLAYER_SPLASH_DURATION_MS = 2800;
+const ROOM_VALIDATION_INTERVAL_MS = 10_000;
+const ROOM_VALIDATION_TIMEOUT_MS = 25_000;
 const CHAT_LIMIT = 250;
 const THEME_STORAGE_KEY = "reflexRoyaleThemeCommand";
 const UI_LAB_THEME_STORAGE_KEY = "ui-lab-theme";
@@ -293,6 +295,23 @@ function ReconnectPrompt({ onDecline, onRejoin, savedRoom }: { onDecline: () => 
   return <div className="lobby lobby--reconnect"><h1 className="game-title"><a href="/">Reflex Royale</a></h1><p className="subtitle">Online Mode - Saved Room Found</p><div id="reconnectPromptDialog" className="lobby-form" role="dialog" aria-modal="true" aria-labelledby="reconnectPromptTitle"><h2 id="reconnectPromptTitle" className="round-control">Rejoin Room?</h2><p className="hint">Reconnect to room <strong>{savedRoom.roomCode}</strong> as <strong>{savedRoom.playerName}</strong>, or clear the saved room to join another lobby.</p><div className="game-over-actions"><button id="reconnectPromptYes" type="button" className="btn btn-primary" onClick={onRejoin}>Rejoin</button><button id="reconnectPromptNo" type="button" className="btn btn-secondary" onClick={onDecline}>Join Different Room</button></div></div></div>;
 }
 
+function ConnectionLostDialog({ message, onDecline, onRejoin, savedRoom }: { message: string; onDecline: () => void; onRejoin: () => void; savedRoom: OnlineClientState["savedRoom"] }) {
+  const canRejoin = Boolean(savedRoom.roomCode && savedRoom.playerName);
+  return (
+    <div className="preference-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="connectionLostTitle">
+      <div className="preference-conflict-dialog__panel">
+        <h2 id="connectionLostTitle">Connection Lost</h2>
+        <p>{message}</p>
+        {canRejoin ? <p className="hint">Reconnect to room <strong>{savedRoom.roomCode}</strong> as <strong>{savedRoom.playerName}</strong>.</p> : null}
+        <div className="game-over-actions">
+          {canRejoin ? <button type="button" className="btn btn-primary" onClick={onRejoin}>Rejoin</button> : null}
+          <button type="button" className="btn btn-secondary" onClick={onDecline}>Join Different Room</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PreferenceConflictDialog({ unavailable }: { unavailable: string[] }) {
   const [dismissedSignature, setDismissedSignature] = useState("");
   const signature = unavailable.join(",");
@@ -423,6 +442,7 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
   const socketRef = useRef<SocketLike | null>(null);
   const stateRef = useRef(state);
   const activeKeyTimeout = useRef<number | null>(null);
+  const pendingRoomValidationAt = useRef<number | null>(null);
   const matchStartedAt = useRef(0);
   const matchRecorded = useRef(false);
   const themePalette = useMemo(() => getThemePalette(localPlayerThemeShades), [localPlayerThemeShades]);
@@ -454,10 +474,10 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
     const socket = window.io();
     socketRef.current = socket;
 
-    socket.on("roomCreated", (payload: OnlineServerToClientEvents["roomCreated"]) => dispatch({ type: "roomCreated", payload }));
-    socket.on("roomJoined", (payload: OnlineServerToClientEvents["roomJoined"]) => dispatch({ type: "roomJoined", payload }));
+    socket.on("roomCreated", (payload: OnlineServerToClientEvents["roomCreated"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomCreated", payload }); });
+    socket.on("roomJoined", (payload: OnlineServerToClientEvents["roomJoined"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomJoined", payload }); });
     socket.on("savedRoomChecked", (payload: OnlineServerToClientEvents["savedRoomChecked"]) => dispatch({ type: "savedRoomChecked", payload }));
-    socket.on("roomState", (payload: OnlineServerToClientEvents["roomState"]) => dispatch({ type: "roomState", payload }));
+    socket.on("roomState", (payload: OnlineServerToClientEvents["roomState"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomState", payload }); });
     socket.on("keyBound", (payload: OnlineServerToClientEvents["keyBound"]) => dispatch({ type: "keyBound", payload }));
     socket.on("themeBound", (payload: OnlineServerToClientEvents["themeBound"]) => dispatch({ type: "themeBound", payload }));
     socket.on("preferenceConflict", (payload: OnlineServerToClientEvents["preferenceConflict"]) => dispatch({ type: "preferenceConflict", payload }));
@@ -498,7 +518,7 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
     socket.on("playerReacted", (payload: OnlineServerToClientEvents["playerReacted"]) => { if (payload.id === stateRef.current.myPlayerId) setReactionFeedback(<span className="reaction-time">{payload.time} ms</span>); });
     socket.on("roundEnd", (payload: OnlineServerToClientEvents["roundEnd"]) => dispatch({ type: "roundEnd", payload }));
     socket.on("gameOver", (payload: OnlineServerToClientEvents["gameOver"]) => { dispatch({ type: "gameOver", payload }); if (!matchRecorded.current) { matchRecorded.current = true; void recordOnlineRecentMatch(payload.standings || [], stateRef.current.myPlayerId, matchStartedAt.current); matchStartedAt.current = 0; } });
-    socket.on("roomClosed", (payload: OnlineServerToClientEvents["roomClosed"]) => dispatch({ type: "roomClosed", payload }));
+    socket.on("roomClosed", (payload: OnlineServerToClientEvents["roomClosed"]) => { pendingRoomValidationAt.current = null; dispatch({ type: "roomClosed", payload }); });
     socket.on("disconnect", () => {
       setTransition(null);
       setReactionFeedback(null);
@@ -526,6 +546,25 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
   }, [socketReady, themePalette]);
 
   useEffect(() => {
+    if (!state.roomState || !state.myPlayerId) return;
+    const timer = window.setInterval(() => {
+      if (pendingRoomValidationAt.current && Date.now() - pendingRoomValidationAt.current > ROOM_VALIDATION_TIMEOUT_MS) {
+        setTransition(null);
+        setReactionFeedback(null);
+        pendingRoomValidationAt.current = null;
+        dispatch({ type: "socketDisconnected", payload: { message: "Room stopped responding. Reconnect to your saved room?" } });
+        return;
+      }
+
+      if (pendingRoomValidationAt.current) return;
+      pendingRoomValidationAt.current = Date.now();
+      emit("validateCurrentRoom");
+    }, ROOM_VALIDATION_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [emit, state.myPlayerId, state.roomState]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
       if (event.key === "Enter") {
@@ -550,13 +589,15 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
   const joinRoom = (name: string, room: string) => { if (!name || !room) return dispatch({ type: "error", payload: { message: "Enter both name and room code." } }); window.localStorage.setItem(ONLINE_STORAGE_KEYS.playerName, name); window.localStorage.setItem(ONLINE_STORAGE_KEYS.roomCode, room); dispatch({ type: "manualJoinRequested", name, room }); emit("joinRoom", { name, room, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
   const joinSavedRoom = () => { dispatch({ type: "joinSavedRoomRequested" }); emit("joinRoom", { name: state.savedRoom.playerName, room: state.savedRoom.roomCode, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
   const declineSavedRoom = () => dispatch({ type: "savedRoomDeclined" });
+  const connectionLostMessage = state.notification?.message.startsWith("Connection lost") || state.notification?.message.startsWith("Room stopped responding") ? state.notification.message : "";
+  const inlineNotification = connectionLostMessage ? null : state.notification;
 
   const claimedThemeCommands = useMemo(() => new Set((state.roomState?.players || []).map((player) => player.themeCommand).filter(Boolean) as string[]), [state.roomState?.players]);
 
   let content: React.ReactNode;
   if (state.view === "checking_saved_room") {
     content = <div className="lobby lobby--reconnect"><h1 className="game-title"><a href="/">Reflex Royale</a></h1><p className="subtitle">Online Mode - Checking Saved Room</p><div className="lobby-form"><p className="hint">Checking whether room <strong>{state.savedRoom.roomCode}</strong> is still available...</p></div></div>;
-  } else if (state.view === "reconnect_prompt") {
+  } else if (state.view === "reconnect_prompt" && !connectionLostMessage) {
     content = <ReconnectPrompt savedRoom={state.savedRoom} onRejoin={joinSavedRoom} onDecline={declineSavedRoom} />;
   } else if (state.view === "lobby" && state.roomState) {
     content = <OnlineLobby activeKey={activeKey} isHost={state.isHost} myPlayerId={state.myPlayerId} onBindKey={(key) => emit("bindKey", { key })} onCloseRoom={() => emit("closeRoom")} onRemove={(playerId) => emit("removePlayer", { playerId })} onRoundCount={(totalRounds) => totalRounds >= 1 && totalRounds <= 20 ? emit("setRoundCount", { totalRounds }) : dispatch({ type: "error", payload: { message: "Round count must be between 1 and 20." } })} onSendChat={(content) => emit("sendChatMessage", { content })} onStart={() => emit("startGame")} onThemeSelect={bindTheme} onToggleReady={() => emit("toggleReady")} roomState={state.roomState} selectedKey={state.selectedKey} selectedThemeCommand={selectedThemeCommand} setActiveKey={pulseKey} themePalette={themePalette} />;
@@ -580,9 +621,10 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
       <div data-wait-for-game-ready="true" className="flex min-h-0 w-full flex-1">
         <div id="game-root" suppressHydrationWarning>
           {content}
-          {state.notification ? <p className="hint online-runtime-notification" role="alert">{state.notification.message}</p> : null}
+          {inlineNotification ? <p className="hint online-runtime-notification" role="alert">{inlineNotification.message}</p> : null}
         </div>
         <PreferenceConflictDialog unavailable={state.preferenceConflict} />
+        {connectionLostMessage ? <ConnectionLostDialog message={connectionLostMessage} onRejoin={joinSavedRoom} onDecline={declineSavedRoom} savedRoom={state.savedRoom} /> : null}
         {transition?.phase === "tunnel" ? <LocalGameTransition className="local-game-transition-overlay" durationMs={transition.duration} /> : null}
         {transition?.phase === "splash" ? <LocalPlayerSplash className="local-player-splash-overlay" players={transition.players} durationMs={transition.splashDuration} /> : null}
       </div>

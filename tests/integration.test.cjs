@@ -625,6 +625,99 @@ test("saved room validation only approves joinable rooms", async () => {
   }
 });
 
+test("current room validation removes stale connected players and repairs host controls", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-1", io);
+    io.connect(host);
+    host.trigger("createRoom", { name: "Host" });
+    const roomCode = lastEvent(host, "roomCreated").payload.room.room;
+
+    const player = new FakeSocket("player-1", io);
+    io.connect(player);
+    player.trigger("joinRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
+
+    io.sockets.sockets.delete("host-1");
+    player.trigger("validateCurrentRoom");
+
+    const repairedState = lastEvent(player, "roomState").payload;
+    assert.equal(repairedState.hostId, "player-1");
+    assert.equal(repairedState.players.length, 1);
+    assert.equal(repairedState.players[0].id, "player-1");
+    assert.equal(repairedState.players[0].isHost, true);
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
+test("current room validation sends clients back when their room membership is stale", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-1", io);
+    io.connect(host);
+    host.trigger("createRoom", { name: "Host" });
+    const roomCode = lastEvent(host, "roomCreated").payload.room.room;
+    host.leave(roomCode);
+
+    host.trigger("validateCurrentRoom");
+
+    const closed = lastEvent(host, "roomClosed");
+    assert.equal(closed.payload.room, roomCode);
+    assert.equal(closed.payload.reason, "stale");
+    assert.equal(closed.payload.message, "Room connection is stale. Rejoin to continue.");
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
+test("stale host validation transfers control and prevents stale host actions", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-1", io);
+    io.connect(host);
+    host.trigger("createRoom", { name: "Host" });
+    const roomCode = lastEvent(host, "roomCreated").payload.room.room;
+
+    const player = new FakeSocket("player-1", io);
+    io.connect(player);
+    player.trigger("joinRoom", { name: "Player", room: roomCode, verifier: "ver-player" });
+
+    host.leave(roomCode);
+    host.trigger("validateCurrentRoom");
+    host.trigger("closeRoom");
+
+    const staleNotice = lastEvent(host, "roomClosed");
+    const repairedState = lastEvent(player, "roomState").payload;
+    assert.equal(staleNotice.payload.reason, "stale");
+    assert.equal(repairedState.hostId, "player-1");
+    assert.equal(repairedState.players.length, 1);
+    assert.equal(lastEvent(player, "roomClosed"), null);
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
 test("lobby disconnect removes players and transfers host without ghost slots", async () => {
   const restoreTimers = patchNoopTimers();
   delete require.cache[gameRoomPath];

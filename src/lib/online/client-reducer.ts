@@ -116,6 +116,8 @@ export function onlineClientReducer(state: OnlineClientState, action: OnlineClie
         autoReconnectEnabled: false,
         pendingJoinSource: null,
         savedRoom: clearSavedRoom(state.savedRoom, true),
+        errorMessage: null,
+        notification: null,
       };
 
     case "manualJoinRequested":
@@ -243,6 +245,8 @@ export function onlineClientReducer(state: OnlineClientState, action: OnlineClie
         lastRoundEnd: null,
         standings: [],
         matchInProgress: false,
+        errorMessage: action.payload.message || null,
+        notification: action.payload.message ? { kind: "error", message: action.payload.message } : null,
       };
     }
 

@@ -750,6 +750,69 @@ function closeRoom(io, room, reason = "closed") {
   rooms.delete(room.roomCode);
 }
 
+function socketIsInRoom(socket, roomCode) {
+  return Boolean(socket?.rooms?.has?.(roomCode));
+}
+
+function reconcileRoomSockets(io, room) {
+  let changed = false;
+  let closed = false;
+
+  for (const player of [...room.players.values()]) {
+    if (!player.connected) continue;
+    const socket = io.sockets.sockets.get(player.id);
+    if (socketIsInRoom(socket, room.roomCode)) continue;
+
+    const result = room.markDisconnected(player.id);
+    changed = changed || result.changed;
+    closed = closed || result.closed;
+  }
+
+  return { changed, closed };
+}
+
+function validateCurrentRoom(io, socket, currentRoom) {
+  const room = currentRoom ? rooms.get(currentRoom) : null;
+  if (!room) {
+    socket.emit("roomClosed", { room: currentRoom || undefined, reason: "stale", message: "Room connection is stale. Rejoin to continue." });
+    return null;
+  }
+
+  if (!socketIsInRoom(socket, room.roomCode)) {
+    const result = room.markDisconnected(socket.id);
+    if (result.closed) {
+      closeRoom(io, room, "empty");
+    } else if (result.changed) {
+      emitRoomState(io, room);
+      io.to(room.roomCode).emit("lobbyStatus", { waitingFor: room.getWaitingList() });
+    }
+    socket.emit("roomClosed", { room: room.roomCode, reason: "stale", message: "Room connection is stale. Rejoin to continue." });
+    return null;
+  }
+
+  const reconciled = reconcileRoomSockets(io, room);
+  if (reconciled.closed || !rooms.has(room.roomCode)) {
+    socket.emit("roomClosed", { room: room.roomCode, reason: "stale", message: "Room connection is stale. Rejoin to continue." });
+    return null;
+  }
+
+  const player = room.players.get(socket.id);
+  if (!player || !player.connected) {
+    socket.leave(room.roomCode);
+    socket.emit("roomClosed", { room: room.roomCode, reason: "stale", message: "Room connection is stale. Rejoin to continue." });
+    return null;
+  }
+
+  if (reconciled.changed) {
+    emitRoomState(io, room);
+    io.to(room.roomCode).emit("lobbyStatus", { waitingFor: room.getWaitingList() });
+  } else {
+    socket.emit("roomState", room.getRoomState());
+  }
+
+  return room;
+}
+
 function applyPreferredPlayerOptions(room, socketId, { preferredKey, preferredThemeCommand, preferredThemeColor } = {}) {
   const unavailable = [];
   if (preferredKey && !room.assignPreferredKey(socketId, preferredKey).ok) unavailable.push("key");
@@ -1146,6 +1209,12 @@ function initGameSockets(io) {
       io.to(room.roomCode).emit("lobbyStatus", {
         waitingFor: room.getWaitingList()
       });
+    });
+
+    socket.on("validateCurrentRoom", () => {
+      if (!validateCurrentRoom(io, socket, currentRoom)) {
+        currentRoom = null;
+      }
     });
 
     socket.on("removePlayer", ({ playerId }) => {
