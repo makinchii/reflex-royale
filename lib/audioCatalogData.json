@@ -1,0 +1,48 @@
+{
+  "flowerFieldsTrackId": "flower-fields",
+  "tracks": [
+    {
+      "trackId": "flower-fields",
+      "title": "Flower Fields",
+      "artist": "Athena IV",
+      "album": "Reaction Game Audio Console",
+      "durationSeconds": 360,
+      "category": "lobby",
+      "extractStartSeconds": 8137,
+      "maxExtractSeconds": 360,
+      "coverImage": "/images/audio/flower-fields-cover.webp",
+      "sourceUrl": "https://www.youtube.com/watch?v=J4njTYvvENQ&t=8137s",
+      "sourceTimestamp": "02:15:37",
+      "fallbackSources": [
+        { "src": "/audio/flower-fields.webm", "type": "audio/webm" },
+        { "src": "/audio/flower-fields.mp3", "type": "audio/mpeg" }
+      ]
+    },
+    { "trackId": "mirrors-edge", "title": "Mirror's Edge", "artist": "Solar Sands", "category": "lobby", "videoId": "qMPd8bv3W5w", "sourceUrl": "https://www.youtube.com/watch?v=qMPd8bv3W5w&t=131s", "extractStartSeconds": 131, "sourceTimestamp": "00:02:11" },
+    { "trackId": "future-self", "title": "Future セルフ", "artist": "Athena IV", "category": "lobby", "videoId": "SwUpMhp-DEc", "sourceUrl": "https://www.youtube.com/watch?v=SwUpMhp-DEc&t=7122s", "extractStartSeconds": 7122, "sourceTimestamp": "01:58:42" },
+    { "trackId": "tears-in-rain", "title": "Tears in Rain", "artist": "Athena IV", "category": "lobby", "videoId": "XG-rJ8z3IO8", "sourceUrl": "https://www.youtube.com/watch?v=XG-rJ8z3IO8&t=800s", "extractStartSeconds": 800, "sourceTimestamp": "00:13:20" },
+    { "trackId": "emerald-archive", "title": "Emerald Archive", "artist": "Athena IV", "category": "lobby", "videoId": "IueYFej6JCw", "sourceUrl": "https://www.youtube.com/watch?v=IueYFej6JCw&t=5077s", "extractStartSeconds": 5077, "sourceTimestamp": "01:24:37" },
+    { "trackId": "reflection", "title": "Reflection", "artist": "Athena IV", "category": "lobby", "videoId": "ndHbBhQkp5Q", "sourceUrl": "https://www.youtube.com/watch?v=ndHbBhQkp5Q&t=237s", "extractStartSeconds": 237, "sourceTimestamp": "00:03:57" },
+    { "trackId": "last-lightcycle", "title": "Last Lightcycle", "artist": "Athena IV", "category": "lobby", "videoId": "G-fy9e0sdS4", "sourceUrl": "https://www.youtube.com/watch?v=G-fy9e0sdS4" },
+    { "trackId": "deep-stone-crypt-lullaby", "title": "Deep Stone Crypt Lullaby", "artist": "Destiny 2", "category": "lobby", "videoId": "Uf57E9tmEnc", "sourceUrl": "https://www.youtube.com/watch?v=Uf57E9tmEnc&t=368s", "extractStartSeconds": 368, "sourceTimestamp": "00:06:08" },
+    { "trackId": "resurrections", "title": "Resurrections", "artist": "Celeste", "category": "lobby", "videoId": "1rwAvUvvQzQ", "sourceUrl": "https://www.youtube.com/watch?v=1rwAvUvvQzQ" },
+    {
+      "trackId": "break-what-you-must",
+      "title": "Break What You Must",
+      "artist": "Destiny 2",
+      "album": "Music From the Grid",
+      "durationSeconds": 296,
+      "category": "battle",
+      "coverImage": "/images/audio/break-what-you-must-cover.webp",
+      "sourceUrl": "https://www.youtube.com/watch?v=44_aOyRnO9k&list=RD44_aOyRnO9k&start_radio=1",
+      "fallbackSources": [
+        { "src": "/audio/break-what-you-must.webm", "type": "audio/webm" },
+        { "src": "/audio/break-what-you-must.mp3", "type": "audio/mpeg" }
+      ]
+    },
+    { "trackId": "astra", "title": "Astra", "artist": "Altare ft. Devilish Trio", "category": "battle", "videoId": "xjTZ_GhhcKA", "sourceUrl": "https://www.youtube.com/watch?v=xjTZ_GhhcKA&list=RD566i4nWbQkM&index=9" },
+    { "trackId": "afterglow", "title": "Afterglow", "artist": "ROUDS", "category": "battle", "videoId": "L5S_BC9BrCE", "sourceUrl": "https://www.youtube.com/watch?v=L5S_BC9BrCE&list=RD566i4nWbQkM&index=18" },
+    { "trackId": "void-inside-the-machine", "title": "Void Inside The Machine", "artist": "FINALSORRY", "category": "battle", "videoId": "smwF1aQPUKg", "sourceUrl": "https://www.youtube.com/watch?v=smwF1aQPUKg" },
+    { "trackId": "peace-of-mind-before-death", "title": "Peace of Mind Before Death", "artist": "FINALSORRY", "category": "battle", "videoId": "oH_uGmLTzK0", "sourceUrl": "https://www.youtube.com/watch?v=oH_uGmLTzK0" }
+  ]
+}

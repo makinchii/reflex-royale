@@ -8,6 +8,7 @@ import { LocalGameTransition, LocalPlayerSplash, type LocalTransitionPlayer } fr
 import { KEYBOARD_ROWS, normalizeGameKey, type GameKey } from "@/lib/game/keys";
 import { ONLINE_STORAGE_KEYS, type OnlineChatMessage, type OnlinePlayer, type OnlineRoomState, type OnlineRoundResult, type OnlineRoundSummary, type OnlineServerToClientEvents, type OnlineStanding } from "@/lib/online/client-contract";
 import { createInitialOnlineClientState, onlineClientReducer, type OnlineClientState } from "@/lib/online/client-reducer";
+import { getThemePalette, normalizeChromaThemeCommand, type ResolvedThemeProtocol } from "@/lib/theme-protocols";
 
 const AUDIO_MATCH_STATE_EVENT = "reflexRoyaleMatchState";
 const MATCH_TRANSITION_DURATION_MS = 3000;
@@ -18,13 +19,6 @@ const SAVED_ROOM_CHECK_TIMEOUT_MS = 6_000;
 const CHAT_LIMIT = 250;
 const THEME_STORAGE_KEY = "reflexRoyaleThemeCommand";
 const UI_LAB_THEME_STORAGE_KEY = "ui-lab-theme";
-
-type ThemeProtocol = {
-  id: string;
-  label: string;
-  fallbackColor: string;
-  color: string;
-};
 
 type SocketLike = {
   on: (event: string, callback: (payload: any) => void) => SocketLike;
@@ -51,40 +45,13 @@ declare global {
   }
 }
 
-const THEME_PROTOCOLS = [
-  { id: "ares", label: "Ares", fallbackColor: "#ff003c" },
-  { id: "vulcan", label: "Vulcan", fallbackColor: "#ff7a00" },
-  { id: "apollo", label: "Apollo", fallbackColor: "#ffd400" },
-  { id: "gaia", label: "Gaia", fallbackColor: "#24f07a" },
-  { id: "tron", label: "Tron", fallbackColor: "#00d4ff" },
-  { id: "bacchus", label: "Bacchus", fallbackColor: "#8a2bff" },
-  { id: "aphrodite", label: "Aphrodite", fallbackColor: "#ff2ebd" },
-  { id: "olympus", label: "Olympus", fallbackColor: "#FFFFFF" },
-] as const;
-
 function announceMatchState(inProgress: boolean) {
   window.dispatchEvent(new CustomEvent(AUDIO_MATCH_STATE_EVENT, { detail: { inProgress } }));
 }
 
-function isHexColor(value: unknown): value is string {
-  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
-}
-
-function normalizeThemeCommand(value: unknown) {
-  return THEME_PROTOCOLS.some((protocol) => protocol.id === value) ? String(value) : "tron";
-}
-
 function readCurrentThemeCommand() {
   if (typeof window === "undefined") return "tron";
-  return normalizeThemeCommand(window.localStorage.getItem(THEME_STORAGE_KEY) || window.localStorage.getItem(UI_LAB_THEME_STORAGE_KEY));
-}
-
-function getThemePalette(localPlayerThemeShades: Record<string, string> | null | undefined): ThemeProtocol[] {
-  const accountShades = localPlayerThemeShades || {};
-  return THEME_PROTOCOLS.map((protocol) => ({
-    ...protocol,
-    color: isHexColor(accountShades[protocol.id]) ? accountShades[protocol.id] : protocol.fallbackColor,
-  }));
+  return normalizeChromaThemeCommand(window.localStorage.getItem(THEME_STORAGE_KEY) || window.localStorage.getItem(UI_LAB_THEME_STORAGE_KEY));
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -168,7 +135,7 @@ function RoundSlider({ className = "", id, label, onChange, value }: { className
   );
 }
 
-function ThemePicker({ claimedThemeCommands, currentPlayerThemeCommand, onSelect, selectedThemeCommand, themePalette }: { claimedThemeCommands: Set<string>; currentPlayerThemeCommand?: string | null; onSelect: (protocol: ThemeProtocol) => void; selectedThemeCommand: string; themePalette: ThemeProtocol[] }) {
+function ThemePicker({ claimedThemeCommands, currentPlayerThemeCommand, onSelect, selectedThemeCommand, themePalette }: { claimedThemeCommands: Set<string>; currentPlayerThemeCommand?: string | null; onSelect: (protocol: ResolvedThemeProtocol) => void; selectedThemeCommand: string; themePalette: ResolvedThemeProtocol[] }) {
   const [open, setOpen] = useState(false);
   const selected = themePalette.find((protocol) => protocol.id === (currentPlayerThemeCommand || selectedThemeCommand)) || themePalette[0] || null;
   const selectedColor = selected?.color || "var(--primary, #68e8ff)";
@@ -264,7 +231,7 @@ function ChatPanel({ messages, onSend, players }: { messages: OnlineChatMessage[
   );
 }
 
-function Roster({ isHost, myPlayerId, onRemove, players, roomState, themePalette }: { isHost: boolean; myPlayerId: string | null; onRemove: (playerId: string) => void; players: OnlinePlayer[]; roomState: OnlineRoomState | null; themePalette: ThemeProtocol[] }) {
+function Roster({ isHost, myPlayerId, onRemove, players, roomState, themePalette }: { isHost: boolean; myPlayerId: string | null; onRemove: (playerId: string) => void; players: OnlinePlayer[]; roomState: OnlineRoomState | null; themePalette: ResolvedThemeProtocol[] }) {
   const visiblePlayers = players.filter((player) => player.connected !== false);
   const positions = ["top-left", "top-right", "bottom-left", "bottom-right"];
   const host = visiblePlayers.find((player) => player.id === roomState?.hostId) || visiblePlayers[0] || null;
@@ -354,7 +321,7 @@ function PreferenceConflictDialog({ unavailable }: { unavailable: string[] }) {
   );
 }
 
-function JoinScreen({ activeKey, claimedThemeCommands, errorMessage, onCreate, onJoin, onThemeSelect, selectedEntryRoundCount, selectedThemeCommand, setActiveKey, setSelectedEntryRoundCount, themePalette }: { activeKey: string; claimedThemeCommands: Set<string>; errorMessage: string | null; onCreate: (name: string, totalRounds: number) => void; onJoin: (name: string, room: string) => void; onThemeSelect: (protocol: ThemeProtocol) => void; selectedEntryRoundCount: number; selectedThemeCommand: string; setActiveKey: (key: string) => void; setSelectedEntryRoundCount: (value: number) => void; themePalette: ThemeProtocol[] }) {
+function JoinScreen({ activeKey, claimedThemeCommands, errorMessage, onCreate, onJoin, onThemeSelect, selectedEntryRoundCount, selectedThemeCommand, setActiveKey, setSelectedEntryRoundCount, themePalette }: { activeKey: string; claimedThemeCommands: Set<string>; errorMessage: string | null; onCreate: (name: string, totalRounds: number) => void; onJoin: (name: string, room: string) => void; onThemeSelect: (protocol: ResolvedThemeProtocol) => void; selectedEntryRoundCount: number; selectedThemeCommand: string; setActiveKey: (key: string) => void; setSelectedEntryRoundCount: (value: number) => void; themePalette: ResolvedThemeProtocol[] }) {
   const [mode, setMode] = useState<"create" | "join">("join");
   const [room, setRoom] = useState("");
   const [name, setName] = useState(() => typeof window === "undefined" ? "" : window.localStorage.getItem(ONLINE_STORAGE_KEYS.playerName) || "");
@@ -391,7 +358,7 @@ function JoinScreen({ activeKey, claimedThemeCommands, errorMessage, onCreate, o
   );
 }
 
-function OnlineLobby({ activeKey, isHost, myPlayerId, onBindKey, onCloseRoom, onRemove, onRoundCount, onSendChat, onStart, onThemeSelect, onToggleReady, roomState, selectedKey, selectedThemeCommand, setActiveKey, themePalette }: { activeKey: string; isHost: boolean; myPlayerId: string | null; onBindKey: (key: GameKey) => void; onCloseRoom: () => void; onRemove: (playerId: string) => void; onRoundCount: (totalRounds: number) => void; onSendChat: (content: string) => void; onStart: () => void; onThemeSelect: (protocol: ThemeProtocol) => void; onToggleReady: () => void; roomState: OnlineRoomState; selectedKey: string | null; selectedThemeCommand: string; setActiveKey: (key: string) => void; themePalette: ThemeProtocol[] }) {
+function OnlineLobby({ activeKey, isHost, myPlayerId, onBindKey, onCloseRoom, onRemove, onRoundCount, onSendChat, onStart, onThemeSelect, onToggleReady, roomState, selectedKey, selectedThemeCommand, setActiveKey, themePalette }: { activeKey: string; isHost: boolean; myPlayerId: string | null; onBindKey: (key: GameKey) => void; onCloseRoom: () => void; onRemove: (playerId: string) => void; onRoundCount: (totalRounds: number) => void; onSendChat: (content: string) => void; onStart: () => void; onThemeSelect: (protocol: ResolvedThemeProtocol) => void; onToggleReady: () => void; roomState: OnlineRoomState; selectedKey: string | null; selectedThemeCommand: string; setActiveKey: (key: string) => void; themePalette: ResolvedThemeProtocol[] }) {
   const [keyValue, setKeyValue] = useState(selectedKey?.toUpperCase() || "");
   const [hostRounds, setHostRounds] = useState(roomState.totalRounds);
   const [pendingRoundCount, setPendingRoundCount] = useState<number | null>(null);
@@ -446,7 +413,7 @@ function StandingsTable({ myPlayerId, standings }: { myPlayerId: string | null; 
   return <table className="standings-table"><thead><tr><th>#</th><th>Player</th><th>Score</th><th>Wins</th><th>Best</th><th>Avg</th><th>False Starts</th></tr></thead><tbody>{standings.map((standing, index) => <tr style={{ color: standing.color }} className={`${index === 0 ? "first-place" : ""}${standing.id === myPlayerId ? " you-row" : ""}`} key={standing.id}><td>{index + 1}</td><td>{standing.name}</td><td>{standing.totalScore}</td><td>{standing.wins}</td><td>{standing.bestTime !== null ? `${standing.bestTime} ms` : "-"}</td><td>{standing.avgTime !== null ? `${standing.avgTime} ms` : "-"}</td><td>{standing.falseStarts}</td></tr>)}</tbody></table>;
 }
 
-function PostMatchScreen({ isHost, myPlayerId, onLeave, onRemove, onReturnLobby, onSendChat, roomState, themePalette }: { isHost: boolean; myPlayerId: string | null; onLeave: () => void; onRemove: (playerId: string) => void; onReturnLobby: () => void; onSendChat: (content: string) => void; roomState: OnlineRoomState; themePalette: ThemeProtocol[] }) {
+function PostMatchScreen({ isHost, myPlayerId, onLeave, onRemove, onReturnLobby, onSendChat, roomState, themePalette }: { isHost: boolean; myPlayerId: string | null; onLeave: () => void; onRemove: (playerId: string) => void; onReturnLobby: () => void; onSendChat: (content: string) => void; roomState: OnlineRoomState; themePalette: ResolvedThemeProtocol[] }) {
   const currentPlayer = roomState.players.find((player) => player.id === myPlayerId);
   const waitingText = roomState.waitingFor?.length ? `Waiting for: ${roomState.waitingFor.join(", ")}` : "Everyone is back in the lobby.";
   return <div className="online-state online-state--post-match"><div className="online-state__center"><div className="game-over"><h1 className="winner-banner">Room {roomState.room}</h1><p className="hint">{waitingText}</p><p className="hint">Rounds: {roomState.totalRounds}</p><div className="game-over-actions"><button id="returnLobbyBtn" className="btn btn-primary btn-big" type="button" onClick={onReturnLobby}>{currentPlayer?.isInLobbyView ? "Back in Lobby" : "Return to Lobby"}</button><button id="leaveRoomBtn" className="btn btn-secondary" type="button" onClick={onLeave}>Leave Room</button></div><HostRosterControls isHost={isHost} myPlayerId={myPlayerId} onRemove={onRemove} players={roomState.players} /><Roster isHost={isHost} myPlayerId={myPlayerId} onRemove={onRemove} players={roomState.players} roomState={roomState} themePalette={themePalette} /><StandingsTable myPlayerId={myPlayerId} standings={roomState.standings || []} /></div></div><ChatPanel messages={roomState.chatMessages || []} onSend={onSendChat} players={roomState.players} /></div>;
@@ -640,7 +607,7 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
 
   useEffect(() => () => { if (activeKeyTimeout.current) window.clearTimeout(activeKeyTimeout.current); clearSavedRoomCheckTimeout(); announceMatchState(false); }, [clearSavedRoomCheckTimeout]);
 
-  const bindTheme = (protocol: ThemeProtocol) => { setSelectedThemeCommand(protocol.id); emit("bindTheme", { themeCommand: protocol.id, color: protocol.color }); };
+  const bindTheme = (protocol: ResolvedThemeProtocol) => { setSelectedThemeCommand(protocol.id); emit("bindTheme", { themeCommand: protocol.id, color: protocol.color }); };
   const createRoom = (name: string, totalRounds: number) => { if (!name) return dispatch({ type: "error", payload: { message: "Enter your name first." } }); window.localStorage.setItem(ONLINE_STORAGE_KEYS.playerName, name); emit("createRoom", { name, verifier: state.verifier, totalRounds, ...preferredOptions() }); };
   const joinRoom = (name: string, room: string) => { if (!name || !room) return dispatch({ type: "error", payload: { message: "Enter both name and room code." } }); window.localStorage.setItem(ONLINE_STORAGE_KEYS.playerName, name); window.localStorage.setItem(ONLINE_STORAGE_KEYS.roomCode, room); dispatch({ type: "manualJoinRequested", name, room }); emit("joinRoom", { name, room, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
   const joinSavedRoom = () => { dispatch({ type: "joinSavedRoomRequested" }); emitSavedRoomJoin(socketRef.current, state); };

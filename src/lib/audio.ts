@@ -1,3 +1,5 @@
+import audioCatalogData from "../../lib/audioCatalogData.json";
+
 export type AudioSource = {
   src: string;
   type: string;
@@ -21,6 +23,22 @@ export type AudioTrack = {
   sources: AudioSource[];
 };
 
+type AudioCatalogTrack = {
+  album?: string;
+  artist: string;
+  category: string;
+  coverImage?: string;
+  durationSeconds?: number;
+  fallbackSources?: AudioSource[];
+  sourceTimestamp?: string;
+  sourceUrl?: string;
+  title: string;
+  trackId: string;
+  videoId?: string;
+};
+
+const AUDIO_CATALOG_TRACKS = audioCatalogData.tracks as AudioCatalogTrack[];
+
 function youtubeImages(videoId: string) {
   return {
     coverImage: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
@@ -28,154 +46,39 @@ function youtubeImages(videoId: string) {
   };
 }
 
-function requestedTrack(track: Omit<AudioTrack, "album" | "durationSeconds" | "sources"> & { videoId: string }): AudioTrack {
+function toAudioTrack(track: AudioCatalogTrack): AudioTrack {
+  const category: AudioCategory = track.category === "battle" ? "battle" : "lobby";
+
+  if ("fallbackSources" in track && Array.isArray(track.fallbackSources)) {
+    return {
+      trackId: track.trackId,
+      title: track.title,
+      artist: track.artist,
+      album: track.album ?? "Reflex Royale Catalog",
+      durationSeconds: track.durationSeconds ?? 360,
+      category,
+      coverImage: track.coverImage,
+      sourceUrl: track.sourceUrl,
+      sourceTimestamp: track.sourceTimestamp,
+      sources: track.fallbackSources,
+    };
+  }
+
   return {
     trackId: track.trackId,
     title: track.title,
     artist: track.artist,
     album: "Reflex Royale Catalog",
     durationSeconds: 360,
-    category: track.category,
-    ...youtubeImages(track.videoId),
+    category,
+    ...youtubeImages(track.videoId ?? ""),
     sourceUrl: track.sourceUrl,
     sourceTimestamp: track.sourceTimestamp,
     sources: [],
   };
 }
 
-export const AUDIO_PLAYLIST: AudioTrack[] = [
-  {
-    trackId: "flower-fields",
-    title: "Flower Fields",
-    artist: "Athena IV",
-    album: "Reaction Game Audio Console",
-    durationSeconds: 360,
-    category: "lobby",
-    coverImage: "/images/audio/flower-fields-cover.webp",
-    sourceUrl: "https://www.youtube.com/watch?v=J4njTYvvENQ&t=8137s",
-    sourceTimestamp: "02:15:37",
-    sources: [
-      { src: "/audio/flower-fields.webm", type: "audio/webm" },
-      { src: "/audio/flower-fields.mp3", type: "audio/mpeg" },
-    ],
-  },
-  requestedTrack({
-    trackId: "mirrors-edge",
-    title: "Mirror's Edge",
-    artist: "Solar Sands",
-    category: "lobby",
-    videoId: "qMPd8bv3W5w",
-    sourceUrl: "https://www.youtube.com/watch?v=qMPd8bv3W5w&t=131s",
-    sourceTimestamp: "00:02:11",
-  }),
-  requestedTrack({
-    trackId: "future-self",
-    title: "Future セルフ",
-    artist: "Athena IV",
-    category: "lobby",
-    videoId: "SwUpMhp-DEc",
-    sourceUrl: "https://www.youtube.com/watch?v=SwUpMhp-DEc&t=7122s",
-    sourceTimestamp: "01:58:42",
-  }),
-  requestedTrack({
-    trackId: "tears-in-rain",
-    title: "Tears in Rain",
-    artist: "Athena IV",
-    category: "lobby",
-    videoId: "XG-rJ8z3IO8",
-    sourceUrl: "https://www.youtube.com/watch?v=XG-rJ8z3IO8&t=800s",
-    sourceTimestamp: "00:13:20",
-  }),
-  requestedTrack({
-    trackId: "emerald-archive",
-    title: "Emerald Archive",
-    artist: "Athena IV",
-    category: "lobby",
-    videoId: "IueYFej6JCw",
-    sourceUrl: "https://www.youtube.com/watch?v=IueYFej6JCw&t=5077s",
-    sourceTimestamp: "01:24:37",
-  }),
-  requestedTrack({
-    trackId: "reflection",
-    title: "Reflection",
-    artist: "Athena IV",
-    category: "lobby",
-    videoId: "ndHbBhQkp5Q",
-    sourceUrl: "https://www.youtube.com/watch?v=ndHbBhQkp5Q&t=237s",
-    sourceTimestamp: "00:03:57",
-  }),
-  requestedTrack({
-    trackId: "last-lightcycle",
-    title: "Last Lightcycle",
-    artist: "Athena IV",
-    category: "lobby",
-    videoId: "G-fy9e0sdS4",
-    sourceUrl: "https://www.youtube.com/watch?v=G-fy9e0sdS4",
-  }),
-  requestedTrack({
-    trackId: "deep-stone-crypt-lullaby",
-    title: "Deep Stone Crypt Lullaby",
-    artist: "Destiny 2",
-    category: "lobby",
-    videoId: "Uf57E9tmEnc",
-    sourceUrl: "https://www.youtube.com/watch?v=Uf57E9tmEnc&t=368s",
-    sourceTimestamp: "00:06:08",
-  }),
-  requestedTrack({
-    trackId: "resurrections",
-    title: "Resurrections",
-    artist: "Celeste",
-    category: "lobby",
-    videoId: "1rwAvUvvQzQ",
-    sourceUrl: "https://www.youtube.com/watch?v=1rwAvUvvQzQ",
-  }),
-  {
-    trackId: "break-what-you-must",
-    title: "Break What You Must",
-    artist: "Destiny 2",
-    album: "Music From the Grid",
-    durationSeconds: 296,
-    category: "battle",
-    coverImage: "/images/audio/break-what-you-must-cover.webp",
-    sourceUrl: "https://www.youtube.com/watch?v=44_aOyRnO9k&list=RD44_aOyRnO9k&start_radio=1",
-    sources: [
-      { src: "/audio/break-what-you-must.webm", type: "audio/webm" },
-      { src: "/audio/break-what-you-must.mp3", type: "audio/mpeg" },
-    ],
-  },
-  requestedTrack({
-    trackId: "astra",
-    title: "Astra",
-    artist: "Altare ft. Devilish Trio",
-    category: "battle",
-    videoId: "xjTZ_GhhcKA",
-    sourceUrl: "https://www.youtube.com/watch?v=xjTZ_GhhcKA&list=RD566i4nWbQkM&index=9",
-  }),
-  requestedTrack({
-    trackId: "afterglow",
-    title: "Afterglow",
-    artist: "ROUDS",
-    category: "battle",
-    videoId: "L5S_BC9BrCE",
-    sourceUrl: "https://www.youtube.com/watch?v=L5S_BC9BrCE&list=RD566i4nWbQkM&index=18",
-  }),
-  requestedTrack({
-    trackId: "void-inside-the-machine",
-    title: "Void Inside The Machine",
-    artist: "FINALSORRY",
-    category: "battle",
-    videoId: "smwF1aQPUKg",
-    sourceUrl: "https://www.youtube.com/watch?v=smwF1aQPUKg",
-  }),
-  requestedTrack({
-    trackId: "peace-of-mind-before-death",
-    title: "Peace of Mind Before Death",
-    artist: "FINALSORRY",
-    category: "battle",
-    videoId: "oH_uGmLTzK0",
-    sourceUrl: "https://www.youtube.com/watch?v=oH_uGmLTzK0",
-  }),
-];
+export const AUDIO_PLAYLIST: AudioTrack[] = AUDIO_CATALOG_TRACKS.map(toAudioTrack);
 
 export const AUDIO_PREFERENCES_CHANGED_EVENT = "reflexRoyaleAudioPreferencesChanged";
 export const AUDIO_ENABLED_KEY = "reflexRoyaleAudioEnabled";
