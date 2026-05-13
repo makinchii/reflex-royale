@@ -2,6 +2,16 @@
 
 Reflex Royale is a multiplayer reaction game built with a Next.js interface, an Express/Socket.IO backend, MongoDB-backed accounts, and server-authoritative online rooms.
 
+## Screenshots
+
+### Dashboard
+
+![Reflex Royale dashboard](./docs/screenshots/dashboard.png)
+
+### Navigate
+
+![Reflex Royale navigate page](./docs/screenshots/navigate.png)
+
 ## Features
 
 - Local shared-keyboard reflex rounds for 2-4 players
