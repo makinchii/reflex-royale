@@ -160,6 +160,8 @@ test("visual system uses production routes without ui lab", () => {
 test("dashboard page renders a command center layout", () => {
   const dashboardSource = fs.readFileSync(require.resolve("../src/app/dashboard/page.tsx"), "utf8");
   const tabsSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-tabs.tsx"), "utf8");
+  const analyticsSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-analytics-section.tsx"), "utf8");
+  const playSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-play-section.tsx"), "utf8");
   const settingsSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-settings.ts"), "utf8");
   const personalizationSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-personalization-section.tsx"), "utf8");
   const soundSource = fs.readFileSync(require.resolve("../src/components/app/dashboard-sound-section.tsx"), "utf8");
@@ -174,15 +176,17 @@ test("dashboard page renders a command center layout", () => {
   assert.doesNotMatch(dashboardSource, /GridBackground/);
   assert.match(tabsSource, /AuthMenu/);
   assert.doesNotMatch(tabsSource, /dashboard-topbar/);
-  assert.match(tabsSource, /WireframeDottedGlobe/);
-  assert.match(tabsSource, /key=\{`arena-earth-\$\{themeCommand\}-\$\{customThemeColor\}`\}/);
-  assert.match(tabsSource, /arenaActive/);
-  assert.match(tabsSource, /animated=\{arenaActive && visualAnimationsEnabled\}/);
-  assert.match(tabsSource, /kind="earth"/);
-  assert.match(tabsSource, /href="\/navigate"/);
-  assert.match(tabsSource, /Navigation/);
+  assert.match(playSource, /WireframeDottedGlobe/);
+  assert.match(playSource, /key=\{`arena-earth-\$\{themeCommand\}-\$\{customThemeColor\}`\}/);
+  assert.match(playSource, /arenaActive/);
+  assert.match(playSource, /animated=\{arenaActive && visualAnimationsEnabled\}/);
+  assert.match(playSource, /kind="earth"/);
+  assert.match(playSource, /href="\/navigate"/);
+  assert.match(playSource, /Navigation/);
   assert.match(tabsSource, /Play Now/);
   assert.match(tabsSource, /Analytics/);
+  assert.match(tabsSource, /DashboardPlaySection/);
+  assert.match(tabsSource, /DashboardAnalyticsSection/);
   assert.match(tabsSource, /Recent Avg/);
   assert.match(tabsSource, /Win Rate/);
   assert.match(tabsSource, /Lifetime Avg/);
@@ -192,7 +196,7 @@ test("dashboard page renders a command center layout", () => {
   assert.match(tabsSource, /False Starts/);
   assert.match(tabsSource, /Time Played/);
   assert.match(tabsSource, /Reactions/);
-  assert.match(tabsSource, /Online only/);
+  assert.match(analyticsSource, /Online only/);
   assert.match(tabsSource, /Visuals/);
   assert.match(tabsSource, /Sound/);
   assert.match(tabsSource, /Personalization/);
@@ -205,10 +209,10 @@ test("dashboard page renders a command center layout", () => {
   assert.match(visualsSource, /data-section-id="visuals"/);
   assert.match(soundSource, /data-section-id="sound"/);
   assert.match(personalizationSource, /data-section-id="personalization"/);
-  assert.match(tabsSource, /Top Players/);
-  assert.match(tabsSource, /Recent Matches/);
-  assert.match(tabsSource, /Avg Reaction/);
-  assert.match(tabsSource, /No recent matches logged/);
+  assert.match(analyticsSource, /Top Players/);
+  assert.match(analyticsSource, /Recent Matches/);
+  assert.match(analyticsSource, /Avg Reaction/);
+  assert.match(analyticsSource, /No recent matches logged/);
   assert.match(visualsSource, /General Settings/);
   assert.match(visualsSource, /Visual Presets/);
   assert.match(visualsSource, /Disable Animations/);
@@ -252,8 +256,8 @@ test("dashboard page renders a command center layout", () => {
   assert.match(soundSource, /SelectItem value="lobby"/);
   assert.match(soundSource, /SelectItem value="battle"/);
   assert.match(tabsSource, /useState/);
-  assert.match(tabsSource, /dashboard-arena-card/);
-  assert.match(tabsSource, /fluorescent-title/);
+  assert.match(playSource, /dashboard-arena-card/);
+  assert.match(playSource, /fluorescent-title/);
   assert.match(globalsSource, /\.\/dashboard\/dashboard\.css/);
   assert.match(globalsSource, /@keyframes fluorescent-title-pulse/);
   assert.match(globalsSource, /\.fluorescent-title/);
