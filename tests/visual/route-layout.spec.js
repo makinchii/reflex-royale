@@ -472,6 +472,27 @@ test("online create room exposes Chroma Sigil and round slider controls", async 
   expect(panelBackground, "join sigil panel should have a solid fallback background").not.toMatch(/rgba\([^,]+,[^,]+,[^,]+,\s*0\)/);
 });
 
+test("online host round slider does not cover update rounds control", async ({ page }) => {
+  const viewport = { name: "1080p-browser-content", width: 1920, height: 966 };
+  await openRoute(page, "/online", viewport, { authenticated: true });
+  await page.locator("#createTabBtn").click();
+  await page.locator("#playerName").fill("Host");
+  await page.locator("#createRoomBtn").click();
+  await expect(page.locator("#applyRoundCountBtn")).toBeVisible();
+
+  const sliderInput = await rect(page, "#hostRoundCountInput");
+  const updateButton = await rect(page, "#applyRoundCountBtn");
+  expect(sliderInput.y + sliderInput.height, "host slider hitbox should end before update button").toBeLessThanOrEqual(updateButton.y + 1);
+  expect(updateButton.height, "update rounds button should retain usable height").toBeGreaterThanOrEqual(34);
+
+  const receivesClick = await page.locator("#applyRoundCountBtn").evaluate((button) => {
+    const box = button.getBoundingClientRect();
+    const target = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return target === button || Boolean(target?.closest?.("#applyRoundCountBtn"));
+  });
+  expect(receivesClick, "update rounds button center should receive pointer events").toBe(true);
+});
+
 test("not found route does not overflow", async ({ page }) => {
   await openRoute(page, "/route-that-does-not-exist", { width: 800, height: 600 });
   await expectNoPageHorizontalOverflow(page);

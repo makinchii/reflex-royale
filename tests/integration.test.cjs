@@ -581,6 +581,31 @@ test("lobby join, chat, kick, blacklist, and host transfer work", async () => {
   }
 });
 
+test("host round count updates emit authoritative room state immediately", async () => {
+  const restoreTimers = patchNoopTimers();
+  delete require.cache[gameRoomPath];
+  const { initGameSockets } = require(gameRoomPath);
+  const io = new FakeIO();
+
+  try {
+    initGameSockets(io);
+
+    const host = new FakeSocket("host-rounds", io);
+    io.connect(host);
+    host.trigger("createRoom", { name: "Host", totalRounds: 5 });
+
+    const created = lastEvent(host, "roomCreated");
+    assert.equal(created.payload.room.totalRounds, 5);
+
+    host.trigger("setRoundCount", { totalRounds: 12 });
+    const updated = lastEvent(host, "roomState");
+    assert.equal(updated.payload.totalRounds, 12);
+  } finally {
+    restoreTimers();
+    delete require.cache[gameRoomPath];
+  }
+});
+
 test("saved room validation only approves joinable rooms", async () => {
   const restoreTimers = patchNoopTimers();
   delete require.cache[gameRoomPath];

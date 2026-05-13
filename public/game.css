@@ -1675,9 +1675,20 @@ body {
   padding: 0;
 }
 
+#game-root .online-host-terminal .round-slider__track-wrap {
+  overflow: hidden;
+}
+
 #game-root .online-host-terminal .round-slider__input {
-  inset: 50% 0 auto;
-  height: 1rem;
+  appearance: none;
+  -webkit-appearance: none;
+  top: 50%;
+  right: 0;
+  bottom: auto;
+  left: 0;
+  height: 0.4rem;
+  margin: 0;
+  padding: 0;
   transform: translateY(-50%);
 }
 
@@ -3233,4 +3244,13 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+#game-root .lobby--online-room .online-host-terminal input.round-slider__input {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 0;
+  height: 0.4rem;
+  margin: 0;
+  padding: 0;
 }
