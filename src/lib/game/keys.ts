@@ -1,33 +1,7 @@
-export const KEYBOARD_ROWS = Object.freeze([
-  Object.freeze(["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="]),
-  Object.freeze(["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\"]),
-  Object.freeze(["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'"]),
-  Object.freeze(["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"]),
-] as const);
+import gameKeysData from "../../../lib/gameKeysData.json";
 
-export const SHIFTED_KEY_MAP = Object.freeze({
-  "~": "`",
-  "!": "1",
-  "@": "2",
-  "#": "3",
-  $: "4",
-  "%": "5",
-  "^": "6",
-  "&": "7",
-  "*": "8",
-  "(": "9",
-  ")": "0",
-  _: "-",
-  "+": "=",
-  "{": "[",
-  "}": "]",
-  "|": "\\",
-  ":": ";",
-  '"': "'",
-  "<": ",",
-  ">": ".",
-  "?": "/",
-} as const);
+export const KEYBOARD_ROWS = Object.freeze(gameKeysData.keyboardRows.map((row) => Object.freeze([...row])));
+export const SHIFTED_KEY_MAP = Object.freeze({ ...gameKeysData.shiftedKeyMap });
 
 export type GameKey = (typeof KEYBOARD_ROWS)[number][number];
 
