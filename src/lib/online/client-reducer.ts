@@ -5,6 +5,9 @@ import type {
   OnlineStanding,
 } from "./client-contract";
 
+const REJOIN_AVAILABLE_MESSAGE = "Connection lost. Attempt rejoin or join a different room?";
+const REJOIN_UNAVAILABLE_MESSAGE = "Unable to rejoin room. You must join a different room.";
+
 export type OnlineView =
   | "join"
   | "checking_saved_room"
@@ -231,27 +234,38 @@ export function onlineClientReducer(state: OnlineClientState, action: OnlineClie
       };
 
     case "roomClosed": {
+      const staleRoom = action.payload.reason === "stale";
       const clearPlayerName = action.payload.reason === "left" || action.payload.reason === "host_closed";
+      const savedRoom = staleRoom ? state.savedRoom : clearSavedRoom(state.savedRoom, clearPlayerName);
+      const canReconnect = Boolean(savedRoom.roomCode && savedRoom.playerName && state.autoReconnectEnabled);
+      const message = staleRoom ? (canReconnect ? REJOIN_AVAILABLE_MESSAGE : REJOIN_UNAVAILABLE_MESSAGE) : action.payload.message || null;
       return {
         ...state,
-        view: "join",
+        view: staleRoom && canReconnect ? "reconnect_prompt" : "join",
         matchPhase: "idle",
         myPlayerId: null,
         isHost: false,
         roomState: null,
         selectedKey: null,
-        savedRoom: clearSavedRoom(state.savedRoom, clearPlayerName),
+        savedRoom,
         pendingJoinSource: null,
         lastRoundEnd: null,
         standings: [],
         matchInProgress: false,
-        errorMessage: action.payload.message || null,
-        notification: action.payload.message ? { kind: "error", message: action.payload.message } : null,
+        errorMessage: message,
+        notification: message ? { kind: "error", message } : null,
       };
     }
 
     case "socketDisconnected": {
-      const canReconnect = Boolean(state.savedRoom.roomCode && state.savedRoom.playerName && state.autoReconnectEnabled);
+      const currentPlayer = state.roomState?.players.find((player) => player.id === state.myPlayerId);
+      const savedRoom = state.savedRoom.roomCode && state.savedRoom.playerName ? state.savedRoom : {
+        ...state.savedRoom,
+        roomCode: state.roomState?.room || state.savedRoom.roomCode,
+        playerName: currentPlayer?.name || state.savedRoom.playerName,
+      };
+      const canReconnect = Boolean(savedRoom.roomCode && savedRoom.playerName && state.autoReconnectEnabled);
+      const message = canReconnect ? REJOIN_AVAILABLE_MESSAGE : REJOIN_UNAVAILABLE_MESSAGE;
       return {
         ...state,
         view: canReconnect ? "reconnect_prompt" : "join",
@@ -260,13 +274,14 @@ export function onlineClientReducer(state: OnlineClientState, action: OnlineClie
         isHost: false,
         roomState: null,
         selectedKey: null,
+        savedRoom,
         pendingJoinSource: null,
         lastRoundEnd: null,
         standings: [],
         countdownRemaining: null,
         matchInProgress: false,
-        errorMessage: action.payload?.message || "Connection lost. Reconnect to your saved room?",
-        notification: { kind: "error", message: action.payload?.message || "Connection lost. Reconnect to your saved room?" },
+        errorMessage: message,
+        notification: { kind: "error", message },
       };
     }
 

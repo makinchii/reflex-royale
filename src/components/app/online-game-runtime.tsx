@@ -295,8 +295,9 @@ function ReconnectPrompt({ onDecline, onRejoin, savedRoom }: { onDecline: () => 
   return <div className="lobby lobby--reconnect"><h1 className="game-title"><a href="/">Reflex Royale</a></h1><p className="subtitle">Online Mode - Saved Room Found</p><div id="reconnectPromptDialog" className="lobby-form" role="dialog" aria-modal="true" aria-labelledby="reconnectPromptTitle"><h2 id="reconnectPromptTitle" className="round-control">Rejoin Room?</h2><p className="hint">Reconnect to room <strong>{savedRoom.roomCode}</strong> as <strong>{savedRoom.playerName}</strong>, or clear the saved room to join another lobby.</p><div className="game-over-actions"><button id="reconnectPromptYes" type="button" className="btn btn-primary" onClick={onRejoin}>Rejoin</button><button id="reconnectPromptNo" type="button" className="btn btn-secondary" onClick={onDecline}>Join Different Room</button></div></div></div>;
 }
 
-function ConnectionLostDialog({ message, onDecline, onRejoin, savedRoom }: { message: string; onDecline: () => void; onRejoin: () => void; savedRoom: OnlineClientState["savedRoom"] }) {
+function ConnectionLostDialog({ onDecline, onRejoin, savedRoom }: { onDecline: () => void; onRejoin: () => void; savedRoom: OnlineClientState["savedRoom"] }) {
   const canRejoin = Boolean(savedRoom.roomCode && savedRoom.playerName);
+  const message = canRejoin ? "Connection lost. Attempt rejoin or join a different room?" : "Unable to rejoin room. You must join a different room.";
   return (
     <div className="preference-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="connectionLostTitle">
       <div className="preference-conflict-dialog__panel">
@@ -304,7 +305,7 @@ function ConnectionLostDialog({ message, onDecline, onRejoin, savedRoom }: { mes
         <p>{message}</p>
         {canRejoin ? <p className="hint">Reconnect to room <strong>{savedRoom.roomCode}</strong> as <strong>{savedRoom.playerName}</strong>.</p> : null}
         <div className="game-over-actions">
-          {canRejoin ? <button type="button" className="btn btn-primary" onClick={onRejoin}>Rejoin</button> : null}
+          {canRejoin ? <button type="button" className="btn btn-primary" onClick={onRejoin}>Try Reconnect</button> : null}
           <button type="button" className="btn btn-secondary" onClick={onDecline}>Join Different Room</button>
         </div>
       </div>
@@ -612,15 +613,15 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
   const joinRoom = (name: string, room: string) => { if (!name || !room) return dispatch({ type: "error", payload: { message: "Enter both name and room code." } }); window.localStorage.setItem(ONLINE_STORAGE_KEYS.playerName, name); window.localStorage.setItem(ONLINE_STORAGE_KEYS.roomCode, room); dispatch({ type: "manualJoinRequested", name, room }); emit("joinRoom", { name, room, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
   const joinSavedRoom = () => { dispatch({ type: "joinSavedRoomRequested" }); emit("joinRoom", { name: state.savedRoom.playerName, room: state.savedRoom.roomCode, verifier: state.verifier, hostReclaimToken: state.savedRoom.hostReclaimToken, ...preferredOptions() }); };
   const declineSavedRoom = () => dispatch({ type: "savedRoomDeclined" });
-  const connectionLostMessage = state.notification?.message.startsWith("Connection lost") || state.notification?.message.startsWith("Room stopped responding") ? state.notification.message : "";
-  const toastNotification = connectionLostMessage ? null : state.notification;
+  const showConnectionLostDialog = state.notification?.message.startsWith("Connection lost") || state.notification?.message.startsWith("Unable to rejoin room") || state.notification?.message.startsWith("Room stopped responding");
+  const toastNotification = showConnectionLostDialog ? null : state.notification;
 
   const claimedThemeCommands = useMemo(() => new Set((state.roomState?.players || []).map((player) => player.themeCommand).filter(Boolean) as string[]), [state.roomState?.players]);
 
   let content: React.ReactNode;
   if (state.view === "checking_saved_room") {
     content = <div className="lobby lobby--reconnect"><h1 className="game-title"><a href="/">Reflex Royale</a></h1><p className="subtitle">Online Mode - Checking Saved Room</p><div className="lobby-form"><p className="hint">Checking whether room <strong>{state.savedRoom.roomCode}</strong> is still available...</p></div></div>;
-  } else if (state.view === "reconnect_prompt" && !connectionLostMessage) {
+  } else if (state.view === "reconnect_prompt" && !showConnectionLostDialog) {
     content = <ReconnectPrompt savedRoom={state.savedRoom} onRejoin={joinSavedRoom} onDecline={declineSavedRoom} />;
   } else if (state.view === "lobby" && state.roomState) {
     content = <OnlineLobby activeKey={activeKey} isHost={state.isHost} myPlayerId={state.myPlayerId} onBindKey={(key) => emit("bindKey", { key })} onCloseRoom={() => emit("closeRoom")} onRemove={(playerId) => emit("removePlayer", { playerId })} onRoundCount={(totalRounds) => totalRounds >= 1 && totalRounds <= 20 ? emit("setRoundCount", { totalRounds }) : dispatch({ type: "error", payload: { message: "Round count must be between 1 and 20." } })} onSendChat={(content) => emit("sendChatMessage", { content })} onStart={() => emit("startGame")} onThemeSelect={bindTheme} onToggleReady={() => emit("toggleReady")} roomState={state.roomState} selectedKey={state.selectedKey} selectedThemeCommand={selectedThemeCommand} setActiveKey={pulseKey} themePalette={themePalette} />;
@@ -647,7 +648,7 @@ export function OnlineGameRuntime({ localPlayerThemeShades = null }: OnlineGameR
         </div>
         <OnlineToastNotifications notification={toastNotification} />
         <PreferenceConflictDialog unavailable={state.preferenceConflict} />
-        {connectionLostMessage ? <ConnectionLostDialog message={connectionLostMessage} onRejoin={joinSavedRoom} onDecline={declineSavedRoom} savedRoom={state.savedRoom} /> : null}
+        {showConnectionLostDialog ? <ConnectionLostDialog onRejoin={joinSavedRoom} onDecline={declineSavedRoom} savedRoom={state.savedRoom} /> : null}
         {transition?.phase === "tunnel" ? <LocalGameTransition className="local-game-transition-overlay" durationMs={transition.duration} /> : null}
         {transition?.phase === "splash" ? <LocalPlayerSplash className="local-player-splash-overlay" players={transition.players} durationMs={transition.splashDuration} /> : null}
       </div>

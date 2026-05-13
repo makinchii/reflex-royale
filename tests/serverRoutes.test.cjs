@@ -581,6 +581,9 @@ test("game routes render inside the modern game shell", () => {
   assert.match(onlineRuntimeSource, /btn-go/);
   assert.match(onlineRuntimeSource, /function OnlineToastNotifications/);
   assert.match(onlineRuntimeSource, /className="page-notifications online-runtime-toasts"/);
+  assert.match(onlineRuntimeSource, /Connection lost\. Attempt rejoin or join a different room\?/);
+  assert.match(onlineRuntimeSource, /Unable to rejoin room\. You must join a different room\./);
+  assert.match(onlineRuntimeSource, /Try Reconnect/);
   assert.doesNotMatch(onlineRuntimeSource, /online-runtime-notification/);
   assert.match(onlineRuntimeSource, /announceMatchState\(state\.matchInProgress\)/);
   assert.match(onlineRuntimeSource, /announceMatchState\(false\)/);

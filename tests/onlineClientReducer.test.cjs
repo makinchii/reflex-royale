@@ -199,7 +199,7 @@ test("moves disconnected players out of stale room views and into reconnect", ()
   assert.equal(state.matchInProgress, false);
   assert.equal(state.savedRoom.roomCode, "ABCD12");
   assert.equal(state.savedRoom.playerName, "Ada");
-  assert.equal(state.notification.message, "Connection lost. Reconnect to your saved room?");
+  assert.equal(state.notification.message, "Connection lost. Attempt rejoin or join a different room?");
 
   state = onlineClientReducer(state, { type: "savedRoomDeclined" });
 
@@ -215,6 +215,38 @@ test("falls back to join screen on disconnect without a saved room", () => {
   assert.equal(state.view, "join");
   assert.equal(state.roomState, null);
   assert.equal(state.matchInProgress, false);
+  assert.equal(state.notification.message, "Unable to rejoin room. You must join a different room.");
+});
+
+test("uses current room identity for reconnect when saved room storage is missing", () => {
+  const { createInitialOnlineClientState, onlineClientReducer } = loadOnlineReducer();
+  let state = createInitialOnlineClientState();
+  state = onlineClientReducer(state, {
+    type: "roomJoined",
+    payload: { room: room({ players: [player({ id: "p1", name: "Ada" })], hostId: "p1" }), playerId: "p1", hostReclaimToken: "host-token" },
+  });
+  state = { ...state, savedRoom: { roomCode: "", playerName: "", hostReclaimToken: "host-token" } };
+
+  state = onlineClientReducer(state, { type: "socketDisconnected" });
+
+  assert.equal(state.view, "reconnect_prompt");
+  assert.deepEqual(state.savedRoom, { roomCode: "ABCD12", playerName: "Ada", hostReclaimToken: "host-token" });
+  assert.equal(state.notification.message, "Connection lost. Attempt rejoin or join a different room?");
+});
+
+test("keeps stale room identity so players can attempt rejoin", () => {
+  const { createInitialOnlineClientState, onlineClientReducer } = loadOnlineReducer();
+  let state = createInitialOnlineClientState({ roomCode: "ABCD12", playerName: "Ada", hostReclaimToken: "host-token" });
+  state = onlineClientReducer(state, {
+    type: "roomJoined",
+    payload: { room: room(), playerId: "p1", hostReclaimToken: "host-token" },
+  });
+
+  state = onlineClientReducer(state, { type: "roomClosed", payload: { room: "ABCD12", reason: "stale", message: "Room connection is stale. Rejoin to continue." } });
+
+  assert.equal(state.view, "reconnect_prompt");
+  assert.deepEqual(state.savedRoom, { roomCode: "ABCD12", playerName: "Ada", hostReclaimToken: "host-token" });
+  assert.equal(state.notification.message, "Connection lost. Attempt rejoin or join a different room?");
 });
 
 test("moves between lobby and post-match views from roomState", () => {
