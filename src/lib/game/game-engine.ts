@@ -379,6 +379,11 @@ export class GameEngine {
     this.emit("fullReset", {});
   }
 
+  dispose(): void {
+    this.clearTimers();
+    this.listeners = {};
+  }
+
   toJSON(): {
     state: GameStateValue;
     currentRound: number;

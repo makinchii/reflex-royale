@@ -76,7 +76,7 @@ export async function GamePageShell({ mode, user, children }: { mode: GameMode; 
               <div className="play-command-banner__telemetry">
                 <TelemetryChip icon={mode === "online" ? <RadioTower className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />} label="Mode" value={copy.status} />
                 <TelemetryChip icon={<Users className="h-3.5 w-3.5" />} label="Roster" value={copy.players} />
-                <TelemetryChip icon={<Shield className="h-3.5 w-3.5" />} label="Legacy bridge" value={copy.signal} />
+                <TelemetryChip icon={<Shield className="h-3.5 w-3.5" />} label="Runtime" value={copy.signal} />
               </div>
             </div>
 

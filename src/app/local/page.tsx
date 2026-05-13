@@ -1,5 +1,5 @@
 import { GamePageShell } from "@/components/app/game-page-shell";
-import { LegacyGameShell } from "@/components/legacy-game-shell";
+import { LocalGameRuntime } from "@/components/app/local-game-runtime";
 import { getCurrentUser } from "@/lib/auth";
 import { pageTitle } from "@/lib/site-metadata";
 import { normalizeThemeShades } from "@/lib/theme-preferences";
@@ -19,7 +19,7 @@ export default async function LocalPage() {
 
   return (
     <GamePageShell mode="local" user={user}>
-      <LegacyGameShell mode="local" showAccountMenu={false} localPlayerThemeShades={localPlayerThemeShades} />
+      <LocalGameRuntime localPlayerThemeShades={localPlayerThemeShades} />
     </GamePageShell>
   );
 }

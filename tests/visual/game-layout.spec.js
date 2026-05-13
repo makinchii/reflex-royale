@@ -36,7 +36,8 @@ for (const viewport of VIEWPORTS) {
     for (const selector of [".lobby", ".lobby-form", ".holo-keyboard-panel", ".player-slots", ".lobby-layout-bottom"]) {
       const target = page.locator(`#game-root ${selector}`).first();
       if ((await target.count()) > 0) {
-        expectInside(root, await target.boundingBox(), selector);
+        const targetRect = await target.boundingBox();
+        if (targetRect) expectInside(root, targetRect, selector);
       }
     }
   });

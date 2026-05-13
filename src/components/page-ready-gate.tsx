@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 declare global {
   interface Window {
-    __reflexRoyaleLegacyReady?: boolean;
+    __reflexRoyaleGameReady?: boolean;
   }
 }
 
@@ -13,22 +13,22 @@ export function PageReadyGate() {
     let cancelled = false;
     let frameId = 0;
 
-    function waitsForLegacyReady() {
-      return Boolean(document.querySelector("[data-wait-for-legacy-ready='true']"));
+    function waitsForGameReady() {
+      return Boolean(document.querySelector("[data-wait-for-game-ready='true']"));
     }
 
-    async function waitForLegacyReady() {
-      if (!waitsForLegacyReady() || window.__reflexRoyaleLegacyReady) {
+    async function waitForGameReady() {
+      if (!waitsForGameReady() || window.__reflexRoyaleGameReady) {
         return;
       }
 
       await new Promise<void>((resolve) => {
-        window.addEventListener("reflex-royale-legacy-ready", () => resolve(), { once: true });
+        window.addEventListener("reflex-royale-game-ready", () => resolve(), { once: true });
       });
     }
 
     async function revealWhenStable() {
-      await waitForLegacyReady();
+      await waitForGameReady();
 
       frameId = window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
@@ -47,7 +47,7 @@ export function PageReadyGate() {
         window.cancelAnimationFrame(frameId);
       }
       delete document.documentElement.dataset.pageReady;
-      window.__reflexRoyaleLegacyReady = false;
+      window.__reflexRoyaleGameReady = false;
     };
   }, []);
 

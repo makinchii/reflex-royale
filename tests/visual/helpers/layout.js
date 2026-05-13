@@ -60,7 +60,7 @@ async function expectClickable(page, selector) {
 
 async function expectGameSurface(page) {
   await expect(page.locator("#game-root")).toBeVisible();
-  const stage = await rect(page, '[data-wait-for-legacy-ready="true"]');
+  const stage = await rect(page, '[data-wait-for-game-ready="true"]');
   const root = await rect(page, "#game-root");
   const aspect = stage.width / stage.height;
 

@@ -7,7 +7,7 @@ Reflex Royale is a multiplayer reaction game built with a Next.js UI, an Express
 - Account signup and login with bcrypt password hashing
 - MongoDB Atlas persistence through Mongoose
 - Server-authoritative online rooms with chat, reconnect, and host controls
-- Local shared-keyboard play through the Next-mounted game shell
+- Local shared-keyboard play through the React game runtime
 - Next.js landing, dashboard, auth, navigation, play, and UI Lab screens
 - Theme and intensity controls for the new neon visual system
 
@@ -19,7 +19,7 @@ reaction-game/
   src/app/                  Next.js app routes
   src/components/           React app and TheGridCN components
   src/lib/                  Shared auth, metadata, UI, and data helpers
-  public/                   Static assets and game scripts/styles used by play routes
+  public/                   Static assets and shared game styles
   routes/                   Express API routes
   sockets/                  Online game room socket logic
   tests/                    Node test suite

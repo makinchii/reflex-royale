@@ -972,7 +972,7 @@ body {
   }
 }
 
-/* Legacy-mounted game surface: modern HUD skin while scripts still own rendering. */
+/* React-mounted game surface: modern HUD skin for gameplay routes. */
 #game-root {
   position: relative;
   display: flex;
@@ -1673,6 +1673,12 @@ body {
 
 #game-root .online-host-terminal .host-control--rounds {
   padding: 0;
+}
+
+#game-root .online-host-terminal .round-slider__input {
+  inset: 50% 0 auto;
+  height: 1rem;
+  transform: translateY(-50%);
 }
 
 #game-root .online-host-terminal #hostRosterControls {

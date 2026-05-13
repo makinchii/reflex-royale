@@ -1,5 +1,5 @@
 import { GamePageShell } from "@/components/app/game-page-shell";
-import { LegacyGameShell } from "@/components/legacy-game-shell";
+import { OnlineGameRuntime } from "@/components/app/online-game-runtime";
 import { requireCurrentUser } from "@/lib/auth";
 import { pageTitle } from "@/lib/site-metadata";
 import { normalizeThemeShades } from "@/lib/theme-preferences";
@@ -19,7 +19,7 @@ export default async function OnlinePage() {
 
   return (
     <GamePageShell mode="online" user={user}>
-      <LegacyGameShell mode="remote" showAccountMenu={false} localPlayerThemeShades={localPlayerThemeShades} />
+      <OnlineGameRuntime localPlayerThemeShades={localPlayerThemeShades} />
     </GamePageShell>
   );
 }
