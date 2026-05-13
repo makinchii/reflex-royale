@@ -585,8 +585,9 @@ test("game routes render inside the modern game shell", () => {
   assert.match(onlineRuntimeSource, /Unable to rejoin room\. You must join a different room\./);
   assert.match(onlineRuntimeSource, /Try Reconnect/);
   assert.doesNotMatch(onlineRuntimeSource, /online-runtime-notification/);
-  assert.match(gameCssSource, /\.preference-conflict-dialog__panel \.btn-primary/);
-  assert.match(gameCssSource, /color: var\(--primary-foreground, #020617\)/);
+  assert.match(gameCssSource, /\.preference-conflict-dialog__panel \.btn \{/);
+  assert.match(gameCssSource, /border: 2px solid var\(--primary, #68e8ff\)/);
+  assert.match(gameCssSource, /\.preference-conflict-dialog__panel \.btn:hover:not\(:disabled\)/);
   assert.match(onlineRuntimeSource, /announceMatchState\(state\.matchInProgress\)/);
   assert.match(onlineRuntimeSource, /announceMatchState\(false\)/);
   assert.match(audioSource, /play-command-banner__audio-slot/);

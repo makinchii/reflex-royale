@@ -1913,25 +1913,25 @@ body {
 }
 
 .preference-conflict-dialog__panel .btn {
-  border: 1px solid color-mix(in oklch, var(--primary, #68e8ff) 44%, transparent);
-  border-radius: 0.45rem;
+  min-height: 36px;
+  border: 2px solid var(--primary, #68e8ff);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--primary, #68e8ff);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  letter-spacing: 0.02em;
-}
-
-.preference-conflict-dialog__panel .btn-primary {
-  background: var(--primary, #68e8ff);
-  color: var(--primary-foreground, #020617);
-  text-shadow: none;
-}
-
-.preference-conflict-dialog__panel .btn-secondary {
-  background: color-mix(in oklch, var(--foreground, #e8e8f0) 18%, transparent);
-  color: var(--foreground, #e8e8f0);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .preference-conflict-dialog__panel .btn:hover:not(:disabled) {
-  box-shadow: 0 0 24px color-mix(in oklch, var(--primary, #68e8ff) 24%, transparent);
+  background: var(--primary, #68e8ff);
+  color: var(--primary-foreground, #000);
+  box-shadow:
+    0 0 18px color-mix(in oklch, var(--primary, #68e8ff) 40%, transparent),
+    0 0 38px color-mix(in oklch, var(--primary, #68e8ff) 22%, transparent);
 }
 
 #game-root .round-control {
