@@ -117,14 +117,6 @@ for (const viewport of ROUTE_VIEWPORTS) {
     }
   });
 
-  test(`ui lab route scales at ${viewport.name}`, async ({ page }) => {
-    await openRoute(page, "/ui-lab", viewport);
-    await expectNoPageHorizontalOverflow(page);
-    await expect(page.getByRole("heading", { name: /component dashboard/i })).toBeVisible();
-    await expectInViewportAfterScroll(page, ".ui-lab-dashboard-header");
-    await expectInViewportAfterScroll(page, ".ui-lab-dashboard-grid");
-  });
-
   test(`dashboard route scales at ${viewport.name}`, async ({ page }) => {
     await openRoute(page, "/dashboard", viewport, { authenticated: true });
     await expectNoPageHorizontalOverflow(page);

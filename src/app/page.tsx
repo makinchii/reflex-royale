@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { GridBackground } from "@/components/app/grid-background";
 import { Reticle, TitleScreenDecor } from "@/components/app/title-screen-decor";
-import { parseAtmosphere } from "@/app/ui-lab/atmosphere";
+import { parseAtmosphere } from "@/lib/visual-atmosphere";
 import { getCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/thegridcn/button";
 import { Card, CardContent } from "@/components/thegridcn/card";
